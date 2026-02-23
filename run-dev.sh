@@ -28,17 +28,44 @@ FRONTEND_PORT=3000
 BACKEND_PORT=8000
 FRONT_PID=""
 BACK_PID=""
+FRONT_KILL_MODE="pid"
+BACK_KILL_MODE="pid"
+
+kill_process_tree() {
+  local pid="$1"
+  if [[ -z "$pid" ]]; then
+    return 0
+  fi
+
+  # Terminate children first so dev-server wrappers do not leave orphan processes.
+  if command -v pgrep >/dev/null 2>&1; then
+    local child
+    while IFS= read -r child; do
+      kill_process_tree "$child"
+    done < <(pgrep -P "$pid" 2>/dev/null || true)
+  fi
+
+  kill -TERM "$pid" 2>/dev/null || true
+}
 
 cleanup() {
   echo "Stopping services..."
-  # kill process groups if possible
+  # Prefer group termination when available, otherwise terminate process trees.
   if [[ -n "${FRONT_PID:-}" ]]; then
     echo "Killing frontend group (PID ${FRONT_PID})"
-    kill -TERM -"${FRONT_PID}" 2>/dev/null || kill -TERM "${FRONT_PID}" 2>/dev/null || true
+    if [[ "${FRONT_KILL_MODE}" == "group" ]]; then
+      kill -TERM -"${FRONT_PID}" 2>/dev/null || kill -TERM "${FRONT_PID}" 2>/dev/null || true
+    else
+      kill_process_tree "${FRONT_PID}"
+    fi
   fi
   if [[ -n "${BACK_PID:-}" ]]; then
     echo "Killing backend group (PID ${BACK_PID})"
-    kill -TERM -"${BACK_PID}" 2>/dev/null || kill -TERM "${BACK_PID}" 2>/dev/null || true
+    if [[ "${BACK_KILL_MODE}" == "group" ]]; then
+      kill -TERM -"${BACK_PID}" 2>/dev/null || kill -TERM "${BACK_PID}" 2>/dev/null || true
+    else
+      kill_process_tree "${BACK_PID}"
+    fi
   fi
   # wait for processes to exit
   wait 2>/dev/null || true
@@ -171,12 +198,24 @@ fi
 mkdir -p logs
 
 echo "Starting backend on port ${BACKEND_PORT} (logs: logs/backend.log)"
-# Use setsid so the command runs in its own session/process-group; we'll kill the group on exit.
-setsid bash -lc "cd backend && BACKEND_PORT=${BACKEND_PORT} ./run_uvicorn.sh" > logs/backend.log 2>&1 &
+# Use setsid when available so the command runs in its own process group.
+if command -v setsid >/dev/null 2>&1; then
+  setsid bash -lc "cd backend && BACKEND_PORT=${BACKEND_PORT} ./run_uvicorn.sh" > logs/backend.log 2>&1 &
+  BACK_KILL_MODE="group"
+else
+  bash -lc "cd backend && BACKEND_PORT=${BACKEND_PORT} exec ./run_uvicorn.sh" > logs/backend.log 2>&1 &
+  BACK_KILL_MODE="pid"
+fi
 BACK_PID=$!
 
 echo "Starting frontend on port ${FRONTEND_PORT} (logs: logs/frontend.log)"
-setsid bash -lc "cd frontend && FRONTEND_PORT=${FRONTEND_PORT} BACKEND_PORT=${BACKEND_PORT} pnpm dev" > logs/frontend.log 2>&1 &
+if command -v setsid >/dev/null 2>&1; then
+  setsid bash -lc "cd frontend && FRONTEND_PORT=${FRONTEND_PORT} BACKEND_PORT=${BACKEND_PORT} pnpm dev" > logs/frontend.log 2>&1 &
+  FRONT_KILL_MODE="group"
+else
+  bash -lc "cd frontend && FRONTEND_PORT=${FRONTEND_PORT} BACKEND_PORT=${BACKEND_PORT} exec pnpm dev" > logs/frontend.log 2>&1 &
+  FRONT_KILL_MODE="pid"
+fi
 FRONT_PID=$!
 
 echo "Frontend PID: ${FRONT_PID}, Backend PID: ${BACK_PID}"
