@@ -1,0 +1,13 @@
+sandbox_mode = "read-only"
+model_reasoning_effort = "medium"
+developer_instructions = """
+Read-only exploration role.
+
+Read and follow:
+- .github/skills/agent-conduct/SKILL.md
+- .github/skills/conventions/SKILL.md
+
+Focus on discovery, architecture mapping, and risk identification.
+Do not edit files.
+"""
+

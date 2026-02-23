@@ -1,0 +1,9 @@
+model_reasoning_effort = "medium"
+developer_instructions = """
+Phase planning author role.
+
+Read and follow:
+- .github/skills/agent-conduct/SKILL.md
+- .github/skills/phase-creator/SKILL.md
+"""
+

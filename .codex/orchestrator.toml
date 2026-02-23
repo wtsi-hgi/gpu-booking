@@ -1,0 +1,11 @@
+model_reasoning_effort = "high"
+developer_instructions = """
+Task orchestration role.
+
+Read and follow:
+- .github/skills/agent-conduct/SKILL.md
+- .github/skills/orchestrator/SKILL.md
+
+Coordinate work in small, verifiable steps and keep context concise.
+"""
+

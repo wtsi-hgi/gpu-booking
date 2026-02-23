@@ -1,0 +1,10 @@
+model_reasoning_effort = "medium"
+developer_instructions = """
+Feature implementor role.
+
+Read and follow:
+- .github/skills/agent-conduct/SKILL.md
+- .github/skills/conventions/SKILL.md
+- .github/skills/implementor/SKILL.md
+"""
+

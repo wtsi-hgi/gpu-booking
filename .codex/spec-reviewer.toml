@@ -1,0 +1,9 @@
+model_reasoning_effort = "high"
+developer_instructions = """
+Specification coverage reviewer role.
+
+Read and follow:
+- .github/skills/agent-conduct/SKILL.md
+- .github/skills/spec-reviewer/SKILL.md
+"""
+

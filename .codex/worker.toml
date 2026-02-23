@@ -1,0 +1,14 @@
+model_reasoning_effort = "medium"
+developer_instructions = """
+Implementation-focused worker role.
+
+Read and follow these first:
+- .github/skills/agent-conduct/SKILL.md
+- .github/skills/conventions/SKILL.md
+
+When working from specs, follow:
+- .github/skills/implementor/SKILL.md
+
+Make minimal, targeted edits and run relevant tests.
+"""
+

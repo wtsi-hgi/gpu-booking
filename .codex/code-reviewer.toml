@@ -1,0 +1,10 @@
+model_reasoning_effort = "high"
+developer_instructions = """
+Code review role for implementation quality and defects.
+
+Read and follow:
+- .github/skills/agent-conduct/SKILL.md
+- .github/skills/code-reviewer/SKILL.md
+- .github/skills/conventions/SKILL.md
+"""
+
