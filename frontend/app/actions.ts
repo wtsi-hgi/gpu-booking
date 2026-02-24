@@ -73,6 +73,20 @@ export type OptionFormState<T> = {
   items: T[]
 }
 
+export type AdminBookingFormState = {
+  status: 'idle' | 'success' | 'error'
+  message: string | null
+  error: string | null
+  booking: BookingResponse | null
+}
+
+export const initialAdminBookingFormState: AdminBookingFormState = {
+  status: 'idle',
+  message: null,
+  error: null,
+  booking: null,
+}
+
 function parsePositiveInteger(formData: FormData, key: string): number | null {
   const value = Number(formData.get(key))
   if (!Number.isInteger(value) || value <= 0) {
@@ -105,6 +119,46 @@ function getDevUserFromFormData(formData: FormData): string | undefined {
 function parseOptionalString(formData: FormData, key: string): string | null {
   const value = (formData.get(key) ?? '').toString().trim()
   return value.length > 0 ? value : null
+}
+
+function parseRequiredDateString(formData: FormData, key: string): string {
+  const value = (formData.get(key) ?? '').toString().trim()
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    throw new Error(`Invalid ${key}`)
+  }
+  return value
+}
+
+function parseOptionalDateString(
+  formData: FormData,
+  key: string
+): string | null {
+  const value = (formData.get(key) ?? '').toString().trim()
+  if (!value) {
+    return null
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    throw new Error(`Invalid ${key}`)
+  }
+  return value
+}
+
+function parseErrorMessage(error: unknown, fallback: string): string {
+  if (!(error instanceof Error)) {
+    return fallback
+  }
+
+  if ('body' in error) {
+    const body = (error as { body?: unknown }).body
+    if (typeof body === 'object' && body !== null && 'detail' in body) {
+      const detail = (body as { detail?: unknown }).detail
+      if (typeof detail === 'string' && detail.length > 0) {
+        return detail
+      }
+    }
+  }
+
+  return error.message
 }
 
 type ParsedBookingPayload = {
@@ -317,6 +371,98 @@ export async function cancelBooking(bookingId: number): Promise<{
       success: false,
       message:
         error instanceof Error ? error.message : 'Failed to cancel booking.',
+      booking: null,
+    }
+  }
+}
+
+export async function adminUpdateBooking(
+  _prev: AdminBookingFormState,
+  formData: FormData
+): Promise<AdminBookingFormState> {
+  const bookingId = Number.parseInt(
+    (formData.get('booking_id') ?? '').toString(),
+    10
+  )
+  const status = (formData.get('status') ?? '').toString().trim()
+
+  if (!Number.isInteger(bookingId) || bookingId <= 0) {
+    return {
+      status: 'error',
+      message: null,
+      error: 'Invalid booking id.',
+      booking: null,
+    }
+  }
+
+  const validStatuses = new Set([
+    'unconfirmed',
+    'confirmed',
+    'tentative',
+    'spot',
+    'rejected',
+    'cancelled',
+  ])
+
+  if (!validStatuses.has(status)) {
+    return {
+      status: 'error',
+      message: null,
+      error: 'Invalid status value.',
+      booking: null,
+    }
+  }
+
+  try {
+    const payload = {
+      status,
+      admin_notes: parseOptionalString(formData, 'admin_notes'),
+      gpu_type_id: parseRequiredInteger(formData, 'gpu_type_id'),
+      gpu_count: parseRequiredInteger(formData, 'gpu_count'),
+      gram_option_id: parseRequiredInteger(formData, 'gram_option_id'),
+      memory_option_id: parseRequiredInteger(formData, 'memory_option_id'),
+      workflow_type_id: parseRequiredInteger(formData, 'workflow_type_id'),
+      start_date: parseRequiredDateString(formData, 'start_date'),
+      end_date: parseRequiredDateString(formData, 'end_date'),
+      alt_email: parseOptionalString(formData, 'alt_email'),
+      project_name: parseOptionalString(formData, 'project_name'),
+      project_pi: parseOptionalString(formData, 'project_pi'),
+      project_grant_number: parseOptionalString(
+        formData,
+        'project_grant_number'
+      ),
+      technical_lead: parseOptionalString(formData, 'technical_lead'),
+      event_start_date: parseOptionalDateString(formData, 'event_start_date'),
+      event_end_date: parseOptionalDateString(formData, 'event_end_date'),
+    }
+
+    if (payload.gpu_count <= 0) {
+      throw new Error('Invalid gpu_count')
+    }
+
+    const booking = await backendJson(
+      `/api/v1/admin/bookings/${bookingId}`,
+      bookingResponseSchema,
+      {
+        method: 'PATCH',
+        body: JSON.stringify(payload),
+      }
+    )
+
+    safeRevalidate('/admin/bookings')
+    safeRevalidate('/bookings')
+
+    return {
+      status: 'success',
+      message: 'Booking updated successfully.',
+      error: null,
+      booking,
+    }
+  } catch (error) {
+    return {
+      status: 'error',
+      message: null,
+      error: parseErrorMessage(error, 'Failed to update booking.'),
       booking: null,
     }
   }

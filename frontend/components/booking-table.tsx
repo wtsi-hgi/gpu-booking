@@ -11,6 +11,7 @@ type BookingTableProps = {
   bookings: BookingResponse[]
   isAdmin: boolean
   currentUserEmail?: string
+  onBookingSelect?: (booking: BookingResponse) => void
 }
 
 type SortDirection = 'asc' | 'desc'
@@ -202,6 +203,7 @@ export function BookingTable({
   bookings,
   isAdmin,
   currentUserEmail,
+  onBookingSelect,
 }: BookingTableProps) {
   const [visibleBookings, setVisibleBookings] =
     useState<BookingResponse[]>(bookings)
@@ -293,6 +295,15 @@ export function BookingTable({
 
   function toggleExpandedRow(id: number) {
     setExpandedRowId((current) => (current === id ? null : id))
+  }
+
+  function handleRowSelect(booking: BookingResponse) {
+    if (onBookingSelect) {
+      onBookingSelect(booking)
+      return
+    }
+
+    toggleExpandedRow(booking.id)
   }
 
   function canCancelBooking(booking: BookingResponse): boolean {
@@ -573,11 +584,11 @@ export function BookingTable({
                       className="border-border hover:bg-muted/30 cursor-pointer border-t"
                       data-booking-row="true"
                       data-booking-id={booking.id}
-                      onClick={() => toggleExpandedRow(booking.id)}
+                      onClick={() => handleRowSelect(booking)}
                       onKeyDown={(event) => {
                         if (event.key === 'Enter' || event.key === ' ') {
                           event.preventDefault()
-                          toggleExpandedRow(booking.id)
+                          handleRowSelect(booking)
                         }
                       }}
                       role="button"

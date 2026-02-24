@@ -23,5 +23,5 @@ and a Save button calling PATCH via an adminUpdateBooking
 Server Action. Shows Last Modified By/At at the bottom of
 the panel. See spec.md for 6 acceptance tests.
 
-- [ ] implemented
-- [ ] reviewed
+- [x] implemented
+- [x] reviewed
