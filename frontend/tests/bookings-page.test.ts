@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({
   getCapacityMock: vi.fn(),
   getBookingsMock: vi.fn(),
+  getCurrentUserMock: vi.fn(),
   getGpuTypesMock: vi.fn(),
   routerPushMock: vi.fn(),
 }))
@@ -13,6 +14,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@/app/actions', () => ({
   getCapacity: mocks.getCapacityMock,
   getBookings: mocks.getBookingsMock,
+  getCurrentUser: mocks.getCurrentUserMock,
   getGpuTypes: mocks.getGpuTypesMock,
 }))
 
@@ -121,6 +123,11 @@ describe('bookings page - F1 calendar grid', () => {
       }
     )
     mocks.getBookingsMock.mockResolvedValue([buildBooking(1)])
+    mocks.getCurrentUserMock.mockResolvedValue({
+      email: 'user@example.com',
+      is_admin: false,
+      auth_mode: 'insecure',
+    })
   })
 
   afterEach(() => {
