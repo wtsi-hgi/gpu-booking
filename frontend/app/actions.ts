@@ -285,6 +285,43 @@ export async function getBookings(
   return backendJson(path, bookingListSchema)
 }
 
+export async function cancelBooking(bookingId: number): Promise<{
+  success: boolean
+  message: string
+  booking: BookingResponse | null
+}> {
+  if (!Number.isInteger(bookingId) || bookingId <= 0) {
+    return {
+      success: false,
+      message: 'Invalid booking id.',
+      booking: null,
+    }
+  }
+
+  try {
+    const booking = await backendJson(
+      `/api/v1/bookings/${bookingId}`,
+      bookingResponseSchema,
+      {
+        method: 'DELETE',
+      }
+    )
+    safeRevalidate('/bookings')
+    return {
+      success: true,
+      message: 'Booking cancelled successfully.',
+      booking,
+    }
+  } catch (error) {
+    return {
+      success: false,
+      message:
+        error instanceof Error ? error.message : 'Failed to cancel booking.',
+      booking: null,
+    }
+  }
+}
+
 export async function validateBooking(
   formData: FormData
 ): Promise<BookingValidation> {

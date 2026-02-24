@@ -23,8 +23,8 @@ Admin-only columns (Admin Notes, Last Modified By/At) are
 visible when the user is an admin. See spec.md for 9
 acceptance tests.
 
-- [ ] implemented
-- [ ] reviewed
+- [x] implemented
+- [x] reviewed
 
 ### Item 9.2: G2 - User booking cancellation UI
 
@@ -39,5 +39,5 @@ Bookings never admin-edited are deleted; admin-edited
 bookings change status to "cancelled". See spec.md for 5
 acceptance tests.
 
-- [ ] implemented
-- [ ] reviewed
+- [x] implemented
+- [x] reviewed

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
+  cancelBooking,
   createBooking,
   getBookings,
   getCapacity,
@@ -199,6 +200,51 @@ describe('booking data actions', () => {
           event_start_date: null,
           event_end_date: null,
         }),
+      }
+    )
+  })
+
+  it('calls DELETE booking endpoint in cancelBooking and returns success state', async () => {
+    const backendJsonMock = vi.mocked(backendJson)
+    backendJsonMock.mockResolvedValueOnce({
+      id: 11,
+      user_email: 'a@b.com',
+      gpu_type_id: 1,
+      gpu_type_name: 'H100',
+      gpu_count: 2,
+      gram_option_id: 1,
+      gram_label: '80GB',
+      memory_option_id: 1,
+      memory_label: '500GB',
+      workflow_type_id: 1,
+      workflow_type_name: 'Training',
+      start_date: '2026-04-10',
+      end_date: '2026-04-12',
+      status: 'cancelled',
+      alt_email: null,
+      project_name: 'Genome Atlas',
+      project_pi: null,
+      project_grant_number: null,
+      technical_lead: null,
+      event_start_date: null,
+      event_end_date: null,
+      admin_notes: null,
+      admin_modified_by: 'admin@example.com',
+      admin_modified_at: '2026-02-15T15:00:00Z',
+      created_at: '2026-02-01T00:00:00Z',
+      updated_at: '2026-02-16T00:00:00Z',
+      warnings: [],
+    })
+
+    const result = await cancelBooking(11)
+
+    expect(result.success).toBe(true)
+    expect(result.booking?.id).toBe(11)
+    expect(backendJsonMock).toHaveBeenCalledWith(
+      '/api/v1/bookings/11',
+      bookingResponseSchema,
+      {
+        method: 'DELETE',
       }
     )
   })

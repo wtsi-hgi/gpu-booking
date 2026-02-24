@@ -1,4 +1,9 @@
-import { getBookings, getCapacity, getGpuTypes } from '@/app/actions'
+import {
+  getBookings,
+  getCapacity,
+  getCurrentUser,
+  getGpuTypes,
+} from '@/app/actions'
 import { CalendarView } from '@/components/calendar-view'
 
 function toDateParam(value: Date): string {
@@ -20,10 +25,11 @@ function getCurrentMonthBounds() {
 
 export default async function BookingsPage() {
   const month = getCurrentMonthBounds()
-  const [gpuTypes, capacity, bookings] = await Promise.all([
+  const [gpuTypes, capacity, bookings, currentUser] = await Promise.all([
     getGpuTypes(),
     getCapacity(month.start, month.end),
     getBookings(month.start, month.end),
+    getCurrentUser(),
   ])
 
   return (
@@ -40,6 +46,8 @@ export default async function BookingsPage() {
         initialCapacity={capacity}
         initialBookings={bookings}
         gpuTypes={gpuTypes}
+        isAdmin={currentUser.is_admin}
+        currentUserEmail={currentUser.email}
       />
     </main>
   )

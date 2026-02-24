@@ -10,12 +10,15 @@ import type { BookingResponse, DailyCapacity } from '@/lib/booking-contracts'
 import { cn } from '@/lib/utils'
 
 import { CapacityBar } from './capacity-bar'
+import { BookingTable } from './booking-table'
 
 type CalendarViewProps = {
   initialMonthIso: string
   initialCapacity: DailyCapacity[]
   initialBookings: BookingResponse[]
   gpuTypes: GpuType[]
+  isAdmin: boolean
+  currentUserEmail: string
 }
 
 type DayCell = {
@@ -128,6 +131,8 @@ export function CalendarView({
   initialCapacity,
   initialBookings,
   gpuTypes,
+  isAdmin,
+  currentUserEmail,
 }: CalendarViewProps) {
   const router = useRouter()
   const [currentMonth, setCurrentMonth] = useState<Date>(() =>
@@ -378,42 +383,11 @@ export function CalendarView({
           </div>
         </div>
       ) : (
-        <div className="border-border overflow-x-auto rounded-md border">
-          <table className="w-full text-sm" data-booking-table="true">
-            <thead className="bg-muted/40">
-              <tr>
-                <th className="px-3 py-2 text-left">Dates</th>
-                <th className="px-3 py-2 text-left">GPU Type</th>
-                <th className="px-3 py-2 text-left">GPU Count</th>
-                <th className="px-3 py-2 text-left">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {bookings.length === 0 ? (
-                <tr>
-                  <td className="text-muted-foreground px-3 py-3" colSpan={4}>
-                    No bookings found for this month.
-                  </td>
-                </tr>
-              ) : (
-                bookings.map((booking) => (
-                  <tr
-                    key={booking.id}
-                    className="border-border border-t"
-                    data-booking-row="true"
-                  >
-                    <td className="px-3 py-2">
-                      {booking.start_date} to {booking.end_date}
-                    </td>
-                    <td className="px-3 py-2">{booking.gpu_type_name}</td>
-                    <td className="px-3 py-2">{booking.gpu_count}</td>
-                    <td className="px-3 py-2 capitalize">{booking.status}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+        <BookingTable
+          bookings={bookings}
+          isAdmin={isAdmin}
+          currentUserEmail={currentUserEmail}
+        />
       )}
     </section>
   )
