@@ -23,8 +23,8 @@ add and edit functionality via Server Actions using
 useActionState. See spec.md for Server Action signatures
 and 4 acceptance tests.
 
-- [ ] implemented
-- [ ] reviewed
+- [x] implemented
+- [x] reviewed
 
 #### Item 7.2: C6 - Admin workflow type config UI [parallel with 7.1, 7.3, 7.4]
 
@@ -37,8 +37,8 @@ Actions columns; supports add, edit, and delete. Delete is
 blocked if the workflow type is in use by a booking. See
 spec.md for 4 acceptance tests.
 
-- [ ] implemented
-- [ ] reviewed
+- [x] implemented
+- [x] reviewed
 
 #### Item 7.3: C7 - Admin GRAM and memory options config UI [parallel with 7.1, 7.2, 7.4]
 
@@ -51,8 +51,8 @@ GRAM Options and System Memory Options, each with a table
 (Label, Value GB, Sort Order, Actions) supporting add,
 edit, and delete. See spec.md for 3 acceptance tests.
 
-- [ ] implemented
-- [ ] reviewed
+- [x] implemented
+- [x] reviewed
 
 #### Item 7.4: H3 - Admin dashboard [parallel with 7.1, 7.2, 7.3]
 
@@ -66,8 +66,8 @@ month, GPU types configured). Non-admin users see an
 "Access Denied" message. See spec.md for 3 acceptance
 tests.
 
-- [ ] implemented
-- [ ] reviewed
+- [x] implemented
+- [x] reviewed
 
 For parallel batch items, use separate subagents per item.
 Launch review subagents using the `code-reviewer` skill (review
