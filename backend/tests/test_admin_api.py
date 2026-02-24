@@ -590,17 +590,60 @@ async def test_patch_admin_booking_updates_booking_fields() -> None:
     )
 
     new_start = date.today() + timedelta(days=60)
+    new_end = date.today() + timedelta(days=62)
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://testserver") as client:
         response = await client.patch(
             f"/api/v1/admin/bookings/{booking.id}",
-            json={"gpu_count": 10, "start_date": new_start.isoformat()},
+            json={
+                "gpu_count": 10,
+                "start_date": new_start.isoformat(),
+                "end_date": new_end.isoformat(),
+            },
         )
 
     assert response.status_code == 200
     payload = response.json()
     assert payload["gpu_count"] == 10
     assert payload["start_date"] == new_start.isoformat()
+
+
+@pytest.mark.anyio
+async def test_patch_admin_booking_rejects_invalid_date_range() -> None:
+    """Return 400 when admin update sets start_date after end_date."""
+
+    (
+        gpu_type_id,
+        gram_option_id,
+        memory_option_id,
+        workflow_type_id,
+    ) = await _get_reference_ids()
+    booking = await _insert_booking(
+        user_email="owner@example.com",
+        gpu_type_id=gpu_type_id,
+        gram_option_id=gram_option_id,
+        memory_option_id=memory_option_id,
+        workflow_type_id=workflow_type_id,
+        start_date=date.today() + timedelta(days=75),
+        end_date=date.today() + timedelta(days=77),
+        status=BookingStatus.unconfirmed,
+    )
+
+    invalid_start = date.today() + timedelta(days=90)
+    invalid_end = date.today() + timedelta(days=89)
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.patch(
+            f"/api/v1/admin/bookings/{booking.id}",
+            json={
+                "start_date": invalid_start.isoformat(),
+                "end_date": invalid_end.isoformat(),
+            },
+        )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Start date must be before end date"
 
 
 @pytest.mark.anyio

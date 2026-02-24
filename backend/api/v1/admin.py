@@ -107,6 +107,12 @@ async def admin_update_booking(
     memory_option_id = update_data.get("memory_option_id", booking.memory_option_id)
     workflow_type_id = update_data.get("workflow_type_id", booking.workflow_type_id)
 
+    if start_date > end_date:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Start date must be before end date",
+        )
+
     await _ensure_booking_reference_data_exists(
         session,
         gpu_type_id=gpu_type_id,
