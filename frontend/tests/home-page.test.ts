@@ -1,43 +1,81 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import { renderToStaticMarkup } from 'react-dom/server'
+/** @vitest-environment jsdom */
+
+import { cleanup, render, screen } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+const mocks = vi.hoisted(() => ({
+  getCapacityMock: vi.fn(),
+  getBookingsMock: vi.fn(),
+  getCurrentUserMock: vi.fn(),
+  getGpuTypesMock: vi.fn(),
+  routerPushMock: vi.fn(),
+}))
+
+vi.mock('@/app/actions', () => ({
+  getCapacity: mocks.getCapacityMock,
+  getBookings: mocks.getBookingsMock,
+  getCurrentUser: mocks.getCurrentUserMock,
+  getGpuTypes: mocks.getGpuTypesMock,
+}))
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({
+    push: mocks.routerPushMock,
+  }),
+}))
 
 import Home from '@/app/page'
 
 afterEach(() => {
-  vi.unstubAllGlobals()
+  cleanup()
+  vi.useRealTimers()
 })
 
-describe('home page smoke test', () => {
-  it('renders the front page with successful health and greeting requests', async () => {
-    const fetchMock = vi.fn(async (input: string | URL) => {
-      const url = new URL(String(input))
+describe('home route app availability', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-03-15T12:00:00Z'))
+    vi.clearAllMocks()
 
-      if (url.pathname === '/api/v1/health') {
-        return new Response(
-          JSON.stringify({ status: 'healthy', database: 'ok' }),
-          {
-            status: 200,
-            headers: { 'content-type': 'application/json' },
-          }
-        )
-      }
-
-      if (url.pathname === '/api/v1/hello') {
-        return new Response(JSON.stringify({ message: 'Hello from backend' }), {
-          status: 200,
-          headers: { 'content-type': 'application/json' },
-        })
-      }
-
-      return new Response('Not Found', { status: 404 })
+    mocks.getGpuTypesMock.mockResolvedValue([
+      {
+        id: 1,
+        name: 'H100',
+        gram_gb: 80,
+        system_memory_gb: 500,
+        total_count: 40,
+        created_at: '2026-02-01T00:00:00Z',
+        updated_at: '2026-02-01T00:00:00Z',
+      },
+    ])
+    mocks.getCapacityMock.mockResolvedValue([])
+    mocks.getBookingsMock.mockResolvedValue([])
+    mocks.getCurrentUserMock.mockResolvedValue({
+      email: 'user@example.com',
+      is_admin: false,
+      auth_mode: 'insecure',
     })
+  })
 
-    vi.stubGlobal('fetch', fetchMock)
+  it('renders bookings app on / instead of hello-world placeholder', async () => {
+    render(await Home())
 
-    const html = renderToStaticMarkup(await Home())
+    expect(screen.getByRole('heading', { name: 'Bookings' })).toBeTruthy()
+    expect(
+      screen.queryByRole('heading', {
+        name: 'Full-stack starter with Server Actions and shadcn/ui',
+      })
+    ).toBeNull()
 
-    expect(html).toContain('Next.js + FastAPI')
-    expect(html).toContain('Full-stack starter with Server Actions and shadcn/ui')
-    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(mocks.getGpuTypesMock).toHaveBeenCalledTimes(1)
+    expect(mocks.getCapacityMock).toHaveBeenCalledWith(
+      '2026-03-01',
+      '2026-03-31'
+    )
+    expect(mocks.getBookingsMock).toHaveBeenCalledWith(
+      '2026-03-01',
+      '2026-03-31'
+    )
+    expect(mocks.getCurrentUserMock).toHaveBeenCalledTimes(1)
   })
 })

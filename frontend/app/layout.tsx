@@ -16,8 +16,8 @@ const inter = Inter({
 })
 
 export const metadata: Metadata = {
-  title: 'Next.js + shadcn/ui + FastAPI',
-  description: 'A full-stack app with Next.js, shadcn/ui, and FastAPI',
+  title: 'GPU Booking',
+  description: 'GPU booking and capacity management application',
 }
 
 export default function RootLayout({
