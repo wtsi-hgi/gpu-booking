@@ -25,7 +25,7 @@ export default function Loading() {
 							<div className="h-6 w-40 animate-pulse rounded bg-muted" />
 						</CardTitle>
 						<CardDescription>
-							<div className="h-4 w-64 animate-pulse rounded bg-muted" />
+							<span className="block h-4 w-64 animate-pulse rounded bg-muted" />
 						</CardDescription>
 					</CardHeader>
 					<CardContent>
