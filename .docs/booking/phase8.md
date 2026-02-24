@@ -21,8 +21,8 @@ hatched for pending), GPU type filter dropdown, and
 month navigation. Add getCapacity and getBookings Server
 Actions. See spec.md for 6 acceptance tests.
 
-- [ ] implemented
-- [ ] reviewed
+- [x] implemented
+- [x] reviewed
 
 ### Batch 2 (parallel)
 
@@ -38,8 +38,8 @@ pre-filled dates. The form page at
 frontend/app/bookings/new/page.tsx accepts optional start
 and end query params. See spec.md for 4 acceptance tests.
 
-- [ ] implemented
-- [ ] reviewed
+- [x] implemented
+- [x] reviewed
 
 #### Item 8.3: F3 - Booking creation form [parallel with 8.2]
 
@@ -54,8 +54,8 @@ button calls the validation endpoint showing
 warnings/blocks. Uses useActionState with a createBooking
 Server Action. See spec.md for 7 acceptance tests.
 
-- [ ] implemented
-- [ ] reviewed
+- [x] implemented
+- [x] reviewed
 
 For parallel batch items, use separate subagents per item.
 Launch review subagents using the `code-reviewer` skill (review

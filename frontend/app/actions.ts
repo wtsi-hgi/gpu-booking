@@ -21,6 +21,20 @@ import {
 import { userInfoSchema, type UserInfo } from '@/lib/auth-contracts'
 import { healthResponseSchema, messageResponseSchema } from '@/lib/contracts'
 import { type GreetingState } from '@/lib/greeting-state'
+import {
+  bookingListSchema,
+  bookingResponseSchema,
+  bookingValidationSchema,
+  dailyCapacityListSchema,
+  type BookingResponse,
+  type BookingValidation,
+  type DailyCapacity,
+} from '@/lib/booking-contracts'
+import {
+  buildRequiredFieldErrors,
+  type BookingFieldName,
+  type BookingFormState,
+} from '@/lib/booking-state'
 
 export type FormState = {
   status: 'idle' | 'success' | 'error'
@@ -88,6 +102,88 @@ function getDevUserFromFormData(formData: FormData): string | undefined {
   return value || undefined
 }
 
+function parseOptionalString(formData: FormData, key: string): string | null {
+  const value = (formData.get(key) ?? '').toString().trim()
+  return value.length > 0 ? value : null
+}
+
+type ParsedBookingPayload = {
+  payload: {
+    gpu_type_id: number
+    gpu_count: number
+    gram_option_id: number
+    memory_option_id: number
+    workflow_type_id: number
+    start_date: string
+    end_date: string
+    alt_email: string | null
+    project_name: string | null
+    project_pi: string | null
+    project_grant_number: string | null
+    technical_lead: string | null
+    event_start_date: string | null
+    event_end_date: string | null
+  } | null
+  fieldErrors: Partial<Record<BookingFieldName, string>>
+}
+
+function parseBookingPayload(formData: FormData): ParsedBookingPayload {
+  const requiredValues = {
+    gpu_type_id: (formData.get('gpu_type_id') ?? '').toString().trim(),
+    gpu_count: (formData.get('gpu_count') ?? '').toString().trim(),
+    gram_option_id: (formData.get('gram_option_id') ?? '').toString().trim(),
+    memory_option_id: (formData.get('memory_option_id') ?? '')
+      .toString()
+      .trim(),
+    workflow_type_id: (formData.get('workflow_type_id') ?? '')
+      .toString()
+      .trim(),
+    start_date: (formData.get('start_date') ?? '').toString().trim(),
+    end_date: (formData.get('end_date') ?? '').toString().trim(),
+  }
+
+  const missingFields = (
+    Object.entries(requiredValues) as Array<[BookingFieldName, string]>
+  )
+    .filter(([, value]) => value.length === 0)
+    .map(([field]) => field)
+
+  const gpuCount = Number.parseInt(requiredValues.gpu_count, 10)
+  if (!Number.isInteger(gpuCount) || gpuCount <= 0) {
+    missingFields.push('gpu_count')
+  }
+
+  if (missingFields.length > 0) {
+    return {
+      payload: null,
+      fieldErrors: buildRequiredFieldErrors(Array.from(new Set(missingFields))),
+    }
+  }
+
+  return {
+    payload: {
+      gpu_type_id: Number.parseInt(requiredValues.gpu_type_id, 10),
+      gpu_count: gpuCount,
+      gram_option_id: Number.parseInt(requiredValues.gram_option_id, 10),
+      memory_option_id: Number.parseInt(requiredValues.memory_option_id, 10),
+      workflow_type_id: Number.parseInt(requiredValues.workflow_type_id, 10),
+      start_date: requiredValues.start_date,
+      end_date: requiredValues.end_date,
+      alt_email: parseOptionalString(formData, 'alt_email'),
+      project_name: parseOptionalString(formData, 'project_name'),
+      project_pi: parseOptionalString(formData, 'project_pi'),
+      project_grant_number: parseOptionalString(
+        formData,
+        'project_grant_number'
+      ),
+      technical_lead: parseOptionalString(formData, 'technical_lead'),
+      event_start_date: parseOptionalString(formData, 'event_start_date'),
+      event_end_date: parseOptionalString(formData, 'event_end_date'),
+    },
+    fieldErrors: {},
+  }
+}
+
 function buildAuthHeaders(devUserEmail?: string): HeadersInit | undefined {
   if (!devUserEmail) {
     return undefined
@@ -141,6 +237,107 @@ export async function getGpuTypes(): Promise<GpuType[]> {
 
 export async function getWorkflowTypes(): Promise<WorkflowType[]> {
   return backendJson('/api/v1/workflow-types', workflowTypeListSchema)
+}
+
+export async function getCapacity(
+  startDate: string,
+  endDate: string,
+  gpuTypeId?: number
+): Promise<DailyCapacity[]> {
+  const params = new URLSearchParams({
+    start_date: startDate,
+    end_date: endDate,
+  })
+
+  if (gpuTypeId !== undefined) {
+    params.set('gpu_type_id', String(gpuTypeId))
+  }
+
+  return backendJson(
+    `/api/v1/capacity?${params.toString()}`,
+    dailyCapacityListSchema
+  )
+}
+
+export async function getBookings(
+  startDate?: string,
+  endDate?: string,
+  gpuTypeId?: number,
+  status?: string
+): Promise<BookingResponse[]> {
+  const params = new URLSearchParams()
+
+  if (startDate) {
+    params.set('start_date', startDate)
+  }
+  if (endDate) {
+    params.set('end_date', endDate)
+  }
+  if (gpuTypeId !== undefined) {
+    params.set('gpu_type_id', String(gpuTypeId))
+  }
+  if (status) {
+    params.set('status', status)
+  }
+
+  const query = params.toString()
+  const path = query ? `/api/v1/bookings?${query}` : '/api/v1/bookings'
+  return backendJson(path, bookingListSchema)
+}
+
+export async function validateBooking(
+  formData: FormData
+): Promise<BookingValidation> {
+  const parsed = parseBookingPayload(formData)
+
+  if (!parsed.payload) {
+    throw new Error(
+      'Required booking fields must be provided before validation.'
+    )
+  }
+
+  return backendJson('/api/v1/capacity/validate', bookingValidationSchema, {
+    method: 'POST',
+    body: JSON.stringify(parsed.payload),
+  })
+}
+
+export async function createBooking(
+  _prev: BookingFormState,
+  formData: FormData
+): Promise<BookingFormState> {
+  const parsed = parseBookingPayload(formData)
+
+  if (!parsed.payload) {
+    return {
+      status: 'error',
+      message: null,
+      error: 'Please complete all required fields.',
+      fieldErrors: parsed.fieldErrors,
+    }
+  }
+
+  try {
+    await backendJson('/api/v1/bookings', bookingResponseSchema, {
+      method: 'POST',
+      body: JSON.stringify(parsed.payload),
+    })
+    safeRevalidate('/bookings')
+    return {
+      status: 'success',
+      message: 'Booking created successfully.',
+      error: null,
+      fieldErrors: {},
+    }
+  } catch (error) {
+    return {
+      status: 'error',
+      message: null,
+      error:
+        error instanceof Error ? error.message : 'Failed to create booking.',
+      fieldErrors: {},
+    }
+  }
 }
 
 export async function getGramOptions(
