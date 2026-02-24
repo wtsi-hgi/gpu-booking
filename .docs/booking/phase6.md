@@ -24,5 +24,5 @@ changes. Non-admin requests return 403; missing bookings
 return 404. See spec.md for the full AdminBookingUpdate
 schema and 8 acceptance tests.
 
-- [ ] implemented
-- [ ] reviewed
+- [x] implemented
+- [x] reviewed

@@ -2,16 +2,86 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 
 import pytest
 from httpx import ASGITransport, AsyncClient
 
 from config import settings
 from db.engine import async_session_factory, engine
-from db.models import Base, Booking, GpuType, MemoryOption, WorkflowType
+from db.models import (
+    Base,
+    Booking,
+    BookingStatus,
+    GpuType,
+    GramOption,
+    MemoryOption,
+    WorkflowType,
+)
 from db.seed import seed_db
 from main import app
+
+
+def _default_admin_email() -> str:
+    """Return the default insecure-mode admin email used by tests."""
+
+    configured = [
+        email.strip()
+        for email in settings.initial_admin_emails.split(",")
+        if email.strip()
+    ]
+    return configured[0] if configured else "dev@example.com"
+
+
+async def _get_reference_ids() -> tuple[int, int, int, int]:
+    """Return seeded reference IDs required for booking records."""
+
+    async with async_session_factory() as session:
+        gpu_type = await session.get(GpuType, 1)
+        gram_option = await session.get(GramOption, 1)
+        memory_option = await session.get(MemoryOption, 1)
+        workflow_type = await session.get(WorkflowType, 1)
+
+        assert gpu_type is not None
+        assert gram_option is not None
+        assert memory_option is not None
+        assert workflow_type is not None
+
+        return gpu_type.id, gram_option.id, memory_option.id, workflow_type.id
+
+
+async def _insert_booking(
+    *,
+    user_email: str,
+    gpu_type_id: int,
+    gram_option_id: int,
+    memory_option_id: int,
+    workflow_type_id: int,
+    start_date: date,
+    end_date: date,
+    gpu_count: int = 1,
+    status: BookingStatus = BookingStatus.unconfirmed,
+    admin_notes: str | None = None,
+) -> Booking:
+    """Insert a booking record and return the persisted ORM object."""
+
+    async with async_session_factory() as session:
+        booking = Booking(
+            user_email=user_email,
+            gpu_type_id=gpu_type_id,
+            gpu_count=gpu_count,
+            gram_option_id=gram_option_id,
+            memory_option_id=memory_option_id,
+            workflow_type_id=workflow_type_id,
+            start_date=start_date,
+            end_date=end_date,
+            status=status,
+            admin_notes=admin_notes,
+        )
+        session.add(booking)
+        await session.commit()
+        await session.refresh(booking)
+        return booking
 
 
 @pytest.mark.anyio
@@ -318,6 +388,297 @@ async def test_memory_option_delete_returns_conflict_when_in_use() -> None:
         response = await client.delete("/api/v1/admin/memory-options/1")
 
     assert response.status_code == 409
+
+
+@pytest.mark.anyio
+async def test_patch_admin_booking_sets_confirmed_and_admin_modified_fields() -> None:
+    """Confirm an unconfirmed booking and stamp admin metadata."""
+
+    (
+        gpu_type_id,
+        gram_option_id,
+        memory_option_id,
+        workflow_type_id,
+    ) = await _get_reference_ids()
+    booking = await _insert_booking(
+        user_email="owner@example.com",
+        gpu_type_id=gpu_type_id,
+        gram_option_id=gram_option_id,
+        memory_option_id=memory_option_id,
+        workflow_type_id=workflow_type_id,
+        start_date=date.today() + timedelta(days=30),
+        end_date=date.today() + timedelta(days=32),
+        status=BookingStatus.unconfirmed,
+    )
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.patch(
+            f"/api/v1/admin/bookings/{booking.id}",
+            json={"status": "confirmed"},
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "confirmed"
+    assert payload["admin_modified_by"] == _default_admin_email()
+    assert payload["admin_modified_at"] is not None
+
+
+@pytest.mark.anyio
+async def test_patch_admin_booking_updates_notes_and_admin_metadata() -> None:
+    """Update admin_notes and stamp admin metadata."""
+
+    (
+        gpu_type_id,
+        gram_option_id,
+        memory_option_id,
+        workflow_type_id,
+    ) = await _get_reference_ids()
+    booking = await _insert_booking(
+        user_email="owner@example.com",
+        gpu_type_id=gpu_type_id,
+        gram_option_id=gram_option_id,
+        memory_option_id=memory_option_id,
+        workflow_type_id=workflow_type_id,
+        start_date=date.today() + timedelta(days=35),
+        end_date=date.today() + timedelta(days=37),
+        status=BookingStatus.unconfirmed,
+    )
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.patch(
+            f"/api/v1/admin/bookings/{booking.id}",
+            json={"admin_notes": "Approved per PI agreement"},
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["admin_notes"] == "Approved per PI agreement"
+    assert payload["admin_modified_by"] == _default_admin_email()
+    assert payload["admin_modified_at"] is not None
+
+
+@pytest.mark.anyio
+async def test_patch_admin_booking_allows_rejected_status_even_if_capacity_full() -> (
+    None
+):
+    """Allow rejected status updates regardless of capacity."""
+
+    (
+        gpu_type_id,
+        gram_option_id,
+        memory_option_id,
+        workflow_type_id,
+    ) = await _get_reference_ids()
+    async with async_session_factory() as session:
+        gpu_type = await session.get(GpuType, gpu_type_id)
+        assert gpu_type is not None
+        gpu_type.total_count = 1
+        await session.commit()
+
+    start_date = date.today() + timedelta(days=40)
+    end_date = date.today() + timedelta(days=41)
+    await _insert_booking(
+        user_email="confirmed@example.com",
+        gpu_type_id=gpu_type_id,
+        gram_option_id=gram_option_id,
+        memory_option_id=memory_option_id,
+        workflow_type_id=workflow_type_id,
+        start_date=start_date,
+        end_date=end_date,
+        gpu_count=1,
+        status=BookingStatus.confirmed,
+    )
+    target = await _insert_booking(
+        user_email="target@example.com",
+        gpu_type_id=gpu_type_id,
+        gram_option_id=gram_option_id,
+        memory_option_id=memory_option_id,
+        workflow_type_id=workflow_type_id,
+        start_date=start_date,
+        end_date=end_date,
+        gpu_count=1,
+        status=BookingStatus.unconfirmed,
+    )
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.patch(
+            f"/api/v1/admin/bookings/{target.id}",
+            json={"status": "rejected"},
+        )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "rejected"
+
+
+@pytest.mark.anyio
+async def test_patch_admin_booking_returns_conflict_when_confirm_exceeds_capacity() -> (
+    None
+):
+    """Return 409 when a consuming status update exceeds capacity."""
+
+    (
+        gpu_type_id,
+        gram_option_id,
+        memory_option_id,
+        workflow_type_id,
+    ) = await _get_reference_ids()
+    async with async_session_factory() as session:
+        gpu_type = await session.get(GpuType, gpu_type_id)
+        assert gpu_type is not None
+        gpu_type.total_count = 4
+        await session.commit()
+
+    start_date = date.today() + timedelta(days=45)
+    end_date = date.today() + timedelta(days=45)
+    await _insert_booking(
+        user_email="full@example.com",
+        gpu_type_id=gpu_type_id,
+        gram_option_id=gram_option_id,
+        memory_option_id=memory_option_id,
+        workflow_type_id=workflow_type_id,
+        start_date=start_date,
+        end_date=end_date,
+        gpu_count=4,
+        status=BookingStatus.confirmed,
+    )
+    target = await _insert_booking(
+        user_email="target@example.com",
+        gpu_type_id=gpu_type_id,
+        gram_option_id=gram_option_id,
+        memory_option_id=memory_option_id,
+        workflow_type_id=workflow_type_id,
+        start_date=start_date,
+        end_date=end_date,
+        gpu_count=1,
+        status=BookingStatus.unconfirmed,
+    )
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.patch(
+            f"/api/v1/admin/bookings/{target.id}",
+            json={"status": "confirmed"},
+        )
+
+    assert response.status_code == 409
+
+
+@pytest.mark.anyio
+async def test_patch_admin_booking_updates_booking_fields() -> None:
+    """Update mutable booking fields from AdminBookingUpdate payload."""
+
+    (
+        gpu_type_id,
+        gram_option_id,
+        memory_option_id,
+        workflow_type_id,
+    ) = await _get_reference_ids()
+    booking = await _insert_booking(
+        user_email="owner@example.com",
+        gpu_type_id=gpu_type_id,
+        gram_option_id=gram_option_id,
+        memory_option_id=memory_option_id,
+        workflow_type_id=workflow_type_id,
+        start_date=date.today() + timedelta(days=50),
+        end_date=date.today() + timedelta(days=52),
+        gpu_count=2,
+        status=BookingStatus.unconfirmed,
+    )
+
+    new_start = date.today() + timedelta(days=60)
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.patch(
+            f"/api/v1/admin/bookings/{booking.id}",
+            json={"gpu_count": 10, "start_date": new_start.isoformat()},
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["gpu_count"] == 10
+    assert payload["start_date"] == new_start.isoformat()
+
+
+@pytest.mark.anyio
+async def test_patch_admin_booking_forbidden_for_non_admin_user() -> None:
+    """Reject booking updates from non-admin users."""
+
+    (
+        gpu_type_id,
+        gram_option_id,
+        memory_option_id,
+        workflow_type_id,
+    ) = await _get_reference_ids()
+    booking = await _insert_booking(
+        user_email="owner@example.com",
+        gpu_type_id=gpu_type_id,
+        gram_option_id=gram_option_id,
+        memory_option_id=memory_option_id,
+        workflow_type_id=workflow_type_id,
+        start_date=date.today() + timedelta(days=65),
+        end_date=date.today() + timedelta(days=67),
+        status=BookingStatus.unconfirmed,
+    )
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.patch(
+            f"/api/v1/admin/bookings/{booking.id}",
+            json={"status": "confirmed"},
+            headers={"X-Dev-User": "non-admin@example.com"},
+        )
+
+    assert response.status_code == 403
+
+
+@pytest.mark.anyio
+async def test_patch_admin_booking_returns_not_found_for_missing_booking() -> None:
+    """Return 404 when booking ID does not exist."""
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.patch(
+            "/api/v1/admin/bookings/999999",
+            json={"status": "confirmed"},
+        )
+
+    assert response.status_code == 404
+
+
+@pytest.mark.anyio
+async def test_patch_admin_booking_can_reactivate_cancelled_booking() -> None:
+    """Allow admins to change cancelled bookings back to confirmed."""
+
+    (
+        gpu_type_id,
+        gram_option_id,
+        memory_option_id,
+        workflow_type_id,
+    ) = await _get_reference_ids()
+    booking = await _insert_booking(
+        user_email="owner@example.com",
+        gpu_type_id=gpu_type_id,
+        gram_option_id=gram_option_id,
+        memory_option_id=memory_option_id,
+        workflow_type_id=workflow_type_id,
+        start_date=date.today() + timedelta(days=70),
+        end_date=date.today() + timedelta(days=72),
+        status=BookingStatus.cancelled,
+    )
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.patch(
+            f"/api/v1/admin/bookings/{booking.id}",
+            json={"status": "confirmed"},
+        )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "confirmed"
 
 
 @pytest.fixture(autouse=True)

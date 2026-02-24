@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
@@ -10,6 +11,9 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.schemas import (
+    AdminBookingUpdate,
+    BookingResponse,
+    BookingStatus,
     GpuTypeCreate,
     GpuTypeResponse,
     GpuTypeUpdate,
@@ -26,9 +30,131 @@ from api.schemas import (
 )
 from db.engine import get_session
 from db.models import Booking, GpuType, GramOption, MemoryOption, WorkflowType
+from db.models import BookingStatus as DbBookingStatus
 from middleware.auth import require_admin
+from services.capacity_service import validate_booking
 
 router = APIRouter(prefix="/admin")
+
+_CAPACITY_CONSUMING_STATUSES: set[BookingStatus] = {
+    BookingStatus.confirmed,
+    BookingStatus.tentative,
+    BookingStatus.spot,
+}
+
+
+async def _ensure_booking_reference_data_exists(
+    session: AsyncSession,
+    *,
+    gpu_type_id: int,
+    gram_option_id: int,
+    memory_option_id: int,
+    workflow_type_id: int,
+) -> None:
+    """Validate that all booking reference records exist."""
+
+    if await session.get(GpuType, gpu_type_id) is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="GPU type not found",
+        )
+    if await session.get(GramOption, gram_option_id) is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="GRAM option not found",
+        )
+    if await session.get(MemoryOption, memory_option_id) is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Memory option not found",
+        )
+    if await session.get(WorkflowType, workflow_type_id) is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Workflow type not found",
+        )
+
+
+@router.patch("/bookings/{booking_id}", response_model=BookingResponse)
+async def admin_update_booking(
+    booking_id: int,
+    update: AdminBookingUpdate,
+    user: Annotated[UserInfo, Depends(require_admin)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> BookingResponse:
+    """Admin update a booking and enforce status/capacity rules."""
+
+    from api.v1.bookings import _build_booking_response
+
+    booking = await session.get(Booking, booking_id)
+    if booking is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Booking not found",
+        )
+
+    update_data = update.model_dump(exclude_unset=True)
+
+    next_status = update_data.get("status", booking.status)
+    if isinstance(next_status, str):
+        next_status = BookingStatus(next_status)
+
+    gpu_type_id = update_data.get("gpu_type_id", booking.gpu_type_id)
+    gpu_count = update_data.get("gpu_count", booking.gpu_count)
+    start_date = update_data.get("start_date", booking.start_date)
+    end_date = update_data.get("end_date", booking.end_date)
+    gram_option_id = update_data.get("gram_option_id", booking.gram_option_id)
+    memory_option_id = update_data.get("memory_option_id", booking.memory_option_id)
+    workflow_type_id = update_data.get("workflow_type_id", booking.workflow_type_id)
+
+    await _ensure_booking_reference_data_exists(
+        session,
+        gpu_type_id=gpu_type_id,
+        gram_option_id=gram_option_id,
+        memory_option_id=memory_option_id,
+        workflow_type_id=workflow_type_id,
+    )
+
+    validation = await validate_booking(
+        session,
+        user_email=booking.user_email,
+        gpu_type_id=gpu_type_id,
+        gpu_count=gpu_count,
+        start_date=start_date,
+        end_date=end_date,
+        exclude_booking_id=booking.id,
+    )
+
+    status_changed = "status" in update_data
+    if (
+        status_changed
+        and next_status in _CAPACITY_CONSUMING_STATUSES
+        and validation.blocked
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=validation.block_reason or "100% capacity exceeded",
+        )
+
+    for field, value in update_data.items():
+        if field == "status":
+            setattr(booking, field, DbBookingStatus(value))
+            continue
+        setattr(booking, field, value)
+
+    booking.admin_modified_by = user.email
+    booking.admin_modified_at = datetime.utcnow()
+
+    await session.commit()
+    await session.refresh(booking)
+
+    warning_messages = [warning.message for warning in validation.warnings]
+    return await _build_booking_response(
+        session,
+        booking,
+        warning_messages,
+        is_admin=True,
+    )
 
 
 def _is_unique_violation(error: IntegrityError) -> bool:

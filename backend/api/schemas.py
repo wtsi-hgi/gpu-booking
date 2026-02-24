@@ -164,6 +164,27 @@ class BookingCreate(BaseModel):
     event_end_date: date | None = None
 
 
+class AdminBookingUpdate(BaseModel):
+    """Admin booking update payload."""
+
+    status: BookingStatus | None = None
+    admin_notes: str | None = None
+    gpu_type_id: int | None = None
+    gpu_count: int | None = Field(default=None, gt=0)
+    gram_option_id: int | None = None
+    memory_option_id: int | None = None
+    workflow_type_id: int | None = None
+    start_date: date | None = None
+    end_date: date | None = None
+    alt_email: str | None = None
+    project_name: str | None = None
+    project_pi: str | None = None
+    project_grant_number: str | None = None
+    technical_lead: str | None = None
+    event_start_date: date | None = None
+    event_end_date: date | None = None
+
+
 class BookingResponse(BaseModel):
     """Booking response payload."""
 
