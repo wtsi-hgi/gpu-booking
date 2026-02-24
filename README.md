@@ -81,6 +81,27 @@ The app runs with defaults, but these are commonly set:
 - `BACKEND_URL` (optional override used by frontend server-side calls)
 - backend auth and app settings from `backend/.env.example`
 
+### Authentication mode (important)
+
+Backend auth mode is controlled by `AUTH_MODE`.
+
+- Default when unset: `insecure`
+- Production recommendation: `oidc`
+
+When running with `AUTH_MODE=insecure`:
+
+- The app enables developer impersonation (`Switch User`) in the UI.
+- The backend accepts `X-Dev-User` and treats requests as that email.
+- This mode is intended for local development only.
+
+When running with `AUTH_MODE=oidc`:
+
+- `Switch User` is hidden.
+- Backend ignores dev impersonation headers and requires bearer tokens.
+- Admin access is based on authenticated user email membership in the admins table.
+
+For production, explicitly set OIDC-related variables and do not rely on defaults.
+
 ## Running tests and checks
 
 Frontend (`frontend/`):
@@ -103,6 +124,13 @@ Notes:
 - A homepage smoke test verifies the root page renders with successful backend responses.
 
 ## Production essentials
+
+Before starting production services, set backend auth configuration (at minimum):
+
+- `AUTH_MODE=oidc`
+- `OKTA_ISSUER`
+- `OKTA_AUDIENCE` (if your token validation requires audience checking)
+- `INITIAL_ADMIN_EMAILS` (comma-separated bootstrap list used by seed/admin workflows)
 
 ### Frontend
 

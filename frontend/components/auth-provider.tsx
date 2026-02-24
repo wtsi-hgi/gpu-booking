@@ -11,7 +11,11 @@ import {
 } from 'react'
 
 import { getCurrentUser } from '@/app/actions'
-import { toAuthState, type AuthState } from '@/lib/auth-state'
+import {
+	setDevUserCookie,
+	toAuthState,
+	type AuthState,
+} from '@/lib/auth-state'
 
 type AuthContextValue = AuthState & {
 	loading: boolean
@@ -39,10 +43,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 			const user = await getCurrentUser(devUserEmail)
 			setAuthState(toAuthState(user))
 			setError(null)
+			return true
 		} catch (loadError) {
 			setError(
 				loadError instanceof Error ? loadError.message : 'Failed to load auth state'
 			)
+			return false
 		} finally {
 			setLoading(false)
 		}
@@ -50,7 +56,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 	const switchUser = useCallback(
 		async (email: string) => {
-			await loadUser(email)
+			const didLoad = await loadUser(email)
+			if (didLoad) {
+				setDevUserCookie(email)
+			}
 		},
 		[loadUser]
 	)

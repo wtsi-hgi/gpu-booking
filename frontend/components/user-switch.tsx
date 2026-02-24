@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
+import { useRouter } from 'next/navigation'
 
 import { useAuth } from '@/components/auth-provider'
 import { Button } from '@/components/ui/button'
@@ -8,8 +9,13 @@ import { Input } from '@/components/ui/input'
 import { shouldShowUserSwitch } from '@/lib/auth-state'
 
 export function UserSwitch() {
+	const router = useRouter()
 	const { authMode, email, switchUser, loading } = useAuth()
 	const [nextEmail, setNextEmail] = useState(email)
+
+	useEffect(() => {
+		setNextEmail(email)
+	}, [email])
 
 	if (!shouldShowUserSwitch(authMode)) {
 		return null
@@ -22,6 +28,7 @@ export function UserSwitch() {
 			return
 		}
 		await switchUser(trimmed)
+		router.refresh()
 	}
 
 	return (

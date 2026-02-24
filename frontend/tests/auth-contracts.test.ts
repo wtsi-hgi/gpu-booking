@@ -1,5 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+const { cookiesMock } = vi.hoisted(() => ({
+	cookiesMock: vi.fn(),
+}))
+
+vi.mock('next/headers', () => ({
+	cookies: cookiesMock,
+}))
+
 import { getCurrentUser } from '@/app/actions'
 import { userInfoSchema } from '@/lib/auth-contracts'
 import { shouldShowUserSwitch, toAuthState } from '@/lib/auth-state'
@@ -9,6 +17,38 @@ afterEach(() => {
 })
 
 describe('auth contracts', () => {
+	it('uses persisted dev user cookie when requesting current user without explicit email', async () => {
+		cookiesMock.mockReturnValueOnce({
+			get: (name: string) =>
+				name === 'gpu_booking_dev_user_email'
+					? { value: 'cookie-user@example.com' }
+					: undefined,
+		})
+
+		const fetchMock = vi.fn(async () => {
+			return new Response(
+				JSON.stringify({
+					email: 'cookie-user@example.com',
+					is_admin: false,
+					auth_mode: 'insecure',
+				}),
+				{
+					status: 200,
+					headers: { 'content-type': 'application/json' },
+				}
+			)
+		})
+
+		vi.stubGlobal('fetch', fetchMock)
+
+		await getCurrentUser()
+
+		expect(fetchMock).toHaveBeenCalledTimes(1)
+		const [, requestInit] = fetchMock.mock.calls[0]
+		const headers = new Headers((requestInit as RequestInit).headers)
+		expect(headers.get('X-Dev-User')).toBe('cookie-user@example.com')
+	})
+
 	it('parses valid user info payloads', () => {
 		const payload = {
 			email: 'a@b.com',
