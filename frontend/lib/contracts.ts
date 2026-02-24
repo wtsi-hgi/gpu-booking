@@ -8,6 +8,7 @@ export type MessageResponse = z.infer<typeof messageResponseSchema>
 
 export const healthResponseSchema = z.object({
 	status: z.enum(['healthy', 'unhealthy']).or(z.string()),
+	database: z.string(),
 })
 
 export type HealthResponse = z.infer<typeof healthResponseSchema>

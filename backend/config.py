@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     backend_port: int = 8000
     host: str = "0.0.0.0"
     reload: bool = True  # Auto-reload on code changes (dev only)
+    database_url: str = "sqlite+aiosqlite:///./gpu_booking.db"
 
     # Observability / shared resources
     log_level: str = "INFO"

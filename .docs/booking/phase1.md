@@ -21,8 +21,8 @@ Implement the async SQLAlchemy engine with aiosqlite, the
 to config.py. See spec.md for full details and 3 acceptance
 tests.
 
-- [ ] implemented
-- [ ] reviewed
+- [x] implemented
+- [x] reviewed
 
 #### Item 1.2: A2 - ORM models [parallel with 1.1]
 
@@ -34,8 +34,8 @@ keys, defaults, and unique constraints. Define the
 BookingStatus enum. See spec.md for full details and 6
 acceptance tests.
 
-- [ ] implemented
-- [ ] reviewed
+- [x] implemented
+- [x] reviewed
 
 ### Batch 2 (parallel)
 
@@ -49,8 +49,8 @@ GRAM options, memory options, and admin emails from the
 empty tables). See spec.md for full details and 6 acceptance
 tests.
 
-- [ ] implemented
-- [ ] reviewed
+- [x] implemented
+- [x] reviewed
 
 #### Item 1.4: I2 - Health check with database connectivity [parallel with 1.3]
 
@@ -62,8 +62,8 @@ with status and database fields. Return 503 when DB is
 unreachable. Update the frontend Zod healthResponseSchema.
 See spec.md for full details and 4 acceptance tests.
 
-- [ ] implemented
-- [ ] reviewed
+- [x] implemented
+- [x] reviewed
 
 For parallel batch items, use separate subagents per item.
 Launch review subagents using the `code-reviewer` skill (review
