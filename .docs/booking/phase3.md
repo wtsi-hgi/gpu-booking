@@ -20,8 +20,8 @@ Implement GET /api/v1/gpu-types (public), POST and PUT
 gpuTypeListSchema Zod schemas in admin-contracts.ts. See
 spec.md for full details and 7 acceptance tests.
 
-- [ ] implemented
-- [ ] reviewed
+- [x] implemented
+- [x] reviewed
 
 #### Item 3.2: C2 - Workflow type management endpoints [parallel with 3.1, 3.3, 3.4, 3.5]
 
@@ -32,8 +32,8 @@ DELETE /api/v1/admin/workflow-types (admin-only). Delete fails
 if referenced by a booking. Define workflowTypeSchema Zod
 schema. See spec.md for full details and 6 acceptance tests.
 
-- [ ] implemented
-- [ ] reviewed
+- [x] implemented
+- [x] reviewed
 
 #### Item 3.3: C3 - GRAM option management endpoints [parallel with 3.1, 3.2, 3.4, 3.5]
 
@@ -45,8 +45,8 @@ sort_order), POST, PUT, and DELETE /api/v1/admin/gram-options
 gramOptionSchema Zod schema. See spec.md for full details and
 5 acceptance tests.
 
-- [ ] implemented
-- [ ] reviewed
+- [x] implemented
+- [x] reviewed
 
 #### Item 3.4: C4 - System memory option management endpoints [parallel with 3.1, 3.2, 3.3, 3.5]
 
@@ -58,8 +58,8 @@ sort_order), POST, PUT, and DELETE
 referenced by a booking. Define memoryOptionSchema Zod schema.
 See spec.md for full details and 4 acceptance tests.
 
-- [ ] implemented
-- [ ] reviewed
+- [x] implemented
+- [x] reviewed
 
 #### Item 3.5: D4 - Booking Zod contracts [parallel with 3.1, 3.2, 3.3, 3.4]
 
@@ -70,8 +70,8 @@ bookingListSchema Zod schemas in booking-contracts.ts matching
 the backend BookingResponse Pydantic model. See spec.md for
 full details and 6 acceptance tests.
 
-- [ ] implemented
-- [ ] reviewed
+- [x] implemented
+- [x] reviewed
 
 For parallel batch items, use separate subagents per item.
 Launch review subagents using the `code-reviewer` skill (review
