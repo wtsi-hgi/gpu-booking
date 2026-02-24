@@ -18,8 +18,8 @@ okta_client_secret, okta_audience), database_url, and
 initial_admin_emails fields to the existing Settings class in
 config.py. See spec.md for full details and 3 acceptance tests.
 
-- [ ] implemented
-- [ ] reviewed
+- [x] implemented
+- [x] reviewed
 
 ### Batch 2 (parallel)
 
@@ -33,8 +33,8 @@ context (request_id, user_email, path, method, status_code)
 via middleware. Log level configurable via LOG_LEVEL env var.
 See spec.md for full details and 5 acceptance tests.
 
-- [ ] implemented
-- [ ] reviewed
+- [x] implemented
+- [x] reviewed
 
 #### Item 2.3: B2 - Auth middleware [parallel with 2.2]
 
@@ -46,8 +46,8 @@ X-Dev-User header; OIDC mode validates Bearer token) and
 admin status against the admins table. See spec.md for full
 details and 6 acceptance tests.
 
-- [ ] implemented
-- [ ] reviewed
+- [x] implemented
+- [x] reviewed
 
 ### Item 2.4: B3 - Auth endpoint and Zod contract
 
@@ -58,8 +58,8 @@ is_admin, auth_mode). Create the userInfoSchema Zod schema in
 auth-contracts.ts and the getCurrentUser Server Action. See
 spec.md for full details and 5 acceptance tests.
 
-- [ ] implemented
-- [ ] reviewed
+- [x] implemented
+- [x] reviewed
 
 ### Item 2.5: B4 - Frontend auth provider and user switch
 
@@ -71,8 +71,8 @@ getCurrentUser on mount. UserSwitch lets dev users type an
 email to impersonate. See spec.md for full details and 4
 acceptance tests.
 
-- [ ] implemented
-- [ ] reviewed
+- [x] implemented
+- [x] reviewed
 
 For parallel batch items, use separate subagents per item.
 Launch review subagents using the `code-reviewer` skill (review

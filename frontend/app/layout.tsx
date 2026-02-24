@@ -1,7 +1,9 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 
+import { AuthProvider } from '@/components/auth-provider'
 import { ThemeProvider } from '@/components/theme-provider'
+import { UserSwitch } from '@/components/user-switch'
 import { Toaster } from '@/components/ui/toaster'
 import { TooltipProvider } from '@/components/ui/tooltip'
 
@@ -29,10 +31,17 @@ export default function RootLayout({
         className={`${inter.variable} bg-background text-foreground min-h-screen font-sans antialiased`}
       >
         <ThemeProvider>
-          <TooltipProvider delayDuration={150}>
-            {children}
-            <Toaster />
-          </TooltipProvider>
+          <AuthProvider>
+            <TooltipProvider delayDuration={150}>
+              <header className="border-border bg-background/80 sticky top-0 z-20 border-b backdrop-blur">
+                <div className="container mx-auto flex h-14 max-w-6xl items-center justify-end px-4">
+                  <UserSwitch />
+                </div>
+              </header>
+              {children}
+              <Toaster />
+            </TooltipProvider>
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>

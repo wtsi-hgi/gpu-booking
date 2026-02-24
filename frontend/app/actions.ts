@@ -1,6 +1,7 @@
 'use server'
 
 import { backendJson } from '@/lib/backend-client'
+import { userInfoSchema, type UserInfo } from '@/lib/auth-contracts'
 import {
 	healthResponseSchema,
 	messageResponseSchema,
@@ -38,4 +39,9 @@ export async function fetchInitialGreeting() {
 
 export async function fetchHealth() {
 	return backendJson('/api/v1/health', healthResponseSchema)
+}
+
+export async function getCurrentUser(devUserEmail?: string): Promise<UserInfo> {
+	const headers = devUserEmail ? { 'X-Dev-User': devUserEmail } : undefined
+	return backendJson('/api/v1/auth/me', userInfoSchema, { headers })
 }

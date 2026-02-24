@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy.pool import StaticPool
 
+from config import settings
 from db.models import Admin, Base, GpuType, GramOption, MemoryOption, WorkflowType
 from db.seed import seed_db
 
@@ -113,7 +114,11 @@ async def test_seed_db_populates_admins_from_env_var(
     db_session: AsyncSession,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("INITIAL_ADMIN_EMAILS", "admin@example.com,boss@example.com")
+    monkeypatch.setattr(
+        settings,
+        "initial_admin_emails",
+        "admin@example.com,boss@example.com",
+    )
 
     await seed_db(db_session)
 
@@ -142,7 +147,7 @@ async def test_seed_db_without_admin_env_var_creates_no_admins(
     db_session: AsyncSession,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.delenv("INITIAL_ADMIN_EMAILS", raising=False)
+    monkeypatch.setattr(settings, "initial_admin_emails", "")
 
     await seed_db(db_session)
 

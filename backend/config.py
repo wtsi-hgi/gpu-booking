@@ -22,7 +22,19 @@ class Settings(BaseSettings):
     backend_port: int = 8000
     host: str = "0.0.0.0"
     reload: bool = True  # Auto-reload on code changes (dev only)
+
+    # Auth
+    auth_mode: str = "insecure"  # "oidc" or "insecure"
+    okta_issuer: str = ""
+    okta_client_id: str = ""
+    okta_client_secret: str = ""
+    okta_audience: str = ""
+
+    # Database
     database_url: str = "sqlite+aiosqlite:///./gpu_booking.db"
+
+    # Admin
+    initial_admin_emails: str = ""  # comma-separated
 
     # Observability / shared resources
     log_level: str = "INFO"

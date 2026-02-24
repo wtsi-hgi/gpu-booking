@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-import os
-
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from config import settings
 from db.models import Admin, GpuType, GramOption, MemoryOption, WorkflowType
 
 
@@ -20,7 +19,7 @@ async def _is_table_empty(session: AsyncSession, model: type) -> bool:
 def _parse_initial_admin_emails() -> list[str]:
     """Parse comma-separated INITIAL_ADMIN_EMAILS into normalized emails."""
 
-    raw_value = os.getenv("INITIAL_ADMIN_EMAILS", "")
+    raw_value = settings.initial_admin_emails
     return [email.strip() for email in raw_value.split(",") if email.strip()]
 
 

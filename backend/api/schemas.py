@@ -14,3 +14,11 @@ class HealthResponse(BaseModel):
 
     status: str
     database: str
+
+
+class UserInfo(BaseModel):
+    """Authenticated user information used by auth dependencies."""
+
+    email: str
+    is_admin: bool
+    auth_mode: str
