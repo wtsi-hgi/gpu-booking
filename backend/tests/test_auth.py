@@ -170,3 +170,71 @@ async def test_get_current_user_oidc_without_authorization_header_raises_401(
         await auth_middleware.get_current_user(_make_request())
 
     assert error.value.status_code == 401
+
+
+@pytest.mark.anyio
+async def test_get_current_user_oidc_with_verified_token_returns_non_admin(
+    monkeypatch: pytest.MonkeyPatch,
+    auth_session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    """Return non-admin user for a verified OIDC token when email is not admin."""
+
+    _ = auth_session_factory
+    monkeypatch.setattr(auth_middleware.settings, "auth_mode", "oidc")
+    monkeypatch.setattr(auth_middleware.settings, "okta_issuer", "https://issuer")
+
+    async def fake_decode_and_verify(_token: str) -> dict[str, str]:
+        return {
+            "email": "oidc-user@example.com",
+            "iss": "https://issuer",
+        }
+
+    monkeypatch.setattr(
+        auth_middleware,
+        "_decode_and_verify_oidc_token",
+        fake_decode_and_verify,
+    )
+
+    user = await auth_middleware.get_current_user(
+        _make_request({"Authorization": "Bearer test-token"})
+    )
+
+    assert user == UserInfo(
+        email="oidc-user@example.com",
+        is_admin=False,
+        auth_mode="oidc",
+    )
+
+
+@pytest.mark.anyio
+async def test_get_current_user_oidc_with_verified_token_returns_admin(
+    monkeypatch: pytest.MonkeyPatch,
+    auth_session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    """Return admin user for a verified OIDC token when email exists in admins."""
+
+    monkeypatch.setattr(auth_middleware.settings, "auth_mode", "oidc")
+    monkeypatch.setattr(auth_middleware.settings, "okta_issuer", "https://issuer")
+    await _add_admin(auth_session_factory, "oidc-admin@example.com")
+
+    async def fake_decode_and_verify(_token: str) -> dict[str, str]:
+        return {
+            "email": "oidc-admin@example.com",
+            "iss": "https://issuer",
+        }
+
+    monkeypatch.setattr(
+        auth_middleware,
+        "_decode_and_verify_oidc_token",
+        fake_decode_and_verify,
+    )
+
+    user = await auth_middleware.get_current_user(
+        _make_request({"Authorization": "Bearer test-token"})
+    )
+
+    assert user == UserInfo(
+        email="oidc-admin@example.com",
+        is_admin=True,
+        auth_mode="oidc",
+    )

@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-import base64
-import json
 from typing import Annotated, Any
 
+import anyio
 from fastapi import Depends, HTTPException, Request, status
+from jwt import InvalidTokenError, PyJWKClient
+from jwt import decode as jwt_decode
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -30,35 +31,65 @@ def _get_default_insecure_user_email() -> str:
     return "dev@example.com"
 
 
-def _decode_unverified_jwt_payload(token: str) -> dict[str, Any]:
-    """Decode JWT payload without signature verification."""
+_JWK_CLIENTS: dict[str, PyJWKClient] = {}
 
-    parts = token.split(".")
-    if len(parts) != 3:
+
+def _get_jwk_client(issuer: str) -> PyJWKClient:
+    """Return a cached JWKS client for the configured issuer."""
+
+    jwks_uri = f"{issuer.rstrip('/')}/v1/keys"
+    client = _JWK_CLIENTS.get(jwks_uri)
+    if client is None:
+        client = PyJWKClient(jwks_uri)
+        _JWK_CLIENTS[jwks_uri] = client
+    return client
+
+
+async def _decode_and_verify_oidc_token(token: str) -> dict[str, Any]:
+    """Decode and verify an OIDC bearer token using the issuer's JWKS."""
+
+    issuer = settings.okta_issuer.strip()
+    if not issuer:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="OIDC issuer is not configured",
+        )
+
+    try:
+        jwk_client = _get_jwk_client(issuer)
+        signing_key = await anyio.to_thread.run_sync(
+            jwk_client.get_signing_key_from_jwt,
+            token,
+        )
+
+        audience = settings.okta_audience.strip() or None
+        options = {"verify_aud": audience is not None}
+        claims: dict[str, Any] = jwt_decode(
+            token,
+            signing_key.key,
+            algorithms=["RS256"],
+            audience=audience,
+            issuer=issuer,
+            options=options,
+        )
+    except InvalidTokenError as error:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid bearer token",
-        )
-
-    payload_segment = parts[1]
-    padding = "=" * (-len(payload_segment) % 4)
-
-    try:
-        payload_bytes = base64.urlsafe_b64decode(payload_segment + padding)
-        payload = json.loads(payload_bytes.decode("utf-8"))
-    except (ValueError, UnicodeDecodeError, json.JSONDecodeError) as error:
+        ) from error
+    except Exception as error:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid bearer token payload",
+            detail="Unable to verify bearer token",
         ) from error
 
-    if not isinstance(payload, dict):
+    if not isinstance(claims, dict):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid bearer token payload",
         )
 
-    return payload
+    return claims
 
 
 async def _is_admin_user(email: str) -> bool:
@@ -99,14 +130,7 @@ async def get_current_user(request: Request) -> UserInfo:
             )
 
         token = auth_header.replace("Bearer ", "", 1).strip()
-        claims = _decode_unverified_jwt_payload(token)
-
-        issuer = str(claims.get("iss", "")).strip()
-        if settings.okta_issuer and issuer != settings.okta_issuer:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token issuer",
-            )
+        claims = await _decode_and_verify_oidc_token(token)
 
         email = str(
             claims.get("email") or claims.get("preferred_username") or ""
