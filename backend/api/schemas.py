@@ -1,6 +1,7 @@
 """Pydantic models used across the API layer."""
 
 from datetime import date, datetime
+from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
@@ -133,6 +134,36 @@ class MemoryOptionUpdate(BaseModel):
     sort_order: int | None = Field(default=None, ge=0)
 
 
+class BookingStatus(StrEnum):
+    """Supported lifecycle states for bookings."""
+
+    unconfirmed = "unconfirmed"
+    confirmed = "confirmed"
+    tentative = "tentative"
+    spot = "spot"
+    rejected = "rejected"
+    cancelled = "cancelled"
+
+
+class BookingCreate(BaseModel):
+    """Booking create payload."""
+
+    gpu_type_id: int
+    gpu_count: int = Field(gt=0)
+    gram_option_id: int
+    memory_option_id: int
+    workflow_type_id: int
+    start_date: date
+    end_date: date
+    alt_email: str | None = None
+    project_name: str | None = None
+    project_pi: str | None = None
+    project_grant_number: str | None = None
+    technical_lead: str | None = None
+    event_start_date: date | None = None
+    event_end_date: date | None = None
+
+
 class BookingResponse(BaseModel):
     """Booking response payload."""
 
@@ -149,7 +180,7 @@ class BookingResponse(BaseModel):
     workflow_type_name: str
     start_date: date
     end_date: date
-    status: str
+    status: BookingStatus
     alt_email: str | None
     project_name: str | None
     project_pi: str | None
@@ -163,3 +194,35 @@ class BookingResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     warnings: list[str]
+
+
+class DailyCapacity(BaseModel):
+    """Daily capacity metrics for one GPU type."""
+
+    date: date
+    gpu_type_id: int
+    gpu_type_name: str
+    total: int
+    confirmed_used: int
+    pending_used: int
+    available: int
+    user_used: int
+    user_percent: float
+    warnings: list[str]
+
+
+class CapacityWarning(BaseModel):
+    """Warning or block metadata for capacity validation rules."""
+
+    rule: str
+    message: str
+    severity: str
+
+
+class BookingValidation(BaseModel):
+    """Result of validating a proposed booking against capacity rules."""
+
+    valid: bool
+    warnings: list[CapacityWarning]
+    blocked: bool
+    block_reason: str | None = None

@@ -20,8 +20,8 @@ the 40% per-user warning rule, 100% hard block, duration >14
 days warning, and <14 days advance notice warning. See spec.md
 for full details and 13 acceptance tests.
 
-- [ ] implemented
-- [ ] reviewed
+- [x] implemented
+- [x] reviewed
 
 ### Item 4.2: D1 - Booking creation endpoint with validation
 
@@ -33,8 +33,8 @@ generation. Return 409 on hard capacity block. Include warnings
 in the BookingResponse. See spec.md for full details and 11
 acceptance tests.
 
-- [ ] implemented
-- [ ] reviewed
+- [x] implemented
+- [x] reviewed
 
 ### Batch 3 (parallel)
 
@@ -47,8 +47,8 @@ start_date, end_date, gpu_type_id, and status. Filter by date
 range overlap. Hide admin_notes from non-admin users. See
 spec.md for full details and 6 acceptance tests.
 
-- [ ] implemented
-- [ ] reviewed
+- [x] implemented
+- [x] reviewed
 
 #### Item 4.4: D3 - Booking cancellation endpoint [parallel with 4.3]
 
@@ -60,8 +60,8 @@ sets status to cancelled. Admin can cancel any booking (sets
 to cancelled). Non-owner non-admin gets 403. See spec.md for
 full details and 6 acceptance tests.
 
-- [ ] implemented
-- [ ] reviewed
+- [x] implemented
+- [x] reviewed
 
 For parallel batch items, use separate subagents per item.
 Launch review subagents using the `code-reviewer` skill (review
