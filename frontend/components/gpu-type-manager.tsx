@@ -2,12 +2,8 @@
 
 import { useActionState, useState } from 'react'
 
-import {
-  createGpuType,
-  initialFormState,
-  updateGpuType,
-  type FormState,
-} from '@/app/actions'
+import { createGpuType, updateGpuType } from '@/app/actions'
+import { initialFormState, type FormState } from '@/lib/action-form-states'
 import { type GpuType } from '@/lib/admin-contracts'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'

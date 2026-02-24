@@ -9,15 +9,14 @@ import {
 } from 'react'
 import { toast } from 'sonner'
 
-import {
-  adminUpdateBooking,
-  getCapacity,
-  initialAdminBookingFormState,
-  type AdminBookingFormState,
-} from '@/app/actions'
+import { adminUpdateBooking, getCapacity } from '@/app/actions'
 import { BookingTable } from '@/components/booking-table'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import {
+  initialAdminBookingFormState,
+  type AdminBookingFormState,
+} from '@/lib/action-form-states'
 import type {
   GramOption,
   GpuType,

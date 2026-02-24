@@ -6,10 +6,12 @@ import { toast } from 'sonner'
 import {
   createWorkflowType,
   deleteWorkflowType,
-  initialWorkflowTypeFormState,
   updateWorkflowType,
-  type WorkflowTypeFormState,
 } from '@/app/actions'
+import {
+  initialWorkflowTypeFormState,
+  type WorkflowTypeFormState,
+} from '@/lib/action-form-states'
 import { type WorkflowType } from '@/lib/admin-contracts'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'

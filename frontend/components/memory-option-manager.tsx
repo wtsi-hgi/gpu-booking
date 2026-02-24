@@ -3,11 +3,8 @@
 import { useActionState, useEffect, useState } from 'react'
 import { toast } from 'sonner'
 
-import {
-  mutateGramOptions,
-  mutateMemoryOptions,
-  type OptionFormState,
-} from '@/app/actions'
+import { mutateGramOptions, mutateMemoryOptions } from '@/app/actions'
+import { type OptionFormState } from '@/lib/action-form-states'
 import { type GramOption, type MemoryOption } from '@/lib/admin-contracts'
 import { Button } from '@/components/ui/button'
 import {
