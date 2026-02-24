@@ -22,8 +22,8 @@ E1. Define dailyCapacitySchema and dailyCapacityListSchema
 Zod schemas in booking-contracts.ts. See spec.md for full
 details and 5 acceptance tests.
 
-- [ ] implemented
-- [ ] reviewed
+- [x] implemented
+- [x] reviewed
 
 #### Item 5.2: E3 - Booking validation endpoint [parallel with 5.1]
 
@@ -35,8 +35,8 @@ capacity service from E1. Define capacityWarningSchema and
 bookingValidationSchema Zod schemas in booking-contracts.ts.
 See spec.md for full details and 4 acceptance tests.
 
-- [ ] implemented
-- [ ] reviewed
+- [x] implemented
+- [x] reviewed
 
 For parallel batch items, use separate subagents per item.
 Launch review subagents using the `code-reviewer` skill (review

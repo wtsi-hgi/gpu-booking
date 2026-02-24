@@ -3,6 +3,9 @@ import { describe, expect, it } from 'vitest'
 import {
   bookingListSchema,
   bookingResponseSchema,
+  bookingValidationSchema,
+  capacityWarningSchema,
+  dailyCapacitySchema,
 } from '@/lib/booking-contracts'
 
 const fullBookingPayload = {
@@ -78,5 +81,65 @@ describe('booking contracts', () => {
 
   it('accepts empty booking lists', () => {
     expect(bookingListSchema.parse([])).toEqual([])
+  })
+
+  it('parses valid daily capacity payloads', () => {
+    const payload = {
+      date: '2026-03-01',
+      gpu_type_id: 1,
+      gpu_type_name: 'H100',
+      total: 40,
+      confirmed_used: 10,
+      pending_used: 2,
+      available: 30,
+      user_used: 12,
+      user_percent: 15,
+      warnings: [],
+    }
+
+    expect(dailyCapacitySchema.parse(payload)).toEqual(payload)
+  })
+
+  it('rejects daily capacity payloads missing total', () => {
+    const payload = {
+      date: '2026-03-01',
+      gpu_type_id: 1,
+      gpu_type_name: 'H100',
+      confirmed_used: 10,
+      pending_used: 2,
+      available: 30,
+      user_used: 12,
+      user_percent: 15,
+      warnings: [],
+    }
+
+    expect(dailyCapacitySchema.safeParse(payload).success).toBe(false)
+  })
+
+  it('parses valid booking validation payloads', () => {
+    const payload = {
+      valid: true,
+      warnings: [
+        {
+          rule: 'capacity_soft_limit',
+          message: 'Requested GPUs exceed soft capacity threshold.',
+          severity: 'warning',
+        },
+      ],
+      blocked: false,
+      block_reason: null,
+    }
+
+    expect(bookingValidationSchema.parse(payload)).toEqual(payload)
+  })
+
+  it("parses capacity warning payloads with severity 'warning'", () => {
+    const payload = {
+      rule: 'capacity_soft_limit',
+      message: 'Requested GPUs exceed soft capacity threshold.',
+      severity: 'warning',
+    }
+
+    expect(capacityWarningSchema.parse(payload)).toEqual(payload)
   })
 })

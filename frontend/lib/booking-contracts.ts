@@ -42,3 +42,35 @@ export const bookingResponseSchema = z.object({
 export type BookingResponse = z.infer<typeof bookingResponseSchema>
 
 export const bookingListSchema = z.array(bookingResponseSchema)
+
+export const dailyCapacitySchema = z.object({
+  date: z.string(),
+  gpu_type_id: z.number(),
+  gpu_type_name: z.string(),
+  total: z.number(),
+  confirmed_used: z.number(),
+  pending_used: z.number(),
+  available: z.number(),
+  user_used: z.number(),
+  user_percent: z.number(),
+  warnings: z.array(z.string()),
+})
+
+export type DailyCapacity = z.infer<typeof dailyCapacitySchema>
+
+export const dailyCapacityListSchema = z.array(dailyCapacitySchema)
+
+export const capacityWarningSchema = z.object({
+  rule: z.string(),
+  message: z.string(),
+  severity: z.enum(['warning', 'block']),
+})
+
+export const bookingValidationSchema = z.object({
+  valid: z.boolean(),
+  warnings: z.array(capacityWarningSchema),
+  blocked: z.boolean(),
+  block_reason: z.string().nullable(),
+})
+
+export type BookingValidation = z.infer<typeof bookingValidationSchema>
