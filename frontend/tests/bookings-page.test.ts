@@ -269,6 +269,30 @@ describe('bookings page - F1 calendar grid', () => {
     )
   })
 
+  it('shows the dragged date range while selecting multiple days', async () => {
+    const { default: BookingsPage } = await import('@/app/bookings/page')
+    render(await BookingsPage())
+
+    const startDayCell = document.querySelector('[data-date="2026-03-10"]')
+    const middleDayCell = document.querySelector('[data-date="2026-03-12"]')
+    const endDayCell = document.querySelector('[data-date="2026-03-14"]')
+    const outsideDayCell = document.querySelector('[data-date="2026-03-15"]')
+
+    expect(startDayCell).toBeTruthy()
+    expect(middleDayCell).toBeTruthy()
+    expect(endDayCell).toBeTruthy()
+    expect(outsideDayCell).toBeTruthy()
+
+    fireEvent.mouseDown(startDayCell as Element)
+    fireEvent.mouseEnter(endDayCell as Element)
+
+    expect(startDayCell?.getAttribute('data-drag-selected')).toBe('true')
+    expect(middleDayCell?.getAttribute('data-drag-selected')).toBe('true')
+    expect(endDayCell?.getAttribute('data-drag-selected')).toBe('true')
+    expect(outsideDayCell?.getAttribute('data-drag-selected')).toBe('false')
+    expect(mocks.routerPushMock).not.toHaveBeenCalled()
+  })
+
   it('opens booking form with dragged date range when user drags across days', async () => {
     const { default: BookingsPage } = await import('@/app/bookings/page')
     render(await BookingsPage())

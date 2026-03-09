@@ -145,6 +145,7 @@ export function CalendarView({
   >(undefined)
   const [activeTab, setActiveTab] = useState<'calendar' | 'table'>('calendar')
   const [dragStartDate, setDragStartDate] = useState<string | null>(null)
+  const [dragCurrentDate, setDragCurrentDate] = useState<string | null>(null)
   const hasMountedRef = useRef(false)
 
   const monthTitle = monthFormatter.format(currentMonth)
@@ -155,6 +156,18 @@ export function CalendarView({
 
   const dayCells = useMemo(() => buildMonthCells(monthStart), [monthStart])
   const capacityByDate = useMemo(() => summariseCapacity(capacity), [capacity])
+  const dragSelection = useMemo(() => {
+    if (dragStartDate === null) {
+      return null
+    }
+
+    const [startDate, endDate] = normaliseRange(
+      dragStartDate,
+      dragCurrentDate ?? dragStartDate
+    )
+
+    return { startDate, endDate }
+  }, [dragCurrentDate, dragStartDate])
 
   useEffect(() => {
     if (!hasMountedRef.current) {
@@ -192,6 +205,7 @@ export function CalendarView({
 
     function handleWindowMouseUp() {
       setDragStartDate(null)
+      setDragCurrentDate(null)
     }
 
     window.addEventListener('mouseup', handleWindowMouseUp)
@@ -336,6 +350,14 @@ export function CalendarView({
                       summary.total) *
                     100
                   : 0
+              const isInDragSelection =
+                dragSelection !== null &&
+                day.dateIso >= dragSelection.startDate &&
+                day.dateIso <= dragSelection.endDate
+              const isDragBoundary =
+                dragSelection !== null &&
+                (day.dateIso === dragSelection.startDate ||
+                  day.dateIso === dragSelection.endDate)
 
               return (
                 <div
@@ -347,15 +369,30 @@ export function CalendarView({
                       : 'bg-muted/40 text-muted-foreground',
                     usagePercent > 80 && day.inCurrentMonth
                       ? 'bg-destructive/10'
-                      : null
+                      : null,
+                    isInDragSelection
+                      ? 'border-primary/50 bg-primary/10'
+                      : null,
+                    isDragBoundary ? 'ring-primary/30 ring-1' : null
                   )}
                   data-day-cell="true"
                   data-date={day.dateIso}
                   data-current-month={day.inCurrentMonth ? 'true' : 'false'}
+                  data-drag-selected={isInDragSelection ? 'true' : 'false'}
                   onDoubleClick={() =>
                     openBookingForm(day.dateIso, day.dateIso)
                   }
-                  onMouseDown={() => setDragStartDate(day.dateIso)}
+                  onMouseDown={() => {
+                    setDragStartDate(day.dateIso)
+                    setDragCurrentDate(day.dateIso)
+                  }}
+                  onMouseEnter={() => {
+                    if (dragStartDate === null) {
+                      return
+                    }
+
+                    setDragCurrentDate(day.dateIso)
+                  }}
                   onMouseUp={() => {
                     if (!dragStartDate) {
                       return
@@ -366,6 +403,7 @@ export function CalendarView({
                       day.dateIso
                     )
                     setDragStartDate(null)
+                    setDragCurrentDate(null)
                     openBookingForm(startDate, endDate)
                   }}
                 >
