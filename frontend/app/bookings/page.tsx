@@ -10,12 +10,22 @@ function toDateParam(value: Date): string {
   return value.toISOString().slice(0, 10)
 }
 
-function getCurrentMonthBounds() {
-  const now = new Date()
-  const year = now.getUTCFullYear()
-  const month = now.getUTCMonth()
-  const start = new Date(Date.UTC(year, month, 1))
-  const end = new Date(Date.UTC(year, month + 1, 0))
+function getCalendarGridBounds(monthStart: Date) {
+  const firstWeekday = monthStart.getUTCDay()
+  const start = new Date(
+    Date.UTC(
+      monthStart.getUTCFullYear(),
+      monthStart.getUTCMonth(),
+      1 - firstWeekday
+    )
+  )
+  const end = new Date(
+    Date.UTC(
+      start.getUTCFullYear(),
+      start.getUTCMonth(),
+      start.getUTCDate() + 41
+    )
+  )
 
   return {
     start: toDateParam(start),
@@ -23,12 +33,26 @@ function getCurrentMonthBounds() {
   }
 }
 
+function getCurrentCalendarMonth() {
+  const now = new Date()
+  const year = now.getUTCFullYear()
+  const month = now.getUTCMonth()
+  const monthStart = new Date(Date.UTC(year, month, 1))
+  const dataWindow = getCalendarGridBounds(monthStart)
+
+  return {
+    initialMonthIso: toDateParam(monthStart),
+    dataStart: dataWindow.start,
+    dataEnd: dataWindow.end,
+  }
+}
+
 export default async function BookingsPage() {
-  const month = getCurrentMonthBounds()
+  const month = getCurrentCalendarMonth()
   const [gpuTypes, capacity, bookings, currentUser] = await Promise.all([
     getGpuTypes(),
-    getCapacity(month.start, month.end),
-    getBookings(month.start, month.end),
+    getCapacity(month.dataStart, month.dataEnd),
+    getBookings(month.dataStart, month.dataEnd),
     getCurrentUser(),
   ])
 
@@ -42,7 +66,7 @@ export default async function BookingsPage() {
       </header>
 
       <CalendarView
-        initialMonthIso={month.start}
+        initialMonthIso={month.initialMonthIso}
         initialCapacity={capacity}
         initialBookings={bookings}
         gpuTypes={gpuTypes}

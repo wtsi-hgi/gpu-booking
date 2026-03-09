@@ -86,6 +86,29 @@ function buildBooking(id: number, status: BookingStatus = 'confirmed') {
   }
 }
 
+function buildBookingWithOverrides(
+  id: number,
+  overrides: Partial<{
+    status: BookingStatus
+    start_date: string
+    end_date: string
+    gpu_type_name: string
+    gpu_count: number
+    workflow_type_name: string
+    user_email: string
+  }> = {}
+) {
+  return {
+    ...buildBooking(id, overrides.status ?? 'confirmed'),
+    start_date: overrides.start_date ?? '2026-03-10',
+    end_date: overrides.end_date ?? '2026-03-12',
+    gpu_type_name: overrides.gpu_type_name ?? 'H100',
+    gpu_count: overrides.gpu_count ?? 2,
+    workflow_type_name: overrides.workflow_type_name ?? 'Training',
+    user_email: overrides.user_email ?? 'user@example.com',
+  }
+}
+
 describe('bookings page - F1 calendar grid', () => {
   beforeEach(() => {
     vi.useFakeTimers()
@@ -198,12 +221,12 @@ describe('bookings page - F1 calendar grid', () => {
 
     expect(mocks.getCapacityMock).toHaveBeenCalledWith(
       '2026-02-01',
-      '2026-02-28',
+      '2026-03-14',
       undefined
     )
     expect(mocks.getBookingsMock).toHaveBeenCalledWith(
       '2026-02-01',
-      '2026-02-28',
+      '2026-03-14',
       undefined
     )
   })
@@ -231,7 +254,7 @@ describe('bookings page - F1 calendar grid', () => {
 
     expect(mocks.getCapacityMock).toHaveBeenCalledWith(
       '2026-03-01',
-      '2026-03-31',
+      '2026-04-11',
       1
     )
   })
@@ -269,6 +292,119 @@ describe('bookings page - F1 calendar grid', () => {
     )
   })
 
+  it('shows selection details for a single-day click and waits for the CTA before navigating', async () => {
+    const { default: BookingsPage } = await import('@/app/bookings/page')
+    render(await BookingsPage())
+
+    const dayCell = document.querySelector('[data-date="2026-03-10"]')
+    expect(dayCell).toBeTruthy()
+
+    fireEvent.mouseDown(dayCell as Element)
+    fireEvent.mouseUp(dayCell as Element)
+
+    const selectionPanel = document.querySelector(
+      '[data-selection-panel="true"]'
+    )
+
+    expect(selectionPanel).toBeTruthy()
+    expect(selectionPanel?.getAttribute('data-selection-start')).toBe(
+      '2026-03-10'
+    )
+    expect(selectionPanel?.getAttribute('data-selection-end')).toBe(
+      '2026-03-10'
+    )
+    expect(selectionPanel?.getAttribute('data-selection-days')).toBe('1')
+    expect(selectionPanel?.getAttribute('data-selection-available')).toBe('60')
+    expect(selectionPanel?.getAttribute('data-selection-overlap-count')).toBe(
+      '1'
+    )
+    expect(mocks.routerPushMock).not.toHaveBeenCalled()
+
+    const selectionButton = screen.getByRole('button', {
+      name: /create booking for selection/i,
+    })
+
+    expect(selectionButton.textContent).toContain('60 GPUs available')
+
+    fireEvent.click(selectionButton)
+
+    expect(mocks.routerPushMock).toHaveBeenCalledWith(
+      '/bookings/new?start=2026-03-10&end=2026-03-10'
+    )
+  })
+
+  it('uses visible adjacent-month data for overflow cells and selection details', async () => {
+    mocks.getCapacityMock.mockResolvedValueOnce([
+      buildCapacity('2026-03-10', 80, 20, 0),
+      buildCapacity('2026-04-01', 12, 4, 2, 1, 'H100'),
+    ])
+    mocks.getBookingsMock.mockResolvedValueOnce([
+      buildBookingWithOverrides(1, {
+        start_date: '2026-03-10',
+        end_date: '2026-03-12',
+      }),
+      buildBookingWithOverrides(2, {
+        start_date: '2026-03-31',
+        end_date: '2026-04-02',
+        gpu_count: 3,
+        user_email: 'adjacent@example.com',
+        workflow_type_name: 'Inference',
+      }),
+    ])
+
+    const { default: BookingsPage } = await import('@/app/bookings/page')
+    render(await BookingsPage())
+
+    expect(mocks.getCapacityMock).toHaveBeenCalledWith(
+      '2026-03-01',
+      '2026-04-11'
+    )
+    expect(mocks.getBookingsMock).toHaveBeenCalledWith(
+      '2026-03-01',
+      '2026-04-11'
+    )
+
+    const adjacentDayCell = document.querySelector('[data-date="2026-04-01"]')
+
+    expect(adjacentDayCell).toBeTruthy()
+    expect(adjacentDayCell?.getAttribute('data-current-month')).toBe('false')
+    expect(
+      adjacentDayCell?.querySelector('[data-capacity-total="12"]')
+    ).toBeTruthy()
+
+    fireEvent.mouseDown(adjacentDayCell as Element)
+    fireEvent.mouseUp(adjacentDayCell as Element)
+
+    const selectionPanel = document.querySelector(
+      '[data-selection-panel="true"]'
+    )
+
+    expect(selectionPanel?.getAttribute('data-selection-start')).toBe(
+      '2026-04-01'
+    )
+    expect(selectionPanel?.getAttribute('data-selection-end')).toBe(
+      '2026-04-01'
+    )
+    expect(selectionPanel?.getAttribute('data-selection-days')).toBe('1')
+    expect(selectionPanel?.getAttribute('data-selection-available')).toBe('6')
+    expect(selectionPanel?.getAttribute('data-selection-overlap-count')).toBe(
+      '1'
+    )
+    expect(screen.getByText('adjacent@example.com')).toBeTruthy()
+
+    const selectionButton = screen.getByRole('button', {
+      name: /create booking for selection/i,
+    })
+
+    expect(selectionButton.textContent).toContain('6 GPUs available')
+
+    fireEvent.click(selectionButton)
+
+    expect(mocks.routerPushMock).toHaveBeenCalledWith(
+      '/bookings/new?start=2026-04-01&end=2026-04-01'
+    )
+  })
+
   it('shows the dragged date range while selecting multiple days', async () => {
     const { default: BookingsPage } = await import('@/app/bookings/page')
     render(await BookingsPage())
@@ -293,18 +429,79 @@ describe('bookings page - F1 calendar grid', () => {
     expect(mocks.routerPushMock).not.toHaveBeenCalled()
   })
 
-  it('opens booking form with dragged date range when user drags across days', async () => {
+  it('shows least availability and overlapping bookings for a dragged date range before using the CTA', async () => {
+    mocks.getCapacityMock.mockResolvedValueOnce([
+      buildCapacity('2026-03-10', 40, 10, 0, 1, 'H100'),
+      buildCapacity('2026-03-11', 40, 32, 0, 1, 'H100'),
+      buildCapacity('2026-03-12', 40, 18, 4, 1, 'H100'),
+      buildCapacity('2026-03-13', 40, 8, 0, 1, 'H100'),
+      buildCapacity('2026-03-14', 40, 15, 0, 1, 'H100'),
+    ])
+    mocks.getBookingsMock.mockResolvedValueOnce([
+      buildBookingWithOverrides(1, {
+        start_date: '2026-03-10',
+        end_date: '2026-03-12',
+        user_email: 'user@example.com',
+      }),
+      buildBookingWithOverrides(2, {
+        start_date: '2026-03-14',
+        end_date: '2026-03-16',
+        user_email: 'other@example.com',
+        workflow_type_name: 'Inference',
+        gpu_count: 1,
+      }),
+      buildBookingWithOverrides(3, {
+        start_date: '2026-03-18',
+        end_date: '2026-03-20',
+        user_email: 'late@example.com',
+      }),
+    ])
+
     const { default: BookingsPage } = await import('@/app/bookings/page')
     render(await BookingsPage())
 
     const startDayCell = document.querySelector('[data-date="2026-03-10"]')
+    const middleDayCell = document.querySelector('[data-date="2026-03-12"]')
     const endDayCell = document.querySelector('[data-date="2026-03-14"]')
+    const outsideDayCell = document.querySelector('[data-date="2026-03-15"]')
 
     expect(startDayCell).toBeTruthy()
+    expect(middleDayCell).toBeTruthy()
     expect(endDayCell).toBeTruthy()
+    expect(outsideDayCell).toBeTruthy()
 
     fireEvent.mouseDown(startDayCell as Element)
+    fireEvent.mouseEnter(endDayCell as Element)
     fireEvent.mouseUp(endDayCell as Element)
+
+    const selectionPanel = document.querySelector(
+      '[data-selection-panel="true"]'
+    )
+
+    expect(selectionPanel?.getAttribute('data-selection-start')).toBe(
+      '2026-03-10'
+    )
+    expect(selectionPanel?.getAttribute('data-selection-end')).toBe(
+      '2026-03-14'
+    )
+    expect(selectionPanel?.getAttribute('data-selection-days')).toBe('5')
+    expect(selectionPanel?.getAttribute('data-selection-available')).toBe('8')
+    expect(selectionPanel?.getAttribute('data-selection-overlap-count')).toBe(
+      '2'
+    )
+    expect(startDayCell?.getAttribute('data-drag-selected')).toBe('true')
+    expect(middleDayCell?.getAttribute('data-drag-selected')).toBe('true')
+    expect(endDayCell?.getAttribute('data-drag-selected')).toBe('true')
+    expect(outsideDayCell?.getAttribute('data-drag-selected')).toBe('false')
+    expect(mocks.routerPushMock).not.toHaveBeenCalled()
+
+    const selectionButton = screen.getByRole('button', {
+      name: /create booking for selection/i,
+    })
+
+    expect(selectionButton.textContent).toContain('up to 8 GPUs available')
+
+    fireEvent.click(selectionButton)
 
     expect(mocks.routerPushMock).toHaveBeenCalledWith(
       '/bookings/new?start=2026-03-10&end=2026-03-14'

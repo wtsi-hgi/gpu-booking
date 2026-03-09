@@ -70,11 +70,11 @@ describe('home route app availability', () => {
     expect(mocks.getGpuTypesMock).toHaveBeenCalledTimes(1)
     expect(mocks.getCapacityMock).toHaveBeenCalledWith(
       '2026-03-01',
-      '2026-03-31'
+      '2026-04-11'
     )
     expect(mocks.getBookingsMock).toHaveBeenCalledWith(
       '2026-03-01',
-      '2026-03-31'
+      '2026-04-11'
     )
     expect(mocks.getCurrentUserMock).toHaveBeenCalledTimes(1)
   })
