@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 import { getBookings, getCapacity } from '@/app/actions'
@@ -170,6 +170,10 @@ function getInclusiveDateRange(startDate: string, endDate: string): string[] {
   return dates
 }
 
+function isDateWithinRange(dateIso: string, range: SelectionRange): boolean {
+  return dateIso >= range.startDate && dateIso <= range.endDate
+}
+
 function getAvailabilitySummary(summary?: DailySummary): SelectionAvailability {
   const safeSummary = summary ?? {
     total: 0,
@@ -225,6 +229,8 @@ export function CalendarView({
   const [dragStartDate, setDragStartDate] = useState<string | null>(null)
   const [dragCurrentDate, setDragCurrentDate] = useState<string | null>(null)
   const hasMountedRef = useRef(false)
+  const dragMovedRef = useRef(false)
+  const selectionPanelRef = useRef<HTMLDivElement>(null)
 
   const monthTitle = monthFormatter.format(currentMonth)
   const monthStart = startOfMonthUtc(currentMonth)
@@ -303,6 +309,15 @@ export function CalendarView({
       : selectionDetails.dayCount === 1
         ? `Create booking for selection (${selectionDetails.tightestAvailability.available} GPUs available)`
         : `Create booking for selection (up to ${selectionDetails.tightestAvailability.available} GPUs available)`
+  const committedSelectionEndDate =
+    dragSelection === null ? selectedRange?.endDate : null
+
+  const clearSelection = useCallback(() => {
+    setSelectedRange(null)
+    setDragStartDate(null)
+    setDragCurrentDate(null)
+    dragMovedRef.current = false
+  }, [])
 
   useEffect(() => {
     if (!hasMountedRef.current) {
@@ -357,6 +372,38 @@ export function CalendarView({
     }
   }, [dragStartDate])
 
+  useEffect(() => {
+    if (selectedRange === null) {
+      return
+    }
+
+    function handleDocumentMouseDown(event: MouseEvent) {
+      const selectionPanel = selectionPanelRef.current
+      const target = event.target
+      const targetElement =
+        target instanceof Element
+          ? target
+          : target instanceof Node
+            ? target.parentElement
+            : null
+
+      if (
+        !(target instanceof Node) ||
+        selectionPanel?.contains(target) ||
+        targetElement?.closest('[data-day-cell="true"]') !== null
+      ) {
+        return
+      }
+
+      clearSelection()
+    }
+
+    document.addEventListener('mousedown', handleDocumentMouseDown)
+    return () => {
+      document.removeEventListener('mousedown', handleDocumentMouseDown)
+    }
+  }, [clearSelection, selectedRange])
+
   function openBookingForm(startDate?: string, endDate?: string) {
     if (!startDate || !endDate) {
       router.push('/bookings/new')
@@ -376,6 +423,18 @@ export function CalendarView({
       return
     }
 
+    const isClickWithoutDrag =
+      dragMovedRef.current === false && dragStartDate === endDate
+
+    if (
+      isClickWithoutDrag &&
+      selectedRange !== null &&
+      isDateWithinRange(endDate, selectedRange)
+    ) {
+      clearSelection()
+      return
+    }
+
     const [startDate, normalisedEndDate] = normaliseRange(
       dragStartDate,
       endDate
@@ -384,6 +443,18 @@ export function CalendarView({
     setSelectedRange({ startDate, endDate: normalisedEndDate })
     setDragStartDate(null)
     setDragCurrentDate(null)
+    dragMovedRef.current = false
+  }
+
+  function scrollToSelectionPanel() {
+    const panel = selectionPanelRef.current
+
+    if (!panel) {
+      return
+    }
+
+    panel.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    panel.focus({ preventScroll: true })
   }
 
   return (
@@ -475,9 +546,6 @@ export function CalendarView({
               >
                 Today
               </Button>
-              <Button type="button" onClick={() => openBookingForm()}>
-                New Booking
-              </Button>
             </div>
             <h2
               className="text-lg font-semibold"
@@ -518,12 +586,15 @@ export function CalendarView({
                     displayedSelection !== null &&
                     (day.dateIso === displayedSelection.startDate ||
                       day.dateIso === displayedSelection.endDate)
+                  const hasSelectionJump =
+                    committedSelectionEndDate !== null &&
+                    day.dateIso === committedSelectionEndDate
 
                   return (
                     <div
                       key={day.key}
                       className={cn(
-                        'border-border min-h-24 cursor-pointer rounded border p-2 select-none',
+                        'border-border relative min-h-24 cursor-pointer rounded border p-2 select-none',
                         day.inCurrentMonth
                           ? 'bg-card'
                           : 'bg-muted/40 text-muted-foreground',
@@ -533,7 +604,8 @@ export function CalendarView({
                         isInDragSelection
                           ? 'border-primary/50 bg-primary/10'
                           : null,
-                        isDragBoundary ? 'ring-primary/30 ring-1' : null
+                        isDragBoundary ? 'ring-primary/30 ring-1' : null,
+                        hasSelectionJump ? 'pb-10' : null
                       )}
                       data-day-cell="true"
                       data-date={day.dateIso}
@@ -543,12 +615,17 @@ export function CalendarView({
                         openBookingForm(day.dateIso, day.dateIso)
                       }
                       onMouseDown={() => {
+                        dragMovedRef.current = false
                         setDragStartDate(day.dateIso)
                         setDragCurrentDate(day.dateIso)
                       }}
                       onMouseEnter={() => {
                         if (dragStartDate === null) {
                           return
+                        }
+
+                        if (day.dateIso !== dragStartDate) {
+                          dragMovedRef.current = true
                         }
 
                         setDragCurrentDate(day.dateIso)
@@ -563,6 +640,26 @@ export function CalendarView({
                           pendingUsed={summary.pendingUsed}
                         />
                       </div>
+
+                      {hasSelectionJump ? (
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          className="border-primary/15 bg-background/95 absolute right-2 bottom-2 z-10 h-auto rounded-full border px-2.5 py-1 text-[11px] font-semibold shadow-sm backdrop-blur"
+                          aria-label="Jump to selection details"
+                          data-selection-jump="true"
+                          onMouseDown={(event) => event.stopPropagation()}
+                          onMouseUp={(event) => event.stopPropagation()}
+                          onDoubleClick={(event) => event.stopPropagation()}
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            scrollToSelectionPanel()
+                          }}
+                        >
+                          Details ↓
+                        </Button>
+                      ) : null}
                     </div>
                   )
                 })}
@@ -570,7 +667,8 @@ export function CalendarView({
             </div>
 
             <Card
-              className="border-primary/10 bg-card/95"
+              ref={selectionPanelRef}
+              className="border-primary/10 bg-card/95 scroll-mt-4"
               data-selection-panel="true"
               data-selection-start={displayedSelection?.startDate}
               data-selection-end={displayedSelection?.endDate}
@@ -581,16 +679,33 @@ export function CalendarView({
               data-selection-overlap-count={
                 selectionDetails?.overlappingBookings.length
               }
+              tabIndex={-1}
             >
               <CardHeader className="pb-4">
-                <CardTitle className="text-lg">Selection details</CardTitle>
-                <CardDescription>
-                  {selectionDetails === null
-                    ? 'Click a day or drag across the calendar to inspect availability before booking.'
-                    : selectionDetails.dayCount === 1
-                      ? 'Selected day'
-                      : 'Selected range'}
-                </CardDescription>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="space-y-1">
+                    <CardTitle className="text-lg">Selection details</CardTitle>
+                    <CardDescription>
+                      {selectionDetails === null
+                        ? 'Click a day or drag across the calendar to inspect availability before booking.'
+                        : selectionDetails.dayCount === 1
+                          ? 'Selected day'
+                          : 'Selected range'}
+                    </CardDescription>
+                  </div>
+
+                  {selectedRange !== null ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="shrink-0"
+                      onClick={clearSelection}
+                    >
+                      Clear selection
+                    </Button>
+                  ) : null}
+                </div>
               </CardHeader>
               <CardContent className="space-y-4">
                 {selectionDetails === null || displayedSelection === null ? (

@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   getCurrentUserMock: vi.fn(),
   getGpuTypesMock: vi.fn(),
   routerPushMock: vi.fn(),
+  scrollIntoViewMock: vi.fn(),
 }))
 
 vi.mock('@/app/actions', () => ({
@@ -114,6 +115,10 @@ describe('bookings page - F1 calendar grid', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-03-15T12:00:00Z'))
     vi.clearAllMocks()
+    Object.defineProperty(window.HTMLElement.prototype, 'scrollIntoView', {
+      configurable: true,
+      value: mocks.scrollIntoViewMock,
+    })
 
     mocks.getGpuTypesMock.mockResolvedValue([
       {
@@ -171,6 +176,13 @@ describe('bookings page - F1 calendar grid', () => {
     expect(
       bookedDayCell?.querySelector('[data-capacity-total="80"]')
     ).toBeTruthy()
+  })
+
+  it('does not render a misleading calendar header New Booking button', async () => {
+    const { default: BookingsPage } = await import('@/app/bookings/page')
+    render(await BookingsPage())
+
+    expect(screen.queryByRole('button', { name: 'New Booking' })).toBeNull()
   })
 
   it('shows 50% solid confirmed usage for 20 of 40 confirmed GPUs', async () => {
@@ -508,12 +520,193 @@ describe('bookings page - F1 calendar grid', () => {
     )
   })
 
-  it('opens booking form without prefilled dates when New Booking is clicked', async () => {
+  it('deselects a committed single-day selection when the same day is clicked again without dragging', async () => {
     const { default: BookingsPage } = await import('@/app/bookings/page')
     render(await BookingsPage())
 
-    fireEvent.click(screen.getByRole('button', { name: 'New Booking' }))
+    const dayCell = document.querySelector('[data-date="2026-03-10"]')
 
-    expect(mocks.routerPushMock).toHaveBeenCalledWith('/bookings/new')
+    expect(dayCell).toBeTruthy()
+
+    fireEvent.mouseDown(dayCell as Element)
+    fireEvent.mouseUp(dayCell as Element)
+
+    const selectionPanel = document.querySelector(
+      '[data-selection-panel="true"]'
+    )
+
+    expect(selectionPanel?.getAttribute('data-selection-start')).toBe(
+      '2026-03-10'
+    )
+
+    fireEvent.mouseDown(dayCell as Element)
+    fireEvent.mouseUp(dayCell as Element)
+
+    expect(selectionPanel?.getAttribute('data-selection-start')).toBeNull()
+    expect(selectionPanel?.getAttribute('data-selection-end')).toBeNull()
+    expect(
+      screen.queryByRole('button', {
+        name: /clear selection/i,
+      })
+    ).toBeNull()
+    expect(mocks.routerPushMock).not.toHaveBeenCalled()
+  })
+
+  it('deselects a committed range when a selected day is clicked again without dragging', async () => {
+    const { default: BookingsPage } = await import('@/app/bookings/page')
+    render(await BookingsPage())
+
+    const startDayCell = document.querySelector('[data-date="2026-03-10"]')
+    const middleDayCell = document.querySelector('[data-date="2026-03-12"]')
+    const endDayCell = document.querySelector('[data-date="2026-03-14"]')
+
+    expect(startDayCell).toBeTruthy()
+    expect(middleDayCell).toBeTruthy()
+    expect(endDayCell).toBeTruthy()
+
+    fireEvent.mouseDown(startDayCell as Element)
+    fireEvent.mouseEnter(endDayCell as Element)
+    fireEvent.mouseUp(endDayCell as Element)
+
+    const selectionPanel = document.querySelector(
+      '[data-selection-panel="true"]'
+    )
+
+    expect(selectionPanel?.getAttribute('data-selection-start')).toBe(
+      '2026-03-10'
+    )
+    expect(selectionPanel?.getAttribute('data-selection-end')).toBe(
+      '2026-03-14'
+    )
+
+    fireEvent.mouseDown(middleDayCell as Element)
+    fireEvent.mouseUp(middleDayCell as Element)
+
+    expect(selectionPanel?.getAttribute('data-selection-start')).toBeNull()
+    expect(selectionPanel?.getAttribute('data-selection-end')).toBeNull()
+    expect(
+      screen.queryByRole('button', {
+        name: /jump to selection details/i,
+      })
+    ).toBeNull()
+    expect(mocks.routerPushMock).not.toHaveBeenCalled()
+  })
+
+  it('clears selection when clicking outside day cells but keeps it when clicking inside selection details', async () => {
+    const { default: BookingsPage } = await import('@/app/bookings/page')
+    render(await BookingsPage())
+
+    const dayCell = document.querySelector('[data-date="2026-03-10"]')
+    const weekdayHeader = screen.getByText('Mon')
+
+    expect(dayCell).toBeTruthy()
+    expect(weekdayHeader).toBeTruthy()
+
+    fireEvent.mouseDown(dayCell as Element)
+    fireEvent.mouseUp(dayCell as Element)
+
+    const selectionPanel = document.querySelector(
+      '[data-selection-panel="true"]'
+    )
+
+    expect(selectionPanel?.getAttribute('data-selection-start')).toBe(
+      '2026-03-10'
+    )
+
+    fireEvent.mouseDown(selectionPanel as Element)
+    fireEvent.mouseUp(selectionPanel as Element)
+
+    expect(selectionPanel?.getAttribute('data-selection-start')).toBe(
+      '2026-03-10'
+    )
+
+    fireEvent.mouseDown(weekdayHeader)
+    fireEvent.mouseUp(weekdayHeader)
+
+    expect(selectionPanel?.getAttribute('data-selection-start')).toBeNull()
+    expect(selectionPanel?.getAttribute('data-selection-end')).toBeNull()
+    expect(
+      screen.queryByRole('button', {
+        name: /create booking for selection/i,
+      })
+    ).toBeNull()
+  })
+
+  it('shows a jump-to-details affordance on the committed selection and scrolls to the panel', async () => {
+    const { default: BookingsPage } = await import('@/app/bookings/page')
+    render(await BookingsPage())
+
+    const startDayCell = document.querySelector('[data-date="2026-03-10"]')
+    const endDayCell = document.querySelector('[data-date="2026-03-14"]')
+
+    expect(startDayCell).toBeTruthy()
+    expect(endDayCell).toBeTruthy()
+
+    fireEvent.mouseDown(startDayCell as Element)
+    fireEvent.mouseEnter(endDayCell as Element)
+
+    expect(
+      screen.queryByRole('button', {
+        name: /jump to selection details/i,
+      })
+    ).toBeNull()
+
+    fireEvent.mouseUp(endDayCell as Element)
+
+    const jumpButton = screen.getByRole('button', {
+      name: /jump to selection details/i,
+    })
+
+    expect(endDayCell?.contains(jumpButton)).toBe(true)
+
+    fireEvent.click(jumpButton)
+
+    expect(mocks.scrollIntoViewMock).toHaveBeenCalledWith({
+      behavior: 'smooth',
+      block: 'start',
+    })
+    expect(mocks.routerPushMock).not.toHaveBeenCalled()
+  })
+
+  it('clears the current selection back to the empty state', async () => {
+    const { default: BookingsPage } = await import('@/app/bookings/page')
+    render(await BookingsPage())
+
+    const dayCell = document.querySelector('[data-date="2026-03-10"]')
+
+    expect(dayCell).toBeTruthy()
+
+    fireEvent.mouseDown(dayCell as Element)
+    fireEvent.mouseUp(dayCell as Element)
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: /clear selection/i,
+      })
+    )
+
+    const selectionPanel = document.querySelector(
+      '[data-selection-panel="true"]'
+    )
+
+    expect(selectionPanel?.getAttribute('data-selection-start')).toBeNull()
+    expect(selectionPanel?.getAttribute('data-selection-end')).toBeNull()
+    expect(selectionPanel?.getAttribute('data-selection-days')).toBeNull()
+    expect(
+      screen.queryByRole('button', {
+        name: /create booking for selection/i,
+      })
+    ).toBeNull()
+    expect(
+      screen.queryByRole('button', {
+        name: /jump to selection details/i,
+      })
+    ).toBeNull()
+    expect(dayCell?.getAttribute('data-drag-selected')).toBe('false')
+    expect(
+      screen.getByText(
+        /choose a single day or drag across several days to preview/i
+      )
+    ).toBeTruthy()
   })
 })
