@@ -1,6 +1,12 @@
 /** @vitest-environment jsdom */
 
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
@@ -220,6 +226,83 @@ describe('bookings page - F1 calendar grid', () => {
 
     expect(confirmedSegment?.style.width).toBe('37.5%')
     expect(pendingSegment?.style.width).toBe('12.5%')
+  })
+
+  it('shows compact capacity context above the bar and status chips below it while keeping the bar accurate', async () => {
+    mocks.getCapacityMock.mockResolvedValueOnce([
+      buildCapacity('2026-03-10', 40, 0, 1, 1, 'H100'),
+    ])
+    mocks.getBookingsMock.mockResolvedValueOnce([
+      buildBookingWithOverrides(1, {
+        status: 'unconfirmed',
+        start_date: '2026-03-10',
+        end_date: '2026-03-10',
+        gpu_count: 1,
+        user_email: 'pending@example.com',
+      }),
+    ])
+
+    const { default: BookingsPage } = await import('@/app/bookings/page')
+    render(await BookingsPage())
+
+    const dayCell = document.querySelector('[data-date="2026-03-10"]')
+    const pendingSegment = dayCell?.querySelector(
+      '[data-capacity-segment="pending"]'
+    ) as HTMLElement | null
+    const capacityContext = dayCell?.querySelector(
+      '[data-day-capacity-context="true"]'
+    ) as HTMLElement | null
+    const summaryPanel = dayCell?.querySelector(
+      '[data-day-usage-summary="true"]'
+    ) as HTMLElement | null
+
+    expect(dayCell).toBeTruthy()
+    expect(pendingSegment?.style.width).toBe('2.5%')
+    expect(capacityContext?.textContent).toBe('1 of 40 GPUs')
+    expect(summaryPanel).toBeTruthy()
+    expect(
+      within(summaryPanel as HTMLElement).queryByText('1 of 40 GPUs')
+    ).toBeNull()
+    expect(
+      within(summaryPanel as HTMLElement).queryByText('1 pending GPU')
+    ).toBeNull()
+    expect(
+      within(summaryPanel as HTMLElement).getByText('1 pending')
+    ).toBeTruthy()
+    expect(
+      within(summaryPanel as HTMLElement).getByText('1 booking')
+    ).toBeTruthy()
+  })
+
+  it('hides compact capacity context on zero-usage days even when capacity data exists', async () => {
+    mocks.getCapacityMock.mockResolvedValueOnce([
+      buildCapacity('2026-03-10', 40, 2, 0, 1, 'H100'),
+      buildCapacity('2026-03-15', 40, 0, 0, 1, 'H100'),
+    ])
+    mocks.getBookingsMock.mockResolvedValueOnce([
+      buildBookingWithOverrides(1, {
+        start_date: '2026-03-10',
+        end_date: '2026-03-10',
+        gpu_count: 2,
+      }),
+    ])
+
+    const { default: BookingsPage } = await import('@/app/bookings/page')
+    render(await BookingsPage())
+
+    const bookedDayCell = document.querySelector('[data-date="2026-03-10"]')
+    const emptyDayCell = document.querySelector('[data-date="2026-03-15"]')
+    const bookedDayContext = bookedDayCell?.querySelector(
+      '[data-day-capacity-context="true"]'
+    ) as HTMLElement | null
+
+    expect(bookedDayCell).toBeTruthy()
+    expect(emptyDayCell).toBeTruthy()
+    expect(bookedDayContext?.textContent).toBe('2 of 40 GPUs')
+    expect(
+      emptyDayCell?.querySelector('[data-day-capacity-context="true"]')
+    ).toBeNull()
+    expect(screen.queryByText('0 of 40 GPUs')).toBeNull()
   })
 
   it('navigates to previous month and reloads capacity data', async () => {

@@ -51,6 +51,10 @@ type SelectionAvailability = DailySummary & {
   available: number
 }
 
+type DayBookingSummary = {
+  activeCount: number
+}
+
 const weekdayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 const monthFormatter = new Intl.DateTimeFormat('en-GB', {
@@ -144,6 +148,59 @@ function summariseCapacity(
   }
 
   return summaries
+}
+
+function isPendingBookingStatus(status: BookingResponse['status']): boolean {
+  return status === 'unconfirmed'
+}
+
+function isConfirmedBookingStatus(status: BookingResponse['status']): boolean {
+  return status === 'confirmed' || status === 'tentative' || status === 'spot'
+}
+
+function summariseBookings(
+  entries: BookingResponse[]
+): Map<string, DayBookingSummary> {
+  const summaries = new Map<string, DayBookingSummary>()
+
+  for (const entry of entries) {
+    if (
+      !isPendingBookingStatus(entry.status) &&
+      !isConfirmedBookingStatus(entry.status)
+    ) {
+      continue
+    }
+
+    for (const dateIso of getInclusiveDateRange(
+      entry.start_date,
+      entry.end_date
+    )) {
+      const existing = summaries.get(dateIso)
+
+      if (existing) {
+        existing.activeCount += 1
+        continue
+      }
+
+      summaries.set(dateIso, { activeCount: 1 })
+    }
+  }
+
+  return summaries
+}
+
+function formatCountLabel(
+  count: number,
+  singular: string,
+  plural: string
+): string {
+  return `${count} ${count === 1 ? singular : plural}`
+}
+
+function formatCapacityContext(summary: DailySummary): string {
+  const usedGpuCount = summary.confirmedUsed + summary.pendingUsed
+
+  return `${usedGpuCount} of ${summary.total} GPUs`
 }
 
 function normaliseRange(startDate: string, endDate: string): [string, string] {
@@ -243,6 +300,7 @@ export function CalendarView({
   const visibleRangeEndIso =
     dayCells[dayCells.length - 1]?.dateIso ?? monthEndIso
   const capacityByDate = useMemo(() => summariseCapacity(capacity), [capacity])
+  const bookingsByDate = useMemo(() => summariseBookings(bookings), [bookings])
   const tableBookings = useMemo(
     () =>
       bookings.filter(
@@ -572,12 +630,15 @@ export function CalendarView({
                     confirmedUsed: 0,
                     pendingUsed: 0,
                   }
+                  const bookingSummary = bookingsByDate.get(day.dateIso) ?? {
+                    activeCount: 0,
+                  }
+                  const usedGpuCount =
+                    summary.confirmedUsed + summary.pendingUsed
                   const usagePercent =
-                    summary.total > 0
-                      ? ((summary.confirmedUsed + summary.pendingUsed) /
-                          summary.total) *
-                        100
-                      : 0
+                    summary.total > 0 ? (usedGpuCount / summary.total) * 100 : 0
+                  const hasDailySummary =
+                    usedGpuCount > 0 || bookingSummary.activeCount > 0
                   const isInDragSelection =
                     displayedSelection !== null &&
                     day.dateIso >= displayedSelection.startDate &&
@@ -589,6 +650,8 @@ export function CalendarView({
                   const hasSelectionJump =
                     committedSelectionEndDate !== null &&
                     day.dateIso === committedSelectionEndDate
+                  const capacityContext =
+                    usedGpuCount > 0 ? formatCapacityContext(summary) : null
 
                   return (
                     <div
@@ -632,7 +695,24 @@ export function CalendarView({
                       }}
                       onMouseUp={() => commitSelection(day.dateIso)}
                     >
-                      <div className="text-sm font-medium">{day.dayNumber}</div>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="text-sm font-medium">
+                          {day.dayNumber}
+                        </div>
+
+                        {capacityContext !== null ? (
+                          <span
+                            className={cn(
+                              'text-muted-foreground text-right text-[10px] leading-4 font-medium',
+                              !day.inCurrentMonth && 'text-foreground/70'
+                            )}
+                            data-day-capacity-context="true"
+                          >
+                            {capacityContext}
+                          </span>
+                        ) : null}
+                      </div>
+
                       <div className="mt-2">
                         <CapacityBar
                           total={summary.total}
@@ -640,6 +720,47 @@ export function CalendarView({
                           pendingUsed={summary.pendingUsed}
                         />
                       </div>
+
+                      {hasDailySummary ? (
+                        <div
+                          className={cn(
+                            'border-border/60 bg-background/70 mt-3 flex flex-wrap gap-1.5 rounded-md border px-2 py-2 shadow-sm backdrop-blur-[2px]',
+                            !day.inCurrentMonth &&
+                              'bg-background/50 text-foreground/80'
+                          )}
+                          data-day-usage-summary="true"
+                        >
+                          {summary.confirmedUsed > 0 ? (
+                            <span className="border-primary/15 bg-primary/10 text-primary inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold">
+                              {formatCountLabel(
+                                summary.confirmedUsed,
+                                'confirmed',
+                                'confirmed'
+                              )}
+                            </span>
+                          ) : null}
+
+                          {summary.pendingUsed > 0 ? (
+                            <span className="border-border/70 bg-accent/30 text-foreground inline-flex items-center rounded-full border bg-[repeating-linear-gradient(-45deg,transparent,transparent_4px,color-mix(in_oklab,var(--color-foreground)_14%,transparent)_4px,color-mix(in_oklab,var(--color-foreground)_14%,transparent)_8px)] px-2 py-0.5 text-[10px] font-semibold">
+                              {formatCountLabel(
+                                summary.pendingUsed,
+                                'pending',
+                                'pending'
+                              )}
+                            </span>
+                          ) : null}
+
+                          {bookingSummary.activeCount > 0 ? (
+                            <span className="border-border/70 bg-muted/50 text-muted-foreground inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold">
+                              {formatCountLabel(
+                                bookingSummary.activeCount,
+                                'booking',
+                                'bookings'
+                              )}
+                            </span>
+                          ) : null}
+                        </div>
+                      ) : null}
 
                       {hasSelectionJump ? (
                         <Button
