@@ -116,6 +116,20 @@ function buildBookingWithOverrides(
   }
 }
 
+function buildDateRange(startDate: string, endDate: string): string[] {
+  const dates: string[] = []
+  let currentDate = new Date(`${startDate}T00:00:00Z`)
+  const rangeEnd = new Date(`${endDate}T00:00:00Z`)
+
+  while (currentDate <= rangeEnd) {
+    dates.push(currentDate.toISOString().slice(0, 10))
+    currentDate = new Date(currentDate)
+    currentDate.setUTCDate(currentDate.getUTCDate() + 1)
+  }
+
+  return dates
+}
+
 describe('bookings page - F1 calendar grid', () => {
   beforeEach(() => {
     vi.useFakeTimers()
@@ -497,6 +511,89 @@ describe('bookings page - F1 calendar grid', () => {
 
     expect(mocks.routerPushMock).toHaveBeenCalledWith(
       '/bookings/new?start=2026-04-01&end=2026-04-01'
+    )
+  })
+
+  it('reveals the next month while dragging past the visible grid without duplicating overlap days', async () => {
+    const initialCapacity = buildDateRange('2026-03-31', '2026-04-11').map(
+      (date) => buildCapacity(date, 40, 0, 0)
+    )
+    const extendedCapacity = buildDateRange('2026-03-31', '2026-04-18').map(
+      (date) => buildCapacity(date, 40, date === '2026-04-18' ? 6 : 0, 0)
+    )
+
+    mocks.getCapacityMock.mockImplementation(async (_startDate, endDate) => {
+      if (endDate === '2026-05-09') {
+        return extendedCapacity
+      }
+
+      return initialCapacity
+    })
+    mocks.getBookingsMock.mockImplementation(async (_startDate, endDate) => {
+      if (endDate === '2026-05-09') {
+        return [
+          buildBookingWithOverrides(2, {
+            start_date: '2026-04-16',
+            end_date: '2026-04-18',
+            user_email: 'extended@example.com',
+            workflow_type_name: 'Inference',
+          }),
+        ]
+      }
+
+      return []
+    })
+
+    const { default: BookingsPage } = await import('@/app/bookings/page')
+    render(await BookingsPage())
+
+    const startDayCell = document.querySelector('[data-date="2026-03-31"]')
+    const initialLastVisibleDayCell = document.querySelector(
+      '[data-date="2026-04-11"]'
+    )
+
+    expect(startDayCell).toBeTruthy()
+    expect(initialLastVisibleDayCell).toBeTruthy()
+    expect(document.querySelector('[data-date="2026-04-18"]')).toBeNull()
+
+    fireEvent.mouseDown(startDayCell as Element)
+    fireEvent.mouseEnter(initialLastVisibleDayCell as Element)
+    await vi.runAllTimersAsync()
+
+    const extendedDayCell = document.querySelector('[data-date="2026-04-18"]')
+
+    expect(extendedDayCell).toBeTruthy()
+    expect(document.querySelectorAll('[data-date="2026-04-01"]')).toHaveLength(1)
+    expect(document.querySelectorAll('[data-date="2026-04-11"]')).toHaveLength(1)
+
+    fireEvent.mouseEnter(extendedDayCell as Element)
+    fireEvent.mouseUp(extendedDayCell as Element)
+
+    const selectionPanel = document.querySelector(
+      '[data-selection-panel="true"]'
+    )
+
+    expect(selectionPanel?.getAttribute('data-selection-start')).toBe(
+      '2026-03-31'
+    )
+    expect(selectionPanel?.getAttribute('data-selection-end')).toBe(
+      '2026-04-18'
+    )
+    expect(selectionPanel?.getAttribute('data-selection-days')).toBe('19')
+    expect(selectionPanel?.getAttribute('data-selection-overlap-count')).toBe(
+      '1'
+    )
+    expect(screen.getByText('extended@example.com')).toBeTruthy()
+
+    expect(mocks.getCapacityMock).toHaveBeenCalledWith(
+      '2026-03-01',
+      '2026-05-09',
+      undefined
+    )
+    expect(mocks.getBookingsMock).toHaveBeenCalledWith(
+      '2026-03-01',
+      '2026-05-09',
+      undefined
     )
   })
 

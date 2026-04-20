@@ -126,6 +126,26 @@ function buildMonthCells(monthStart: Date): DayCell[] {
   return cells
 }
 
+function buildVisibleDayCells(monthStart: Date, monthCount: number): DayCell[] {
+  const cells: DayCell[] = []
+  const seenDates = new Set<string>()
+
+  for (let monthOffset = 0; monthOffset < monthCount; monthOffset += 1) {
+    const monthCells = buildMonthCells(addMonthsUtc(monthStart, monthOffset))
+
+    for (const cell of monthCells) {
+      if (seenDates.has(cell.dateIso)) {
+        continue
+      }
+
+      seenDates.add(cell.dateIso)
+      cells.push(cell)
+    }
+  }
+
+  return cells
+}
+
 function summariseCapacity(
   entries: DailyCapacity[]
 ): Map<string, DailySummary> {
@@ -279,6 +299,7 @@ export function CalendarView({
   const [selectedGpuTypeId, setSelectedGpuTypeId] = useState<
     number | undefined
   >(undefined)
+  const [visibleMonthCount, setVisibleMonthCount] = useState(1)
   const [activeTab, setActiveTab] = useState<'calendar' | 'table'>('calendar')
   const [selectedRange, setSelectedRange] = useState<SelectionRange | null>(
     null
@@ -295,7 +316,10 @@ export function CalendarView({
   const monthStartIso = formatDateParam(monthStart)
   const monthEndIso = formatDateParam(monthEnd)
 
-  const dayCells = useMemo(() => buildMonthCells(monthStart), [monthStart])
+  const dayCells = useMemo(
+    () => buildVisibleDayCells(monthStart, visibleMonthCount),
+    [monthStart, visibleMonthCount]
+  )
   const visibleRangeStartIso = dayCells[0]?.dateIso ?? monthStartIso
   const visibleRangeEndIso =
     dayCells[dayCells.length - 1]?.dateIso ?? monthEndIso
@@ -515,6 +539,24 @@ export function CalendarView({
     panel.focus({ preventScroll: true })
   }
 
+  function extendVisibleRangeIfNeeded(dateIso: string) {
+    if (dragStartDate === null || dateIso !== visibleRangeEndIso) {
+      return
+    }
+
+    setVisibleMonthCount((currentCount) => currentCount + 1)
+  }
+
+  function navigateMonth(offset: number) {
+    setCurrentMonth((current) => addMonthsUtc(current, offset))
+    setVisibleMonthCount(1)
+  }
+
+  function jumpToToday() {
+    setCurrentMonth(startOfMonthUtc(new Date()))
+    setVisibleMonthCount(1)
+  }
+
   return (
     <section className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -582,25 +624,21 @@ export function CalendarView({
               <Button
                 type="button"
                 variant="outline"
-                onClick={() =>
-                  setCurrentMonth((current) => addMonthsUtc(current, -1))
-                }
+                onClick={() => navigateMonth(-1)}
               >
                 Previous Month
               </Button>
               <Button
                 type="button"
                 variant="outline"
-                onClick={() =>
-                  setCurrentMonth((current) => addMonthsUtc(current, 1))
-                }
+                onClick={() => navigateMonth(1)}
               >
                 Next Month
               </Button>
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => setCurrentMonth(startOfMonthUtc(new Date()))}
+                onClick={jumpToToday}
               >
                 Today
               </Button>
@@ -692,6 +730,7 @@ export function CalendarView({
                         }
 
                         setDragCurrentDate(day.dateIso)
+                        extendVisibleRangeIfNeeded(day.dateIso)
                       }}
                       onMouseUp={() => commitSelection(day.dateIso)}
                     >
