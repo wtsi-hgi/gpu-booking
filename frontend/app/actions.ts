@@ -34,8 +34,10 @@ import {
 } from '@/lib/booking-contracts'
 import {
   buildRequiredFieldErrors,
+  createInitialBookingFormValues,
   type BookingFieldName,
   type BookingFormState,
+  type BookingFormValues,
 } from '@/lib/booking-state'
 import {
   type AdminBookingFormState,
@@ -193,6 +195,27 @@ function parseBookingPayload(formData: FormData): ParsedBookingPayload {
     },
     fieldErrors: {},
   }
+}
+
+function extractBookingFormValues(formData: FormData): BookingFormValues {
+  return createInitialBookingFormValues({
+    gpu_type_id: (formData.get('gpu_type_id') ?? '').toString(),
+    gpu_count: (formData.get('gpu_count') ?? '').toString(),
+    gram_option_id: (formData.get('gram_option_id') ?? '').toString(),
+    memory_option_id: (formData.get('memory_option_id') ?? '').toString(),
+    workflow_type_id: (formData.get('workflow_type_id') ?? '').toString(),
+    alt_email: (formData.get('alt_email') ?? '').toString(),
+    start_date: (formData.get('start_date') ?? '').toString(),
+    end_date: (formData.get('end_date') ?? '').toString(),
+    project_name: (formData.get('project_name') ?? '').toString(),
+    project_pi: (formData.get('project_pi') ?? '').toString(),
+    project_grant_number: (
+      formData.get('project_grant_number') ?? ''
+    ).toString(),
+    technical_lead: (formData.get('technical_lead') ?? '').toString(),
+    event_start_date: (formData.get('event_start_date') ?? '').toString(),
+    event_end_date: (formData.get('event_end_date') ?? '').toString(),
+  })
 }
 
 async function buildAuthHeaders(
@@ -500,6 +523,7 @@ export async function createBooking(
   _prev: BookingFormState,
   formData: FormData
 ): Promise<BookingFormState> {
+  const values = extractBookingFormValues(formData)
   const parsed = parseBookingPayload(formData)
 
   if (!parsed.payload) {
@@ -508,6 +532,7 @@ export async function createBooking(
       message: null,
       error: 'Please complete all required fields.',
       fieldErrors: parsed.fieldErrors,
+      values,
     }
   }
 
@@ -526,14 +551,15 @@ export async function createBooking(
       message: 'Booking created successfully.',
       error: null,
       fieldErrors: {},
+      values,
     }
   } catch (error) {
     return {
       status: 'error',
       message: null,
-      error:
-        error instanceof Error ? error.message : 'Failed to create booking.',
+      error: parseErrorMessage(error, 'Failed to create booking.'),
       fieldErrors: {},
+      values,
     }
   }
 }

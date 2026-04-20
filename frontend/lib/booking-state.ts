@@ -10,6 +10,18 @@ export const requiredBookingFields = [
 
 export type BookingFieldName = (typeof requiredBookingFields)[number]
 
+export type BookingFormValueName =
+  | BookingFieldName
+  | 'alt_email'
+  | 'project_name'
+  | 'project_pi'
+  | 'project_grant_number'
+  | 'technical_lead'
+  | 'event_start_date'
+  | 'event_end_date'
+
+export type BookingFormValues = Record<BookingFormValueName, string>
+
 export const bookingFieldLabels: Record<BookingFieldName, string> = {
   gpu_type_id: 'GPU Type',
   gpu_count: 'GPU Count',
@@ -25,6 +37,29 @@ export type BookingFormState = {
   message: string | null
   error: string | null
   fieldErrors: Partial<Record<BookingFieldName, string>>
+  values: BookingFormValues
+}
+
+export function createInitialBookingFormValues(
+  overrides: Partial<BookingFormValues> = {}
+): BookingFormValues {
+  return {
+    gpu_type_id: '',
+    gpu_count: '',
+    gram_option_id: '',
+    memory_option_id: '',
+    workflow_type_id: '',
+    alt_email: '',
+    start_date: '',
+    end_date: '',
+    project_name: '',
+    project_pi: '',
+    project_grant_number: '',
+    technical_lead: '',
+    event_start_date: '',
+    event_end_date: '',
+    ...overrides,
+  }
 }
 
 export const initialBookingFormState: BookingFormState = {
@@ -32,6 +67,7 @@ export const initialBookingFormState: BookingFormState = {
   message: null,
   error: null,
   fieldErrors: {},
+  values: createInitialBookingFormValues(),
 }
 
 export function buildRequiredFieldErrors(

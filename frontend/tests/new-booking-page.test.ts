@@ -3,6 +3,8 @@
 import { render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { createInitialBookingFormValues } from '@/lib/booking-state'
+
 const mocks = vi.hoisted(() => ({
   getCurrentUserMock: vi.fn(),
   getGpuTypesMock: vi.fn(),
@@ -71,6 +73,7 @@ beforeEach(() => {
     message: null,
     error: null,
     fieldErrors: {},
+    values: createInitialBookingFormValues(),
   })
   mocks.validateBookingMock.mockResolvedValue({
     valid: true,

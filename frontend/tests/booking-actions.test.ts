@@ -15,6 +15,10 @@ import {
   bookingValidationSchema,
   dailyCapacityListSchema,
 } from '@/lib/booking-contracts'
+import {
+  createInitialBookingFormValues,
+  initialBookingFormState,
+} from '@/lib/booking-state'
 
 vi.mock('@/lib/backend-client', () => ({
   backendJson: vi.fn(),
@@ -123,12 +127,27 @@ describe('booking data actions', () => {
     formData.set('event_start_date', '2026-04-09')
     formData.set('event_end_date', '2026-04-13')
 
-    const state = await createBooking(
-      { status: 'idle', message: null, error: null, fieldErrors: {} },
-      formData
-    )
+    const state = await createBooking(initialBookingFormState, formData)
 
     expect(state.status).toBe('success')
+    expect(state.values).toEqual(
+      createInitialBookingFormValues({
+        gpu_type_id: '1',
+        gpu_count: '2',
+        gram_option_id: '1',
+        memory_option_id: '1',
+        workflow_type_id: '1',
+        alt_email: 'alt@example.com',
+        start_date: '2026-04-10',
+        end_date: '2026-04-12',
+        project_name: 'Genome Atlas',
+        project_pi: 'Dr Test',
+        project_grant_number: 'GR-12345',
+        technical_lead: 'Lead Engineer',
+        event_start_date: '2026-04-09',
+        event_end_date: '2026-04-13',
+      })
+    )
     expect(backendJsonMock).toHaveBeenCalledWith(
       '/api/v1/bookings',
       bookingResponseSchema,
@@ -154,13 +173,87 @@ describe('booking data actions', () => {
     )
   })
 
+  it('returns submitted values when createBooking fails so the form can be rehydrated', async () => {
+    const backendJsonMock = vi.mocked(backendJson)
+    backendJsonMock.mockRejectedValueOnce(
+      new Error('100% capacity exceeded for 2026-04-10')
+    )
+
+    const formData = new FormData()
+    formData.set('gpu_type_id', '1')
+    formData.set('gpu_count', '99')
+    formData.set('gram_option_id', '1')
+    formData.set('memory_option_id', '1')
+    formData.set('workflow_type_id', '1')
+    formData.set('start_date', '2026-04-10')
+    formData.set('end_date', '2026-04-12')
+    formData.set('project_name', 'Genome Atlas')
+
+    const state = await createBooking(initialBookingFormState, formData)
+
+    expect(state).toEqual({
+      status: 'error',
+      message: null,
+      error: '100% capacity exceeded for 2026-04-10',
+      fieldErrors: {},
+      values: createInitialBookingFormValues({
+        gpu_type_id: '1',
+        gpu_count: '99',
+        gram_option_id: '1',
+        memory_option_id: '1',
+        workflow_type_id: '1',
+        start_date: '2026-04-10',
+        end_date: '2026-04-12',
+        project_name: 'Genome Atlas',
+      }),
+    })
+  })
+
+  it('surfaces backend detail when createBooking fails with a generic request status message', async () => {
+    const backendJsonMock = vi.mocked(backendJson)
+    backendJsonMock.mockRejectedValueOnce(
+      Object.assign(new Error('Backend request failed with 409'), {
+        body: {
+          detail: '100% capacity exceeded for 2026-04-10',
+        },
+      })
+    )
+
+    const formData = new FormData()
+    formData.set('gpu_type_id', '1')
+    formData.set('gpu_count', '99')
+    formData.set('gram_option_id', '1')
+    formData.set('memory_option_id', '1')
+    formData.set('workflow_type_id', '1')
+    formData.set('start_date', '2026-04-10')
+    formData.set('end_date', '2026-04-12')
+
+    const state = await createBooking(initialBookingFormState, formData)
+
+    expect(state).toEqual({
+      status: 'error',
+      message: null,
+      error: '100% capacity exceeded for 2026-04-10',
+      fieldErrors: {},
+      values: createInitialBookingFormValues({
+        gpu_type_id: '1',
+        gpu_count: '99',
+        gram_option_id: '1',
+        memory_option_id: '1',
+        workflow_type_id: '1',
+        start_date: '2026-04-10',
+        end_date: '2026-04-12',
+      }),
+    })
+  })
+
   it('calls validation endpoint for validateBooking', async () => {
     const backendJsonMock = vi.mocked(backendJson)
     backendJsonMock.mockResolvedValueOnce({
-      valid: false,
+      valid: true,
       warnings: [
         {
-          rule: 'duration_gt_14_days',
+          rule: 'duration_max_14_days',
           message: 'Booking duration exceeds 14 days.',
           severity: 'warning',
         },
