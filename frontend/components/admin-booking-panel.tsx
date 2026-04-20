@@ -294,6 +294,7 @@ export function AdminBookingPanel({
       <BookingTable
         bookings={bookings}
         isAdmin
+        showCancelledBookings
         onBookingSelect={(booking) => {
           setSelectedBookingId(booking.id)
           setDraft(createDraft(booking))

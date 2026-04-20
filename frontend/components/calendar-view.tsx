@@ -24,7 +24,6 @@ type CalendarViewProps = {
   initialCapacity: DailyCapacity[]
   initialBookings: BookingResponse[]
   gpuTypes: GpuType[]
-  isAdmin: boolean
   currentUserEmail: string
 }
 
@@ -178,6 +177,10 @@ function isConfirmedBookingStatus(status: BookingResponse['status']): boolean {
   return status === 'confirmed' || status === 'tentative' || status === 'spot'
 }
 
+function shouldShowBookingInNormalView(booking: BookingResponse): boolean {
+  return booking.status !== 'cancelled'
+}
+
 function summariseBookings(
   entries: BookingResponse[]
 ): Map<string, DayBookingSummary> {
@@ -287,7 +290,6 @@ export function CalendarView({
   initialCapacity,
   initialBookings,
   gpuTypes,
-  isAdmin,
   currentUserEmail,
 }: CalendarViewProps) {
   const router = useRouter()
@@ -329,6 +331,7 @@ export function CalendarView({
     () =>
       bookings.filter(
         (booking) =>
+          shouldShowBookingInNormalView(booking) &&
           booking.start_date <= monthEndIso && booking.end_date >= monthStartIso
       ),
     [bookings, monthEndIso, monthStartIso]
@@ -368,6 +371,7 @@ export function CalendarView({
     const overlappingBookings = bookings
       .filter(
         (booking) =>
+          shouldShowBookingInNormalView(booking) &&
           booking.start_date <= displayedSelection.endDate &&
           booking.end_date >= displayedSelection.startDate
       )
@@ -1033,7 +1037,7 @@ export function CalendarView({
       ) : (
         <BookingTable
           bookings={tableBookings}
-          isAdmin={isAdmin}
+          isAdmin={false}
           currentUserEmail={currentUserEmail}
         />
       )}

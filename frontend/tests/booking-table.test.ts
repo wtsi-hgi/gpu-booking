@@ -61,9 +61,17 @@ function buildBooking(
 function renderBookingTable(
   bookings: BookingResponse[],
   isAdmin: boolean,
-  currentUserEmail = 'a@b.com'
+  currentUserEmail = 'a@b.com',
+  showCancelledBookings = false
 ): void {
-  render(createElement(BookingTable, { bookings, isAdmin, currentUserEmail }))
+  render(
+    createElement(BookingTable, {
+      bookings,
+      isAdmin,
+      currentUserEmail,
+      showCancelledBookings,
+    })
+  )
 }
 
 function getVisibleBookingRowIds(): number[] {
@@ -204,7 +212,7 @@ describe('booking-table G1 acceptance tests', () => {
       }),
     ]
 
-    renderBookingTable(bookings, true)
+    renderBookingTable(bookings, true, 'a@b.com', true)
 
     expect(
       screen.getByRole('columnheader', { name: 'Admin Notes' })
@@ -239,7 +247,7 @@ describe('booking-table G1 acceptance tests', () => {
       buildBooking(4, { status: 'unconfirmed' }),
     ]
 
-    renderBookingTable(bookings, false)
+    renderBookingTable(bookings, true, 'a@b.com', true)
 
     expect(screen.getByTestId('status-badge-1').className).toContain(
       'bg-emerald-100'
@@ -353,7 +361,7 @@ describe('booking-table G2 acceptance tests', () => {
     })
   })
 
-  it('keeps own admin-edited booking and marks it cancelled after confirmation', async () => {
+  it('removes own admin-edited booking after confirmation when it becomes cancelled', async () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true)
     const cancelBookingMock = vi.mocked(cancelBooking)
     cancelBookingMock.mockResolvedValueOnce({
@@ -381,10 +389,7 @@ describe('booking-table G2 acceptance tests', () => {
 
     await waitFor(() => {
       expect(cancelBookingMock).toHaveBeenCalledWith(2)
-      expect(document.querySelector('[data-booking-id="2"]')).toBeTruthy()
-      expect(screen.getByTestId('status-badge-2').textContent).toContain(
-        'Cancelled'
-      )
+      expect(document.querySelector('[data-booking-id="2"]')).toBeNull()
     })
   })
 

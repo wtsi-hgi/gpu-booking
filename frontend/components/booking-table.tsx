@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils'
 type BookingTableProps = {
   bookings: BookingResponse[]
   isAdmin: boolean
+  showCancelledBookings?: boolean
   currentUserEmail?: string
   onBookingSelect?: (booking: BookingResponse) => void
 }
@@ -69,6 +70,22 @@ const statusLabels: Record<string, StatusVariant> = {
 }
 
 const PAGE_SIZE = 25
+
+function shouldShowBooking(
+  booking: BookingResponse,
+  showCancelledBookings: boolean
+): boolean {
+  return showCancelledBookings || booking.status !== 'cancelled'
+}
+
+function filterDisplayableBookings(
+  bookings: BookingResponse[],
+  showCancelledBookings: boolean
+): BookingResponse[] {
+  return bookings.filter((booking) =>
+    shouldShowBooking(booking, showCancelledBookings)
+  )
+}
 
 function toDisplayDate(value: string): string {
   if (!value) {
@@ -202,11 +219,14 @@ function sortBookings(
 export function BookingTable({
   bookings,
   isAdmin,
+  showCancelledBookings = false,
   currentUserEmail,
   onBookingSelect,
 }: BookingTableProps) {
   const [visibleBookings, setVisibleBookings] =
-    useState<BookingResponse[]>(bookings)
+    useState<BookingResponse[]>(() =>
+      filterDisplayableBookings(bookings, showCancelledBookings)
+    )
   const [searchText, setSearchText] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [gpuTypeFilter, setGpuTypeFilter] = useState<string>('all')
@@ -221,8 +241,22 @@ export function BookingTable({
   )
 
   useEffect(() => {
-    setVisibleBookings(bookings)
-  }, [bookings])
+    setVisibleBookings(filterDisplayableBookings(bookings, showCancelledBookings))
+  }, [bookings, showCancelledBookings])
+
+  useEffect(() => {
+    if (!showCancelledBookings && statusFilter === 'cancelled') {
+      setStatusFilter('all')
+    }
+  }, [showCancelledBookings, statusFilter])
+
+  const visibleStatusOrder = useMemo(
+    () =>
+      statusOrder.filter(
+        (status) => showCancelledBookings || status !== 'cancelled'
+      ),
+    [showCancelledBookings]
+  )
 
   const gpuTypes = useMemo(
     () =>
@@ -339,7 +373,7 @@ export function BookingTable({
           return current
         }
 
-        if (result.booking?.status === 'cancelled') {
+        if (result.booking?.status === 'cancelled' && showCancelledBookings) {
           next[index] = {
             ...next[index],
             status: 'cancelled',
@@ -393,7 +427,7 @@ export function BookingTable({
             }}
           >
             <option value="all">All statuses</option>
-            {statusOrder.map((status) => (
+            {visibleStatusOrder.map((status) => (
               <option key={status} value={status}>
                 {statusLabels[status].label}
               </option>

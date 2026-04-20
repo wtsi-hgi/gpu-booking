@@ -700,6 +700,53 @@ describe('bookings page - F1 calendar grid', () => {
     )
   })
 
+  it('hides cancelled bookings from normal selection details and table filters', async () => {
+    mocks.getBookingsMock.mockResolvedValueOnce([
+      buildBookingWithOverrides(1, {
+        start_date: '2026-03-10',
+        end_date: '2026-03-12',
+        user_email: 'active@example.com',
+        status: 'confirmed',
+      }),
+      buildBookingWithOverrides(2, {
+        start_date: '2026-03-10',
+        end_date: '2026-03-12',
+        user_email: 'cancelled@example.com',
+        status: 'cancelled',
+      }),
+    ])
+
+    const { default: BookingsPage } = await import('@/app/bookings/page')
+    render(await BookingsPage())
+
+    const dayCell = document.querySelector('[data-date="2026-03-10"]')
+    expect(dayCell).toBeTruthy()
+
+    fireEvent.mouseDown(dayCell as Element)
+    fireEvent.mouseUp(dayCell as Element)
+
+    const selectionPanel = document.querySelector(
+      '[data-selection-panel="true"]'
+    )
+
+    expect(selectionPanel?.getAttribute('data-selection-overlap-count')).toBe(
+      '1'
+    )
+    expect(screen.getByText('active@example.com')).toBeTruthy()
+    expect(screen.queryByText('cancelled@example.com')).toBeNull()
+    expect(screen.queryByText('cancelled')).toBeNull()
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Table' }))
+
+    expect(document.querySelector('[data-booking-id="1"]')).toBeTruthy()
+    expect(document.querySelector('[data-booking-id="2"]')).toBeNull()
+
+    const statusFilter = screen.getByLabelText('Status')
+    expect(
+      within(statusFilter).queryByRole('option', { name: 'Cancelled' })
+    ).toBeNull()
+  })
+
   it('deselects a committed single-day selection when the same day is clicked again without dragging', async () => {
     const { default: BookingsPage } = await import('@/app/bookings/page')
     render(await BookingsPage())

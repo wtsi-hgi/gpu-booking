@@ -70,7 +70,6 @@ export default async function BookingsPage() {
         initialCapacity={capacity}
         initialBookings={bookings}
         gpuTypes={gpuTypes}
-        isAdmin={currentUser.is_admin}
         currentUserEmail={currentUser.email}
       />
     </main>
