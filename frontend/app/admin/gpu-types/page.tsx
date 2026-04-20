@@ -1,8 +1,9 @@
-import { getCurrentUser, getGpuTypes } from '@/app/actions'
+import { getGpuTypes } from '@/app/actions'
 import { GpuTypeManager } from '@/components/gpu-type-manager'
+import { requireCurrentUser } from '@/lib/server-auth'
 
 export default async function AdminGpuTypesPage() {
-  const user = await getCurrentUser()
+  const user = await requireCurrentUser('/admin/gpu-types')
 
   if (!user.is_admin) {
     return (

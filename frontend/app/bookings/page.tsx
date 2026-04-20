@@ -1,10 +1,10 @@
 import {
   getBookings,
   getCapacity,
-  getCurrentUser,
   getGpuTypes,
 } from '@/app/actions'
 import { CalendarView } from '@/components/calendar-view'
+import { requireCurrentUser } from '@/lib/server-auth'
 
 function toDateParam(value: Date): string {
   return value.toISOString().slice(0, 10)
@@ -49,11 +49,11 @@ function getCurrentCalendarMonth() {
 
 export default async function BookingsPage() {
   const month = getCurrentCalendarMonth()
-  const [gpuTypes, capacity, bookings, currentUser] = await Promise.all([
+  const currentUser = await requireCurrentUser('/bookings')
+  const [gpuTypes, capacity, bookings] = await Promise.all([
     getGpuTypes(),
     getCapacity(month.dataStart, month.dataEnd),
     getBookings(month.dataStart, month.dataEnd),
-    getCurrentUser(),
   ])
 
   return (

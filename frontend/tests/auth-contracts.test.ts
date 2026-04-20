@@ -18,7 +18,7 @@ afterEach(() => {
 
 describe('auth contracts', () => {
 	it('uses persisted dev user cookie when requesting current user without explicit email', async () => {
-		cookiesMock.mockReturnValueOnce({
+		cookiesMock.mockReturnValue({
 			get: (name: string) =>
 				name === 'gpu_booking_dev_user_email'
 					? { value: 'cookie-user@example.com' }
@@ -47,6 +47,39 @@ describe('auth contracts', () => {
 		const [, requestInit] = fetchMock.mock.calls[0]
 		const headers = new Headers((requestInit as RequestInit).headers)
 		expect(headers.get('X-Dev-User')).toBe('cookie-user@example.com')
+	})
+
+	it('forwards bearer token from OIDC cookie when requesting current user', async () => {
+		cookiesMock.mockReturnValue({
+			get: (name: string) =>
+				name === 'gpu_booking_oidc_access_token'
+					? { value: 'oidc-access-token' }
+					: undefined,
+		})
+
+		const fetchMock = vi.fn(async () => {
+			return new Response(
+				JSON.stringify({
+					email: 'oidc-user@example.com',
+					is_admin: false,
+					auth_mode: 'oidc',
+				}),
+				{
+					status: 200,
+					headers: { 'content-type': 'application/json' },
+				}
+			)
+		})
+
+		vi.stubGlobal('fetch', fetchMock)
+
+		await getCurrentUser()
+
+		expect(fetchMock).toHaveBeenCalledTimes(1)
+		const [, requestInit] = fetchMock.mock.calls[0]
+		const headers = new Headers((requestInit as RequestInit).headers)
+		expect(headers.get('Authorization')).toBe('Bearer oidc-access-token')
+		expect(headers.get('X-Dev-User')).toBeNull()
 	})
 
 	it('parses valid user info payloads', () => {
@@ -95,6 +128,10 @@ describe('auth contracts', () => {
 	})
 
 	it('passes X-Dev-User header when requesting impersonated user info', async () => {
+		cookiesMock.mockReturnValue({
+			get: () => undefined,
+		})
+
 		const fetchMock = vi.fn(async () => {
 			return new Response(
 				JSON.stringify({

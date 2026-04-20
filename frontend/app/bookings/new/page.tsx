@@ -1,11 +1,11 @@
 import {
-  getCurrentUser,
   getGpuTypes,
   getGramOptions,
   getMemoryOptions,
   getWorkflowTypes,
 } from '@/app/actions'
 import { BookingForm } from '@/components/booking-form'
+import { requireCurrentUser } from '@/lib/server-auth'
 
 type NewBookingPageProps = {
   searchParams?: Promise<{
@@ -35,12 +35,12 @@ export default async function NewBookingPage({
     ? resolvedSearchParams.end
     : undefined
 
-  const user = await getCurrentUser()
+  const user = await requireCurrentUser('/bookings/new')
   const [gpuTypes, gramOptions, memoryOptions, workflowTypes] =
     await Promise.all([
       getGpuTypes(),
-      getGramOptions(user.email),
-      getMemoryOptions(user.email),
+      getGramOptions(user.auth_mode === 'insecure' ? user.email : undefined),
+      getMemoryOptions(user.auth_mode === 'insecure' ? user.email : undefined),
       getWorkflowTypes(),
     ])
 

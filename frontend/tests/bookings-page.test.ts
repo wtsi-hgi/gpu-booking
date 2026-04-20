@@ -12,8 +12,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({
   getCapacityMock: vi.fn(),
   getBookingsMock: vi.fn(),
-  getCurrentUserMock: vi.fn(),
   getGpuTypesMock: vi.fn(),
+  requireCurrentUserMock: vi.fn(),
   routerPushMock: vi.fn(),
   scrollIntoViewMock: vi.fn(),
 }))
@@ -21,8 +21,11 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@/app/actions', () => ({
   getCapacity: mocks.getCapacityMock,
   getBookings: mocks.getBookingsMock,
-  getCurrentUser: mocks.getCurrentUserMock,
   getGpuTypes: mocks.getGpuTypesMock,
+}))
+
+vi.mock('@/lib/server-auth', () => ({
+  requireCurrentUser: mocks.requireCurrentUserMock,
 }))
 
 vi.mock('next/navigation', () => ({
@@ -171,7 +174,7 @@ describe('bookings page - F1 calendar grid', () => {
       }
     )
     mocks.getBookingsMock.mockResolvedValue([buildBooking(1)])
-    mocks.getCurrentUserMock.mockResolvedValue({
+    mocks.requireCurrentUserMock.mockResolvedValue({
       email: 'user@example.com',
       is_admin: false,
       auth_mode: 'insecure',

@@ -1,8 +1,9 @@
-import { getCurrentUser, getGramOptions, getMemoryOptions } from '@/app/actions'
+import { getGramOptions, getMemoryOptions } from '@/app/actions'
 import { MemoryOptionManager } from '@/components/memory-option-manager'
+import { requireCurrentUser } from '@/lib/server-auth'
 
 export default async function AdminMemoryOptionsPage() {
-  const user = await getCurrentUser()
+  const user = await requireCurrentUser('/admin/memory-options')
 
   if (!user.is_admin) {
     return (
@@ -16,8 +17,8 @@ export default async function AdminMemoryOptionsPage() {
   }
 
   const [gramOptions, memoryOptions] = await Promise.all([
-    getGramOptions(user.email),
-    getMemoryOptions(user.email),
+    getGramOptions(user.auth_mode === 'insecure' ? user.email : undefined),
+    getMemoryOptions(user.auth_mode === 'insecure' ? user.email : undefined),
   ])
 
   return (

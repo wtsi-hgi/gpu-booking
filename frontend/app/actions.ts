@@ -1,8 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { cookies } from 'next/headers'
-import { z } from 'zod'
+import { z, type ZodSchema } from 'zod'
 
 import { backendJson } from '@/lib/backend-client'
 import {
@@ -19,10 +18,14 @@ import {
   type MemoryOption,
   type WorkflowType,
 } from '@/lib/admin-contracts'
-import { DEV_USER_COOKIE_NAME } from '@/lib/auth-state'
 import { userInfoSchema, type UserInfo } from '@/lib/auth-contracts'
 import { healthResponseSchema, messageResponseSchema } from '@/lib/contracts'
 import { type GreetingState } from '@/lib/greeting-state'
+import {
+  buildAuthHeaders,
+  buildRequestInitWithAuth,
+  fetchCurrentUser,
+} from '@/lib/server-auth'
 import {
   bookingListSchema,
   bookingResponseSchema,
@@ -218,53 +221,22 @@ function extractBookingFormValues(formData: FormData): BookingFormValues {
   })
 }
 
-async function buildAuthHeaders(
-  devUserEmail?: string
-): Promise<HeadersInit | undefined> {
-  const resolvedEmail = devUserEmail ?? (await getDevUserFromCookie())
-  if (!resolvedEmail) {
-    return undefined
-  }
-  return { 'X-Dev-User': resolvedEmail }
-}
-
-async function getDevUserFromCookie(): Promise<string | undefined> {
-  try {
-    const cookieStore = await cookies()
-    const value = cookieStore.get(DEV_USER_COOKIE_NAME)?.value?.trim()
-    if (!value) {
-      return undefined
-    }
-
-    try {
-      return decodeURIComponent(value)
-    } catch {
-      return value
-    }
-  } catch {
-    return undefined
-  }
-}
-
-async function withAuthHeaders(
+async function backendJsonWithAuth<T>(
+  path: string,
+  schema: ZodSchema<T>,
   init?: RequestInit,
   devUserEmail?: string
-): Promise<RequestInit | undefined> {
-  const authHeaders = await buildAuthHeaders(devUserEmail)
-  if (!authHeaders) {
-    return init
+): Promise<T> {
+  const requestInit = await buildRequestInitWithAuth(init, devUserEmail)
+  if (requestInit) {
+    return backendJson(path, schema, requestInit)
   }
 
-  const headers = new Headers(init?.headers ?? {})
-  const authHeaderValues = new Headers(authHeaders)
-  authHeaderValues.forEach((value, key) => {
-    headers.set(key, value)
-  })
-
-  return {
-    ...(init ?? {}),
-    headers,
+  if (init) {
+    return backendJson(path, schema, init)
   }
+
+  return backendJson(path, schema)
 }
 
 function parseWorkflowTypeError(error: unknown): string {
@@ -308,11 +280,11 @@ function buildOptionFormState<T>(
 }
 
 export async function getGpuTypes(): Promise<GpuType[]> {
-  return backendJson('/api/v1/gpu-types', gpuTypeListSchema)
+  return backendJsonWithAuth('/api/v1/gpu-types', gpuTypeListSchema)
 }
 
 export async function getWorkflowTypes(): Promise<WorkflowType[]> {
-  return backendJson('/api/v1/workflow-types', workflowTypeListSchema)
+  return backendJsonWithAuth('/api/v1/workflow-types', workflowTypeListSchema)
 }
 
 export async function getCapacity(
@@ -329,7 +301,7 @@ export async function getCapacity(
     params.set('gpu_type_id', String(gpuTypeId))
   }
 
-  return backendJson(
+  return backendJsonWithAuth(
     `/api/v1/capacity?${params.toString()}`,
     dailyCapacityListSchema
   )
@@ -358,12 +330,7 @@ export async function getBookings(
 
   const query = params.toString()
   const path = query ? `/api/v1/bookings?${query}` : '/api/v1/bookings'
-  const requestInit = await withAuthHeaders()
-  if (requestInit) {
-    return backendJson(path, bookingListSchema, requestInit)
-  }
-
-  return backendJson(path, bookingListSchema)
+  return backendJsonWithAuth(path, bookingListSchema)
 }
 
 export async function cancelBooking(bookingId: number): Promise<{
@@ -380,7 +347,7 @@ export async function cancelBooking(bookingId: number): Promise<{
   }
 
   try {
-    const requestInit = await withAuthHeaders({
+    const requestInit = await buildRequestInitWithAuth({
       method: 'DELETE',
     })
     const booking = await backendJson(
@@ -468,7 +435,7 @@ export async function adminUpdateBooking(
       throw new Error('Invalid gpu_count')
     }
 
-    const requestInit = await withAuthHeaders({
+    const requestInit = await buildRequestInitWithAuth({
       method: 'PATCH',
       body: JSON.stringify(payload),
     })
@@ -509,13 +476,13 @@ export async function validateBooking(
     )
   }
 
-  return backendJson(
+  return backendJsonWithAuth(
     '/api/v1/capacity/validate',
     bookingValidationSchema,
-    await withAuthHeaders({
+    {
       method: 'POST',
       body: JSON.stringify(parsed.payload),
-    })
+    }
   )
 }
 
@@ -537,13 +504,13 @@ export async function createBooking(
   }
 
   try {
-    await backendJson(
+    await backendJsonWithAuth(
       '/api/v1/bookings',
       bookingResponseSchema,
-      await withAuthHeaders({
+      {
         method: 'POST',
         body: JSON.stringify(parsed.payload),
-      })
+      }
     )
     safeRevalidate('/bookings')
     return {
@@ -567,17 +534,23 @@ export async function createBooking(
 export async function getGramOptions(
   devUserEmail?: string
 ): Promise<GramOption[]> {
-  return backendJson('/api/v1/gram-options', gramOptionListSchema, {
-    headers: await buildAuthHeaders(devUserEmail),
-  })
+  return backendJsonWithAuth(
+    '/api/v1/gram-options',
+    gramOptionListSchema,
+    undefined,
+    devUserEmail
+  )
 }
 
 export async function getMemoryOptions(
   devUserEmail?: string
 ): Promise<MemoryOption[]> {
-  return backendJson('/api/v1/memory-options', memoryOptionListSchema, {
-    headers: await buildAuthHeaders(devUserEmail),
-  })
+  return backendJsonWithAuth(
+    '/api/v1/memory-options',
+    memoryOptionListSchema,
+    undefined,
+    devUserEmail
+  )
 }
 
 export async function createGpuType(
@@ -604,7 +577,7 @@ export async function createGpuType(
   }
 
   try {
-    const requestInit = await withAuthHeaders({
+    const requestInit = await buildRequestInitWithAuth({
       method: 'POST',
       body: JSON.stringify({
         name,
@@ -663,7 +636,7 @@ export async function updateGpuType(
   }
 
   try {
-    const requestInit = await withAuthHeaders({
+    const requestInit = await buildRequestInitWithAuth({
       method: 'PUT',
       body: JSON.stringify({
         name,
@@ -712,7 +685,7 @@ export async function createWorkflowType(
   }
 
   try {
-    const requestInit = await withAuthHeaders({
+    const requestInit = await buildRequestInitWithAuth({
       method: 'POST',
       body: JSON.stringify({ name }),
     })
@@ -759,7 +732,7 @@ export async function updateWorkflowType(
   }
 
   try {
-    const requestInit = await withAuthHeaders({
+    const requestInit = await buildRequestInitWithAuth({
       method: 'PUT',
       body: JSON.stringify({ name }),
     })
@@ -808,7 +781,7 @@ export async function deleteWorkflowType(
     await backendJson(
       `/api/v1/admin/workflow-types/${id}`,
       z.any(),
-      await withAuthHeaders({
+      await buildRequestInitWithAuth({
         method: 'DELETE',
       })
     )
@@ -984,10 +957,5 @@ export async function fetchHealth() {
 }
 
 export async function getCurrentUser(devUserEmail?: string): Promise<UserInfo> {
-  const requestInit = await withAuthHeaders(undefined, devUserEmail)
-  if (requestInit) {
-    return backendJson('/api/v1/auth/me', userInfoSchema, requestInit)
-  }
-
-  return backendJson('/api/v1/auth/me', userInfoSchema)
+  return fetchCurrentUser(devUserEmail)
 }

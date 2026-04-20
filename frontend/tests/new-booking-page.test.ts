@@ -6,10 +6,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createInitialBookingFormValues } from '@/lib/booking-state'
 
 const mocks = vi.hoisted(() => ({
-  getCurrentUserMock: vi.fn(),
   getGpuTypesMock: vi.fn(),
   getGramOptionsMock: vi.fn(),
   getMemoryOptionsMock: vi.fn(),
+  requireCurrentUserMock: vi.fn(),
   getWorkflowTypesMock: vi.fn(),
   createBookingMock: vi.fn(),
   validateBookingMock: vi.fn(),
@@ -29,7 +29,6 @@ vi.mock('sonner', () => ({
 }))
 
 vi.mock('@/app/actions', () => ({
-  getCurrentUser: mocks.getCurrentUserMock,
   getGpuTypes: mocks.getGpuTypesMock,
   getGramOptions: mocks.getGramOptionsMock,
   getMemoryOptions: mocks.getMemoryOptionsMock,
@@ -38,13 +37,17 @@ vi.mock('@/app/actions', () => ({
   validateBooking: mocks.validateBookingMock,
 }))
 
+vi.mock('@/lib/server-auth', () => ({
+  requireCurrentUser: mocks.requireCurrentUserMock,
+}))
+
 import NewBookingPage from '@/app/bookings/new/page'
 
 beforeEach(() => {
   document.body.innerHTML = ''
   vi.clearAllMocks()
 
-  mocks.getCurrentUserMock.mockResolvedValue({
+  mocks.requireCurrentUserMock.mockResolvedValue({
     email: 'dev@example.com',
     is_admin: false,
     auth_mode: 'insecure',
@@ -94,7 +97,7 @@ describe('new booking page - F2 query prefill', () => {
     expect(screen.getByLabelText('Workflow Type')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Create Booking' })).toBeTruthy()
 
-    expect(mocks.getCurrentUserMock).toHaveBeenCalledTimes(1)
+    expect(mocks.requireCurrentUserMock).toHaveBeenCalledWith('/bookings/new')
     expect(mocks.getGpuTypesMock).toHaveBeenCalledTimes(1)
     expect(mocks.getWorkflowTypesMock).toHaveBeenCalledTimes(1)
     expect(mocks.getGramOptionsMock).toHaveBeenCalledWith('dev@example.com')

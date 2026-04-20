@@ -85,6 +85,6 @@ async def test_get_session_yields_queryable_and_closed_session(
 
 
 def test_database_url_default() -> None:
-    settings = Settings()
+    settings = Settings(_env_file=None)
 
     assert settings.database_url == "sqlite+aiosqlite:///./gpu_booking.db"

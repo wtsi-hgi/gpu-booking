@@ -13,27 +13,30 @@ vi.mock('next/cache', () => ({
 }))
 
 const mocks = vi.hoisted(() => ({
-  getCurrentUserMock: vi.fn(),
   getGramOptionsMock: vi.fn(),
   getMemoryOptionsMock: vi.fn(),
+  requireCurrentUserMock: vi.fn(),
   mutateGramOptionsMock: vi.fn(),
   mutateMemoryOptionsMock: vi.fn(),
 }))
 
 const {
-  getCurrentUserMock,
   getGramOptionsMock,
   getMemoryOptionsMock,
+  requireCurrentUserMock,
   mutateGramOptionsMock,
   mutateMemoryOptionsMock,
 } = mocks
 
 vi.mock('@/app/actions', () => ({
-  getCurrentUser: mocks.getCurrentUserMock,
   getGramOptions: mocks.getGramOptionsMock,
   getMemoryOptions: mocks.getMemoryOptionsMock,
   mutateGramOptions: mocks.mutateGramOptionsMock,
   mutateMemoryOptions: mocks.mutateMemoryOptionsMock,
+}))
+
+vi.mock('@/lib/server-auth', () => ({
+  requireCurrentUser: mocks.requireCurrentUserMock,
 }))
 
 const baseGramOptions: GramOption[] = [
@@ -57,7 +60,7 @@ beforeEach(() => {
   document.body.innerHTML = ''
   vi.clearAllMocks()
 
-  getCurrentUserMock.mockResolvedValue({
+  requireCurrentUserMock.mockResolvedValue({
     email: 'dev@example.com',
     is_admin: true,
     auth_mode: 'insecure',

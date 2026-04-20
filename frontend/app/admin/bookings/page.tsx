@@ -1,15 +1,15 @@
 import {
   getBookings,
-  getCurrentUser,
   getGpuTypes,
   getGramOptions,
   getMemoryOptions,
   getWorkflowTypes,
 } from '@/app/actions'
 import { AdminBookingPanel } from '@/components/admin-booking-panel'
+import { requireCurrentUser } from '@/lib/server-auth'
 
 export default async function AdminBookingsPage() {
-  const user = await getCurrentUser()
+  const user = await requireCurrentUser('/admin/bookings')
 
   if (!user.is_admin) {
     return (

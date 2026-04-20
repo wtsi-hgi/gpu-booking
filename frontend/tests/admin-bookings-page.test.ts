@@ -22,11 +22,11 @@ import type {
 import type { BookingResponse } from '@/lib/booking-contracts'
 
 const mocks = vi.hoisted(() => ({
-  getCurrentUserMock: vi.fn(),
   getBookingsMock: vi.fn(),
   getGpuTypesMock: vi.fn(),
   getGramOptionsMock: vi.fn(),
   getMemoryOptionsMock: vi.fn(),
+  requireCurrentUserMock: vi.fn(),
   getWorkflowTypesMock: vi.fn(),
   adminUpdateBookingMock: vi.fn(),
   getCapacityMock: vi.fn(),
@@ -35,7 +35,6 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('@/app/actions', () => ({
-  getCurrentUser: mocks.getCurrentUserMock,
   getBookings: mocks.getBookingsMock,
   getGpuTypes: mocks.getGpuTypesMock,
   getGramOptions: mocks.getGramOptionsMock,
@@ -49,6 +48,10 @@ vi.mock('@/app/actions', () => ({
     error: null,
     booking: null,
   },
+}))
+
+vi.mock('@/lib/server-auth', () => ({
+  requireCurrentUser: mocks.requireCurrentUserMock,
 }))
 
 vi.mock('sonner', () => ({
@@ -116,7 +119,7 @@ const workflowTypes: WorkflowType[] = [{ id: 1, name: 'Training' }]
 beforeEach(() => {
   vi.clearAllMocks()
 
-  mocks.getCurrentUserMock.mockResolvedValue({
+  mocks.requireCurrentUserMock.mockResolvedValue({
     email: 'admin@example.com',
     is_admin: true,
     auth_mode: 'insecure',

@@ -1,5 +1,6 @@
 """Application configuration using pydantic-settings."""
 
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -25,10 +26,29 @@ class Settings(BaseSettings):
 
     # Auth
     auth_mode: str = "insecure"  # "oidc" or "insecure"
-    okta_issuer: str = ""
-    okta_client_id: str = ""
-    okta_client_secret: str = ""
-    okta_audience: str = ""
+    okta_issuer: str = Field(
+        default="",
+        validation_alias=AliasChoices(
+            "OKTA_ISSUER",
+            "OIDC_ISSUER_URL",
+            "OIDC_ISSUER",
+        ),
+    )
+    okta_client_id: str = Field(
+        default="",
+        validation_alias=AliasChoices("OKTA_CLIENT_ID", "OIDC_CLIENT_ID"),
+    )
+    okta_client_secret: str = Field(
+        default="",
+        validation_alias=AliasChoices(
+            "OKTA_CLIENT_SECRET",
+            "OIDC_CLIENT_SECRET",
+        ),
+    )
+    okta_audience: str = Field(
+        default="",
+        validation_alias=AliasChoices("OKTA_AUDIENCE", "OIDC_AUDIENCE"),
+    )
 
     # Database
     database_url: str = "sqlite+aiosqlite:///./gpu_booking.db"

@@ -1,6 +1,16 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
 
+const mocks = vi.hoisted(() => ({
+  redirectMock: vi.fn((path: string) => {
+    throw new Error(`REDIRECT:${path}`)
+  }),
+}))
+
+vi.mock('next/navigation', () => ({
+  redirect: mocks.redirectMock,
+}))
+
 import AdminDashboardPage from '@/app/admin/page'
 
 function buildBooking(id: number, status: 'unconfirmed' | 'confirmed') {
@@ -154,5 +164,37 @@ describe('admin dashboard page', () => {
     expect(markup).toContain('Access Denied')
     expect(markup).not.toContain('Admin Dashboard')
     expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('redirects unauthenticated OIDC users to login', async () => {
+    process.env.OIDC_ISSUER_URL = 'https://issuer.example.com'
+    process.env.OIDC_CLIENT_ID = 'frontend-client'
+    process.env.OIDC_CLIENT_SECRET = 'frontend-secret'
+
+    const fetchMock = vi.fn(async (input: string | URL) => {
+      const url = new URL(String(input))
+
+      if (url.pathname === '/api/v1/auth/me') {
+        return new Response(JSON.stringify({ detail: 'Unauthorized' }), {
+          status: 401,
+          headers: { 'content-type': 'application/json' },
+        })
+      }
+
+      return new Response('Not Found', { status: 404 })
+    })
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(AdminDashboardPage()).rejects.toThrow(
+      'REDIRECT:/auth/login?returnTo=%2Fadmin'
+    )
+    expect(mocks.redirectMock).toHaveBeenCalledWith(
+      '/auth/login?returnTo=%2Fadmin'
+    )
+
+    delete process.env.OIDC_ISSUER_URL
+    delete process.env.OIDC_CLIENT_ID
+    delete process.env.OIDC_CLIENT_SECRET
   })
 })

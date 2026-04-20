@@ -1,4 +1,8 @@
 import {
+  buildRequestInitWithAuth,
+  requireCurrentUser,
+} from '@/lib/server-auth'
+import {
   Card,
   CardContent,
   CardDescription,
@@ -8,8 +12,6 @@ import {
 import { backendJson } from '@/lib/backend-client'
 import { bookingListSchema } from '@/lib/booking-contracts'
 import { gpuTypeListSchema } from '@/lib/admin-contracts'
-
-import { getCurrentUser } from '../actions'
 
 const adminSections = [
   {
@@ -53,14 +55,25 @@ function getCurrentMonthBounds() {
 
 async function loadSummaryStats() {
   const monthBounds = getCurrentMonthBounds()
+  const [pendingBookingsRequest, confirmedBookingsRequest, gpuTypesRequest] =
+    await Promise.all([
+      buildRequestInitWithAuth(),
+      buildRequestInitWithAuth(),
+      buildRequestInitWithAuth(),
+    ])
 
   const [pendingBookings, confirmedBookings, gpuTypes] = await Promise.all([
-    backendJson('/api/v1/bookings?status=unconfirmed', bookingListSchema),
+    backendJson(
+      '/api/v1/bookings?status=unconfirmed',
+      bookingListSchema,
+      pendingBookingsRequest
+    ),
     backendJson(
       `/api/v1/bookings?status=confirmed&start_date=${monthBounds.start}&end_date=${monthBounds.end}`,
-      bookingListSchema
+      bookingListSchema,
+      confirmedBookingsRequest
     ),
-    backendJson('/api/v1/gpu-types', gpuTypeListSchema),
+    backendJson('/api/v1/gpu-types', gpuTypeListSchema, gpuTypesRequest),
   ])
 
   return {
@@ -71,7 +84,7 @@ async function loadSummaryStats() {
 }
 
 export default async function AdminDashboardPage() {
-  const user = await getCurrentUser()
+  const user = await requireCurrentUser('/admin')
 
   if (!user.is_admin) {
     return (

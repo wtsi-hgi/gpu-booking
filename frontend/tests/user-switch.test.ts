@@ -69,6 +69,26 @@ describe('user switch header controls', () => {
 
     const adminLink = screen.getByRole('link', { name: 'Admin Dashboard' })
     expect(adminLink.getAttribute('href')).toBe('/admin')
+    const signOutLink = screen.getByRole('link', { name: 'Sign Out' })
+    expect(signOutLink.getAttribute('href')).toBe('/auth/logout')
+    expect(screen.queryByRole('textbox', { name: 'Impersonate user' })).toBeNull()
+  })
+
+  it('shows a sign-in link for unauthenticated OIDC users', () => {
+    mocks.useAuthMock.mockReturnValue({
+      authMode: 'oidc',
+      email: '',
+      error: null,
+      isAdmin: false,
+      loading: false,
+      refresh: vi.fn(),
+      switchUser: vi.fn(),
+    })
+
+    render(createElement(UserSwitch))
+
+    const signInLink = screen.getByRole('link', { name: 'Sign In' })
+    expect(signInLink.getAttribute('href')).toBe('/auth/login?returnTo=%2Fbookings')
     expect(screen.queryByRole('textbox', { name: 'Impersonate user' })).toBeNull()
   })
 })

@@ -8,8 +8,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { WorkflowTypeManager } from '@/components/workflow-type-manager'
 
 const mocks = vi.hoisted(() => ({
-  getCurrentUserMock: vi.fn(),
   getWorkflowTypesMock: vi.fn(),
+  requireCurrentUserMock: vi.fn(),
   createWorkflowTypeMock: vi.fn(),
   updateWorkflowTypeMock: vi.fn(),
   deleteWorkflowTypeMock: vi.fn(),
@@ -18,8 +18,8 @@ const mocks = vi.hoisted(() => ({
 }))
 
 const {
-  getCurrentUserMock,
   getWorkflowTypesMock,
+  requireCurrentUserMock,
   createWorkflowTypeMock,
   updateWorkflowTypeMock,
   deleteWorkflowTypeMock,
@@ -35,7 +35,6 @@ vi.mock('sonner', () => ({
 }))
 
 vi.mock('@/app/actions', () => ({
-  getCurrentUser: mocks.getCurrentUserMock,
   getWorkflowTypes: mocks.getWorkflowTypesMock,
   createWorkflowType: mocks.createWorkflowTypeMock,
   updateWorkflowType: mocks.updateWorkflowTypeMock,
@@ -47,6 +46,10 @@ vi.mock('@/app/actions', () => ({
     workflowType: null,
     deletedId: null,
   },
+}))
+
+vi.mock('@/lib/server-auth', () => ({
+  requireCurrentUser: mocks.requireCurrentUserMock,
 }))
 
 type WorkflowTypeFixture = {
@@ -67,7 +70,7 @@ describe('admin workflow types UI (C6)', () => {
     vi.clearAllMocks()
     vi.spyOn(window, 'confirm').mockReturnValue(true)
 
-    getCurrentUserMock.mockResolvedValue({
+    requireCurrentUserMock.mockResolvedValue({
       email: 'admin@example.com',
       is_admin: true,
       auth_mode: 'insecure',

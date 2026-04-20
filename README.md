@@ -114,10 +114,23 @@ When running with `AUTH_MODE=insecure`:
 When running with `AUTH_MODE=oidc`:
 
 - `Switch User` is hidden.
+- The frontend root page becomes a sign-in landing page for unauthenticated users.
+- Frontend server actions and server-rendered pages forward the OIDC bearer token to the backend.
 - Backend ignores dev impersonation headers and requires bearer tokens.
 - Admin access is based on authenticated user email membership in the admins table.
 
 For production, explicitly set OIDC-related variables and do not rely on defaults.
+
+Frontend OIDC settings:
+
+- `OIDC_ISSUER_URL` or `OIDC_ISSUER`
+- `OIDC_CLIENT_ID`
+- `OIDC_CLIENT_SECRET`
+- `OIDC_REDIRECT_URI` (optional)
+- `OIDC_POST_LOGOUT_REDIRECT_URI` (optional)
+- `OIDC_SCOPES` (optional, defaults to `openid profile email`)
+
+Backend accepts both historical `OKTA_*` names and corresponding `OIDC_*` aliases for issuer, audience, and client settings.
 
 ## Running tests and checks
 
@@ -161,6 +174,13 @@ Before starting production services, set backend auth configuration (at minimum)
 - `OKTA_ISSUER`
 - `OKTA_AUDIENCE` (if your token validation requires audience checking)
 - `INITIAL_ADMIN_EMAILS` (comma-separated bootstrap list used by seed/admin workflows)
+
+Equivalent backend aliases are also accepted:
+
+- `OIDC_ISSUER_URL` or `OIDC_ISSUER`
+- `OIDC_CLIENT_ID`
+- `OIDC_CLIENT_SECRET`
+- `OIDC_AUDIENCE`
 
 ### Frontend
 

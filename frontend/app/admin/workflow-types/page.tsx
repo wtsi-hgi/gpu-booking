@@ -1,8 +1,9 @@
-import { getCurrentUser, getWorkflowTypes } from '@/app/actions'
+import { getWorkflowTypes } from '@/app/actions'
 import { WorkflowTypeManager } from '@/components/workflow-type-manager'
+import { requireCurrentUser } from '@/lib/server-auth'
 
 export default async function AdminWorkflowTypesPage() {
-  const user = await getCurrentUser()
+  const user = await requireCurrentUser('/admin/workflow-types')
 
   if (!user.is_admin) {
     return (

@@ -6,6 +6,9 @@ import { ThemeProvider } from '@/components/theme-provider'
 import { UserSwitch } from '@/components/user-switch'
 import { Toaster } from '@/components/ui/toaster'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import { toAuthState } from '@/lib/auth-state'
+import { hasFrontendOidcConfig } from '@/lib/oidc'
+import { getOptionalCurrentUser } from '@/lib/server-auth'
 
 import './globals.css'
 
@@ -20,18 +23,27 @@ export const metadata: Metadata = {
   description: 'GPU booking and capacity management application',
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  const currentUser = await getOptionalCurrentUser()
+  const initialAuthState = currentUser
+    ? toAuthState(currentUser)
+    : {
+        email: '',
+        isAdmin: false,
+        authMode: hasFrontendOidcConfig() ? 'oidc' : 'insecure',
+      }
+
   return (
     <html lang="en" suppressHydrationWarning>
       <body
         className={`${inter.variable} bg-background text-foreground min-h-screen font-sans antialiased`}
       >
         <ThemeProvider>
-          <AuthProvider>
+          <AuthProvider initialAuthState={initialAuthState}>
             <TooltipProvider delayDuration={150}>
               <header className="border-border bg-background/80 sticky top-0 z-20 border-b backdrop-blur">
                 <div className="container mx-auto flex h-14 max-w-6xl items-center justify-end px-4">

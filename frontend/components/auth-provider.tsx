@@ -4,7 +4,6 @@ import {
 	createContext,
 	useCallback,
 	useContext,
-	useEffect,
 	useMemo,
 	useState,
 	type ReactNode,
@@ -32,9 +31,17 @@ const defaultAuthState: AuthState = {
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-	const [authState, setAuthState] = useState<AuthState>(defaultAuthState)
-	const [loading, setLoading] = useState(true)
+export function AuthProvider({
+	children,
+	initialAuthState,
+}: {
+	children: ReactNode
+	initialAuthState?: AuthState | null
+}) {
+	const [authState, setAuthState] = useState<AuthState>(
+		initialAuthState ?? defaultAuthState
+	)
+	const [loading, setLoading] = useState(false)
 	const [error, setError] = useState<string | null>(null)
 
 	const loadUser = useCallback(async (devUserEmail?: string) => {
@@ -63,10 +70,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 		},
 		[loadUser]
 	)
-
-	useEffect(() => {
-		void loadUser()
-	}, [loadUser])
 
 	const value = useMemo<AuthContextValue>(
 		() => ({
