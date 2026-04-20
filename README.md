@@ -136,6 +136,7 @@ Frontend (`frontend/`):
 pnpm lint
 pnpm format
 pnpm test
+pnpm test:e2e
 ```
 
 Backend (`backend/`):
@@ -148,6 +149,7 @@ Backend (`backend/`):
 
 Notes:
 - Frontend tests are Vitest-based and include route/component/action contract coverage.
+- Frontend Playwright E2E coverage starts the repo locally via `run-dev.sh` against an isolated SQLite database and uses the preinstalled Chromium/browser path from the environment.
 - A server-action export contract test now guards against invalid `use server` exports.
 - A homepage smoke test verifies the root page renders with successful backend responses.
 

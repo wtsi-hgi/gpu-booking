@@ -1,4 +1,4 @@
-.PHONY: lint format test run backend-lint backend-format backend-test frontend-lint frontend-format frontend-test
+.PHONY: lint format test run backend-lint backend-format backend-test frontend-lint frontend-format frontend-test frontend-e2e-test
 
 FRONTEND_PORT ?= 3000
 BACKEND_PORT ?= 8000
@@ -11,7 +11,7 @@ lint: backend-lint frontend-lint
 
 format: backend-format frontend-format
 
-test: backend-test frontend-test
+test: backend-test frontend-test frontend-e2e-test
 
 run:
 	FRONTEND_PORT=$(FRONTEND_PORT) BACKEND_PORT=$(BACKEND_PORT) ./run-dev.sh --frontend-port $(FRONTEND_PORT) --backend-port $(BACKEND_PORT)
@@ -36,3 +36,6 @@ frontend-format:
 
 frontend-test:
 	$(PNPM) test
+
+frontend-e2e-test:
+	$(PNPM) test:e2e

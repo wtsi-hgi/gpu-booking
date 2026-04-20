@@ -23,6 +23,8 @@ out/
 
 # ── Frontend testing ────────────────────────────────────────────────
 coverage/
+frontend/playwright-report/
+frontend/test-results/
 
 # ── Python bytecode ─────────────────────────────────────────────────
 __pycache__/
