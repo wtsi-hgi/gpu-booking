@@ -27,7 +27,8 @@ GPU Booking is a full-stack scheduling application for shared accelerator infras
 
 - `frontend/`: Next.js application and Vitest suite.
 - `backend/`: FastAPI application, SQLAlchemy models/services, pytest suite.
-- `run-dev.sh`: one-command local dev startup with health checks.
+- `Makefile`: repo-level lint, format, test, and run entrypoints.
+- `run-dev.sh`: thin local runtime launcher with health checks.
 
 ## Quick start (development)
 
@@ -50,16 +51,29 @@ backend/.venv/bin/pip install --upgrade pip
 backend/.venv/bin/pip install -r backend/requirements-dev.txt
 ```
 
+Run repo checks:
+
+```bash
+make lint
+make test
+```
+
+Apply formatting:
+
+```bash
+make format
+```
+
 Start both services:
 
 ```bash
-./run-dev.sh
+make run
 ```
 
 Custom ports:
 
 ```bash
-./run-dev.sh -f 4000 -b 9000
+make run FRONTEND_PORT=4000 BACKEND_PORT=9000
 ```
 
 Logs:
@@ -69,6 +83,9 @@ tail -F logs/frontend.log logs/backend.log
 ```
 
 Important:
+- `make run` is a thin wrapper around `./run-dev.sh`.
+- `run-dev.sh` only starts, health-checks, and stops the frontend/backend processes cleanly.
+- `run-dev.sh` sets `BACKEND_URL` for the frontend process so custom backend ports override local `.env` defaults during dev startup.
 - `run-dev.sh` launches backend via `backend/run_uvicorn.sh`, which uses `backend/.venv`.
 - Installing deps into a different venv (for example repo-root `.venv`) will not satisfy backend runtime dependencies.
 
@@ -104,10 +121,20 @@ For production, explicitly set OIDC-related variables and do not rely on default
 
 ## Running tests and checks
 
+Repo root:
+
+```bash
+make lint
+make format
+make test
+make run
+```
+
 Frontend (`frontend/`):
 
 ```bash
 pnpm lint
+pnpm format
 pnpm test
 ```
 
@@ -116,6 +143,7 @@ Backend (`backend/`):
 ```bash
 .venv/bin/pytest
 .venv/bin/ruff check .
+.venv/bin/ruff format .
 ```
 
 Notes:
@@ -157,4 +185,4 @@ Use a process manager/container platform and external reverse proxy/load balance
 - Backend health: `GET /api/v1/health`
 - Frontend health proxy: `GET /api/health`
 
-`run-dev.sh` waits for both and performs a warmup request against `/` before declaring startup ready.
+`make run` invokes `run-dev.sh`, which waits for both services and performs a warmup request against `/` before declaring startup ready.

@@ -96,104 +96,7 @@ while [[ ${#} -gt 0 ]]; do
   esac
 done
 
-echo "Running frontend format and lint check on changed files..."
-
-# Get list of changed files in frontend directory that match supported extensions
-CHANGED_FILES=$(git diff --name-only --diff-filter=d HEAD | grep "^frontend/.*\.\(ts\|tsx\|js\|jsx\|json\|css\)$" || true)
-# ESLint only runs on JS/TS files (not JSON/CSS)
-ESLINT_FILES=$(git diff --name-only --diff-filter=d HEAD | grep "^frontend/.*\.\(ts\|tsx\|js\|jsx\)$" || true)
-
-if [ -n "$CHANGED_FILES" ]; then
-    # Strip 'frontend/' prefix for running commands inside the directory
-    RELATIVE_FILES=$(echo "$CHANGED_FILES" | sed 's/^frontend\///')
-    RELATIVE_ESLINT_FILES=$(echo "$ESLINT_FILES" | sed 's/^frontend\///' || true)
-    
-    # Run prettier on all files, eslint only on JS/TS files
-    LINT_FAILED=0
-    if ! (cd frontend && echo "$RELATIVE_FILES" | xargs pnpm prettier --write > /dev/null 2>&1); then
-        LINT_FAILED=1
-    fi
-    if [ -n "$RELATIVE_ESLINT_FILES" ]; then
-        if ! (cd frontend && echo "$RELATIVE_ESLINT_FILES" | xargs pnpm eslint > /dev/null 2>&1); then
-            LINT_FAILED=1
-        fi
-    fi
-    
-    if [ "$LINT_FAILED" -eq 1 ]; then
-        echo "Format or lint check failed on changed files. Running again with output:"
-        (cd frontend && echo "$RELATIVE_FILES" | xargs pnpm prettier --write)
-        if [ -n "$RELATIVE_ESLINT_FILES" ]; then
-            (cd frontend && echo "$RELATIVE_ESLINT_FILES" | xargs pnpm eslint)
-        fi
-        exit 1
-    fi
-    echo "Frontend checks passed on $(echo "$CHANGED_FILES" | wc -l) file(s)."
-else
-    echo "No changed frontend files to check."
-fi
-
-# Frontend tests (only when relevant files changed)
-if [ -n "$CHANGED_FILES" ]; then
-  echo "Running frontend unit tests on changed tree..."
-  if ! (cd frontend && pnpm test > /dev/null 2>&1); then
-    echo "Frontend unit tests failed. Running again with output:"
-    (cd frontend && pnpm test)
-    exit 1
-  fi
-  echo "Frontend unit tests passed."
-else
-  echo "No frontend changes requiring unit tests."
-fi
-
-# Backend linting with ruff (if installed)
-echo "Running backend lint check..."
-BACKEND_CHANGED=$(git diff --name-only --diff-filter=d HEAD | grep "^backend/.*\.py$" || true)
-
-if [ -n "$BACKEND_CHANGED" ]; then
-    if command -v ruff &> /dev/null || [ -x "backend/.venv/bin/ruff" ]; then
-        RUFF_CMD="ruff"
-        if [ -x "backend/.venv/bin/ruff" ]; then
-            RUFF_CMD="backend/.venv/bin/ruff"
-        fi
-        
-        if ! $RUFF_CMD check backend/ > /dev/null 2>&1; then
-            echo "Backend lint check failed:"
-            $RUFF_CMD check backend/
-            exit 1
-        fi
-        echo "Backend checks passed on $(echo "$BACKEND_CHANGED" | wc -l) file(s)."
-    else
-        echo "Skipping backend lint (ruff not installed - run: pip install -r backend/requirements-dev.txt)"
-    fi
-else
-    echo "No changed backend files to check."
-fi
-
-# Backend tests (only when Python files changed)
-if [ -n "$BACKEND_CHANGED" ]; then
-  echo "Running backend unit tests..."
-  if ! (cd backend && { if [ -f .venv/bin/activate ]; then \
-      # shellcheck disable=SC1091
-      . .venv/bin/activate; \
-    fi; command -v pytest > /dev/null 2>&1; }); then
-    echo "pytest is not available. Install backend dev dependencies (pip install -r backend/requirements-dev.txt)."
-    exit 1
-  fi
-  if ! (cd backend && { if [ -f .venv/bin/activate ]; then \
-      # shellcheck disable=SC1091
-      . .venv/bin/activate; \
-    fi; pytest > /dev/null 2>&1; }); then
-    echo "Backend unit tests failed. Running again with output:"
-    (cd backend && { if [ -f .venv/bin/activate ]; then \
-      # shellcheck disable=SC1091
-      . .venv/bin/activate; \
-    fi; pytest; })
-    exit 1
-  fi
-  echo "Backend unit tests passed."
-else
-  echo "No backend changes requiring unit tests."
-fi
+echo "Starting local development services..."
 
 mkdir -p logs
 
@@ -210,10 +113,10 @@ BACK_PID=$!
 
 echo "Starting frontend on port ${FRONTEND_PORT} (logs: logs/frontend.log)"
 if command -v setsid >/dev/null 2>&1; then
-  setsid bash -lc "cd frontend && FRONTEND_PORT=${FRONTEND_PORT} BACKEND_PORT=${BACKEND_PORT} pnpm dev" > logs/frontend.log 2>&1 &
+  setsid bash -lc "cd frontend && FRONTEND_PORT=${FRONTEND_PORT} BACKEND_PORT=${BACKEND_PORT} BACKEND_URL=http://127.0.0.1:${BACKEND_PORT} pnpm dev" > logs/frontend.log 2>&1 &
   FRONT_KILL_MODE="group"
 else
-  bash -lc "cd frontend && FRONTEND_PORT=${FRONTEND_PORT} BACKEND_PORT=${BACKEND_PORT} exec pnpm dev" > logs/frontend.log 2>&1 &
+  bash -lc "cd frontend && FRONTEND_PORT=${FRONTEND_PORT} BACKEND_PORT=${BACKEND_PORT} BACKEND_URL=http://127.0.0.1:${BACKEND_PORT} exec pnpm dev" > logs/frontend.log 2>&1 &
   FRONT_KILL_MODE="pid"
 fi
 FRONT_PID=$!
