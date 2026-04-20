@@ -224,6 +224,18 @@ describe('booking form - F3 acceptance coverage', () => {
     expect(screen.queryByRole('button', { name: 'Validate' })).toBeNull()
   })
 
+  it('provides a close action that returns to the bookings page without submitting', async () => {
+    const user = userEvent.setup()
+
+    renderBookingForm()
+
+    await user.click(screen.getByRole('button', { name: 'Close' }))
+
+    expect(routerPushMock).toHaveBeenCalledWith('/bookings')
+    expect(validateBookingMock).not.toHaveBeenCalled()
+    expect(createBookingMock).not.toHaveBeenCalled()
+  })
+
   it('auto-validates and submits immediately when validation passes cleanly', async () => {
     const user = userEvent.setup()
     renderBookingForm()

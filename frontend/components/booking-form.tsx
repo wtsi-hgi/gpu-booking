@@ -653,6 +653,10 @@ export function BookingForm({
     }
   }
 
+  function handleClose() {
+    router.push('/bookings')
+  }
+
   const actionLabel = pending
     ? 'Creating Booking…'
     : validating
@@ -974,6 +978,14 @@ export function BookingForm({
 
           <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={pending || validating}
+                onClick={handleClose}
+              >
+                Close
+              </Button>
               <Button type="submit" disabled={pending || validating}>
                 {actionLabel}
               </Button>
