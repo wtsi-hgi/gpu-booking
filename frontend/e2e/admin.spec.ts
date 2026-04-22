@@ -110,6 +110,7 @@ test.describe('admin flows', () => {
     const sidePanel = page.getByTestId('admin-booking-side-panel')
 
     await sidePanel.getByLabel('Status').selectOption('confirmed')
+    await expect(page.getByTestId('admin-capacity-warning')).toHaveCount(0)
     await sidePanel
       .getByLabel('Admin Notes')
       .fill('Approved - playwright update')

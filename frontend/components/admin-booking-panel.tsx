@@ -204,7 +204,12 @@ export function AdminBookingPanel({
   }, [state])
 
   useEffect(() => {
-    if (!selectedBooking || !draft || !statusConsumesCapacity(draft.status)) {
+    if (!selectedBooking || !draft) {
+      return
+    }
+
+    if (!statusConsumesCapacity(draft.status)) {
+      setCapacityWarning(null)
       return
     }
 
@@ -263,9 +268,7 @@ export function AdminBookingPanel({
           return
         }
 
-        setCapacityWarning(
-          `Capacity warning: ${draft.status} bookings consume GPU capacity. Review availability before saving.`
-        )
+        setCapacityWarning(null)
       } catch {
         if (!cancelled) {
           setCapacityWarning(

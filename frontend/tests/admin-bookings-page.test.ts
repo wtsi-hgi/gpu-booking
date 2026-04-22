@@ -237,6 +237,64 @@ describe('admin bookings page - H2 acceptance tests', () => {
         'Confirmed'
       )
     })
+
+    expect(screen.queryByTestId('admin-capacity-warning')).toBeNull()
+  })
+
+  it('does not show a capacity warning when confirming within available capacity', async () => {
+    render(
+      createElement(AdminBookingPanel, {
+        initialBookings: [buildBooking()],
+        gpuTypes,
+        gramOptions,
+        memoryOptions,
+        workflowTypes,
+      })
+    )
+
+    fireEvent.click(document.querySelector('[data-booking-id="1"]') as Element)
+    fireEvent.change(
+      within(screen.getByTestId('admin-booking-side-panel')).getByLabelText(
+        'Status'
+      ),
+      {
+        target: { value: 'confirmed' },
+      }
+    )
+
+    await waitFor(() => {
+      expect(mocks.getCapacityMock).toHaveBeenCalledWith(
+        '2026-04-01',
+        '2026-04-03',
+        1
+      )
+    })
+
+    expect(screen.queryByTestId('admin-capacity-warning')).toBeNull()
+  })
+
+  it('does not show a capacity warning when reopening an already confirmed booking', async () => {
+    render(
+      createElement(AdminBookingPanel, {
+        initialBookings: [buildBooking({ status: 'confirmed' })],
+        gpuTypes,
+        gramOptions,
+        memoryOptions,
+        workflowTypes,
+      })
+    )
+
+    fireEvent.click(document.querySelector('[data-booking-id="1"]') as Element)
+
+    await waitFor(() => {
+      expect(mocks.getCapacityMock).toHaveBeenCalledWith(
+        '2026-04-01',
+        '2026-04-03',
+        1
+      )
+    })
+
+    expect(screen.queryByTestId('admin-capacity-warning')).toBeNull()
   })
 
   it('shows capacity error and rejects update when confirmed would exceed capacity', async () => {
