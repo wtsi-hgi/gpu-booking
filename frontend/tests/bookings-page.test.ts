@@ -367,7 +367,15 @@ describe('bookings page - F1 calendar grid', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'March' }))
 
-    expect(document.querySelector('[data-month-selector="true"]')).toBeTruthy()
+    const monthSelector = document.querySelector(
+      '[data-month-selector="true"]'
+    )
+
+    expect(monthSelector).toBeTruthy()
+    expect(monthSelector?.className).toContain('w-max')
+    expect(monthSelector?.className).toContain('min-w-[18rem]')
+    expect(monthSelector?.className).toContain('grid-cols-1')
+    expect(monthSelector?.className).toContain('sm:grid-cols-2')
     expect(
       screen.getByRole('button', { name: 'September' })
     ).toBeTruthy()

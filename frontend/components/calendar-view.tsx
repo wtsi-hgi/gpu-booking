@@ -805,7 +805,7 @@ export function CalendarView({
                   </Button>
                   {isMonthSelectorOpen ? (
                     <div
-                      className="bg-popover absolute top-full left-1/2 z-20 mt-2 grid min-w-[15rem] -translate-x-1/2 grid-cols-3 gap-1 rounded-xl border p-2 shadow-xl"
+                      className="bg-popover absolute top-full left-1/2 z-20 mt-2 grid w-max min-w-[18rem] max-w-[calc(100vw-2rem)] -translate-x-1/2 grid-cols-1 gap-1 rounded-xl border p-2 shadow-xl sm:grid-cols-2"
                       data-month-selector="true"
                       role="dialog"
                       aria-label="Month selector"
