@@ -67,11 +67,15 @@ def test_settings_preserve_initial_admin_emails_string(monkeypatch) -> None:
 
 
 def test_settings_support_legacy_environment_variable_names(monkeypatch) -> None:
-    """Accept historical unprefixed names while preferring repo-specific ones."""
+    """Prefer explicit legacy names over conflicting repo-prefixed values."""
 
+    monkeypatch.setenv("GPU_BOOKING_AUTH_MODE", "insecure")
     monkeypatch.setenv("AUTH_MODE", "oidc")
+    monkeypatch.setenv("GPU_BOOKING_DATABASE_URL", "sqlite+aiosqlite:///./prefixed.db")
     monkeypatch.setenv("DATABASE_URL", "sqlite+aiosqlite:///./legacy.db")
+    monkeypatch.setenv("GPU_BOOKING_INITIAL_ADMIN_EMAILS", "prefixed@example.com")
     monkeypatch.setenv("INITIAL_ADMIN_EMAILS", "legacy@example.com")
+    monkeypatch.setenv("GPU_BOOKING_BACKEND_PORT", "8000")
     monkeypatch.setenv("BACKEND_PORT", "9100")
 
     settings = Settings(_env_file=None)
