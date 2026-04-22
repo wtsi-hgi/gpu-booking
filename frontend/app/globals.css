@@ -132,3 +132,32 @@
     color: var(--color-foreground);
   }
 }
+
+@layer components {
+  .calendar-today-pulse {
+    animation: calendar-today-pulse 1.4s ease-out;
+  }
+
+  @keyframes calendar-today-pulse {
+    0% {
+      border-color: color-mix(in srgb, var(--color-ring) 32%, transparent);
+      box-shadow:
+        0 0 0 1px color-mix(in srgb, var(--color-ring) 18%, transparent),
+        0 0 0 0 color-mix(in srgb, var(--color-ring) 0%, transparent);
+    }
+
+    35% {
+      border-color: color-mix(in srgb, var(--color-ring) 52%, transparent);
+      box-shadow:
+        0 0 0 1px color-mix(in srgb, var(--color-ring) 28%, transparent),
+        0 0 0 6px color-mix(in srgb, var(--color-ring) 18%, transparent);
+    }
+
+    100% {
+      border-color: color-mix(in srgb, var(--color-ring) 20%, transparent);
+      box-shadow:
+        0 0 0 1px color-mix(in srgb, var(--color-ring) 14%, transparent),
+        0 0 0 0 color-mix(in srgb, var(--color-ring) 0%, transparent);
+    }
+  }
+}

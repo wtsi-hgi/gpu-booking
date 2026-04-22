@@ -396,13 +396,22 @@ describe('bookings page - F1 calendar grid', () => {
 
     expect(screen.getByText('March')).toBeTruthy()
 
-    const todayCell = document.querySelector('[data-date="2026-03-15"]')
+    const todayCell = document.querySelector(
+      '[data-date="2026-03-15"]'
+    ) as HTMLElement | null
 
     expect(todayCell?.getAttribute('data-today-highlighted')).toBe('true')
+    expect(todayCell?.className).toContain('border-primary/25')
+    expect(todayCell?.className).toContain('ring-primary/20')
+    expect(todayCell?.className).toContain('calendar-today-pulse')
+    expect(todayCell?.className).not.toContain('animate-pulse')
 
     await vi.advanceTimersByTimeAsync(1800)
 
     expect(todayCell?.getAttribute('data-today-highlighted')).toBe('false')
+    expect(todayCell?.className).toContain('border-primary/25')
+    expect(todayCell?.className).toContain('ring-primary/20')
+    expect(todayCell?.className).not.toContain('calendar-today-pulse')
   })
 
   it('updates capacity display when GPU type filter changes to H100', async () => {

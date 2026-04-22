@@ -931,11 +931,9 @@ export function CalendarView({
                           : null,
                         isDragBoundary ? 'ring-primary/30 ring-1' : null,
                         isToday
-                          ? 'ring-primary/25 dark:ring-primary/50 ring-1'
+                          ? 'border-primary/25 ring-primary/20 dark:border-primary/35 dark:ring-primary/30 ring-1'
                           : null,
-                        isTodayAnimated
-                          ? 'bg-primary/20 ring-primary/70 animate-pulse ring-2 dark:bg-primary/35'
-                          : null,
+                        isTodayAnimated ? 'calendar-today-pulse' : null,
                         hasSelectionJump ? 'pb-10' : null
                       )}
                       data-day-cell="true"
