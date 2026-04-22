@@ -927,7 +927,7 @@ export function CalendarView({
                           ? 'bg-destructive/10'
                           : null,
                         isInDragSelection
-                          ? 'border-primary/70 bg-primary/15 dark:border-primary/80 dark:bg-primary/25'
+                          ? 'border-primary/70 bg-primary/15 dark:border-primary dark:bg-primary/40'
                           : null,
                         isDragBoundary ? 'ring-primary/30 ring-1' : null,
                         isToday
@@ -1058,7 +1058,7 @@ export function CalendarView({
 
             <Card
               ref={selectionPanelRef}
-              className="border-primary/30 bg-card/95 scroll-mt-4 shadow-md dark:border-primary/45"
+              className="border-primary/30 bg-card/95 scroll-mt-4 shadow-md dark:border-primary/70"
               data-selection-panel="true"
               data-selection-start={displayedSelection?.startDate}
               data-selection-end={displayedSelection?.endDate}
@@ -1124,7 +1124,7 @@ export function CalendarView({
                       </p>
                     </div>
 
-                    <div className="border-border/80 bg-muted/30 rounded-lg border p-4 dark:border-border">
+                    <div className="border-border/80 bg-muted/30 rounded-lg border p-4 dark:border-primary/50 dark:bg-muted/45">
                       <div className="flex items-start justify-between gap-3">
                         <div className="space-y-1">
                           <p className="text-sm font-medium">

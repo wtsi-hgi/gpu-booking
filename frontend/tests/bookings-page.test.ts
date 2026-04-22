@@ -516,6 +516,35 @@ describe('bookings page - F1 calendar grid', () => {
     )
   })
 
+  it('uses higher-contrast dark-mode styling for selected days and the selection details panel', async () => {
+    document.documentElement.classList.add('dark')
+
+    const { default: BookingsPage } = await import('@/app/bookings/page')
+    render(await BookingsPage())
+
+    const dayCell = document.querySelector('[data-date="2026-03-10"]')
+    expect(dayCell).toBeTruthy()
+
+    fireEvent.mouseDown(dayCell as Element)
+    fireEvent.mouseUp(dayCell as Element)
+
+    const selectedDayClassName = dayCell?.getAttribute('class') ?? ''
+    const selectionPanel = document.querySelector(
+      '[data-selection-panel="true"]'
+    )
+    const selectionPanelClassName = selectionPanel?.getAttribute('class') ?? ''
+    const availabilityPanel = screen
+      .getByText('Availability for selected day')
+      .closest('div.border')
+
+    expect(selectedDayClassName).toContain('dark:border-primary')
+    expect(selectedDayClassName).toContain('dark:bg-primary/40')
+    expect(selectionPanelClassName).toContain('dark:border-primary/70')
+    expect(availabilityPanel?.getAttribute('class') ?? '').toContain(
+      'dark:border-primary/50'
+    )
+  })
+
   it('uses visible adjacent-month data for overflow cells and selection details', async () => {
     mocks.getCapacityMock.mockResolvedValueOnce([
       buildCapacity('2026-03-10', 80, 20, 0),
