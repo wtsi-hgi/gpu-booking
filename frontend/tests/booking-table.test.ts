@@ -225,6 +225,15 @@ describe('booking-table G1 acceptance tests', () => {
     ).toBeTruthy()
   })
 
+  it('renders created-at timestamps with a deterministic UTC format', () => {
+    renderBookingTable(
+      [buildBooking(1, { created_at: '2026-04-21T11:51:00Z' })],
+      false
+    )
+
+    expect(screen.getByText('21 Apr 2026, 11:51')).toBeTruthy()
+  })
+
   it('hides admin-only columns for non-admin users', () => {
     renderBookingTable([buildBooking(1)], false)
 

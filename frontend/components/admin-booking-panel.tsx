@@ -61,9 +61,27 @@ type SelectProps = {
 }
 
 const CAPACITY_CONSUMING_STATUSES = new Set(['confirmed', 'tentative', 'spot'])
+const MONTH_NAMES = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+] as const
 
 function statusConsumesCapacity(status: BookingResponse['status']): boolean {
   return CAPACITY_CONSUMING_STATUSES.has(status)
+}
+
+function formatUtcDate(date: Date): string {
+  return `${String(date.getUTCDate()).padStart(2, '0')} ${MONTH_NAMES[date.getUTCMonth()]} ${date.getUTCFullYear()}`
 }
 
 function overlapsDay(day: string, startDate: string, endDate: string): boolean {
@@ -80,14 +98,7 @@ function toDisplayDateTime(value: string | null): string {
     return value
   }
 
-  return new Intl.DateTimeFormat('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    timeZone: 'UTC',
-  }).format(date)
+  return `${formatUtcDate(date)}, ${String(date.getUTCHours()).padStart(2, '0')}:${String(date.getUTCMinutes()).padStart(2, '0')}`
 }
 
 function toInputDate(value: string | null): string {

@@ -74,6 +74,24 @@ const statusLabels: Record<string, StatusVariant> = {
 }
 
 const PAGE_SIZE = 25
+const MONTH_NAMES = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+] as const
+
+function formatUtcDate(date: Date): string {
+  return `${String(date.getUTCDate()).padStart(2, '0')} ${MONTH_NAMES[date.getUTCMonth()]} ${date.getUTCFullYear()}`
+}
 
 function shouldShowBooking(
   booking: BookingResponse,
@@ -101,12 +119,7 @@ function toDisplayDate(value: string): string {
     return value
   }
 
-  return new Intl.DateTimeFormat('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    timeZone: 'UTC',
-  }).format(date)
+  return formatUtcDate(date)
 }
 
 function toDisplayDateTime(value: string): string {
@@ -119,14 +132,7 @@ function toDisplayDateTime(value: string): string {
     return value
   }
 
-  return new Intl.DateTimeFormat('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    timeZone: 'UTC',
-  }).format(date)
+  return `${formatUtcDate(date)}, ${String(date.getUTCHours()).padStart(2, '0')}:${String(date.getUTCMinutes()).padStart(2, '0')}`
 }
 
 function truncateText(value: string | null, maxLength: number): string {
