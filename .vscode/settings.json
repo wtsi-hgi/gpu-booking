@@ -2,8 +2,10 @@
   "editor.detectIndentation": false,
   "editor.insertSpaces": true,
   "editor.tabSize": 2,
+  "files.eol": "\n",
   "files.insertFinalNewline": true,
   "files.trimTrailingWhitespace": true,
+  "prettier.endOfLine": "lf",
   "[python]": {
     "editor.insertSpaces": true,
     "editor.tabSize": 4
