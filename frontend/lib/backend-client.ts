@@ -2,9 +2,21 @@ import { type ZodSchema } from 'zod'
 
 import { errorResponseSchema } from './contracts'
 
-const DEFAULT_PORT = process.env.BACKEND_PORT ?? '8000'
+function readEnv(...names: string[]): string | undefined {
+	for (const name of names) {
+		const value = process.env[name]?.trim()
+		if (value) {
+			return value
+		}
+	}
+
+	return undefined
+}
+
+const DEFAULT_PORT = readEnv('GPU_BOOKING_BACKEND_PORT', 'BACKEND_PORT') ?? '8000'
 const backendOrigin = new URL(
-	process.env.BACKEND_URL ?? `http://127.0.0.1:${DEFAULT_PORT}`
+	readEnv('GPU_BOOKING_BACKEND_URL', 'BACKEND_URL') ??
+		`http://127.0.0.1:${DEFAULT_PORT}`
 )
 
 export class BackendRequestError extends Error {

@@ -70,10 +70,21 @@ Start both services:
 make run
 ```
 
+To keep local overrides out of your shell, put them in a repo-root `.env` file.
+`make` automatically loads that file before `run`, `test`, `lint`, and `format`.
+
+Example `.env`:
+
+```bash
+GPU_BOOKING_FRONTEND_PORT=4000
+GPU_BOOKING_BACKEND_PORT=9000
+GPU_BOOKING_AUTH_MODE=insecure
+```
+
 Custom ports:
 
 ```bash
-make run FRONTEND_PORT=4000 BACKEND_PORT=9000
+make run GPU_BOOKING_FRONTEND_PORT=4000 GPU_BOOKING_BACKEND_PORT=9000
 ```
 
 Logs:
@@ -85,7 +96,7 @@ tail -F logs/frontend.log logs/backend.log
 Important:
 - `make run` is a thin wrapper around `./run-dev.sh`.
 - `run-dev.sh` only starts, health-checks, and stops the frontend/backend processes cleanly.
-- `run-dev.sh` sets `BACKEND_URL` for the frontend process so custom backend ports override local `.env` defaults during dev startup.
+- `run-dev.sh` sets `GPU_BOOKING_BACKEND_URL` for the frontend process so custom backend ports override frontend-local `.env` defaults during dev startup.
 - `run-dev.sh` launches backend via `backend/run_uvicorn.sh`, which uses `backend/.venv`.
 - Installing deps into a different venv (for example repo-root `.venv`) will not satisfy backend runtime dependencies.
 
@@ -93,25 +104,32 @@ Important:
 
 The app runs with defaults, but these are commonly set:
 
-- `FRONTEND_PORT` (default `3000`)
-- `BACKEND_PORT` (default `8000`)
-- `BACKEND_URL` (optional override used by frontend server-side calls)
+- `GPU_BOOKING_FRONTEND_PORT` (default `3000`)
+- `GPU_BOOKING_BACKEND_PORT` (default `8000`)
+- `GPU_BOOKING_BACKEND_URL` (optional override used by frontend server-side calls)
+- `GPU_BOOKING_AUTH_MODE` (`insecure` by default, `oidc` in production)
+- `GPU_BOOKING_DATABASE_URL`
+- `GPU_BOOKING_INITIAL_ADMIN_EMAILS`
 - backend auth and app settings from `backend/.env.example`
+
+Historical unprefixed names such as `FRONTEND_PORT`, `BACKEND_PORT`, `BACKEND_URL`,
+`AUTH_MODE`, and `DATABASE_URL` are still accepted as compatibility aliases, but
+new configuration should use the `GPU_BOOKING_` names.
 
 ### Authentication mode (important)
 
-Backend auth mode is controlled by `AUTH_MODE`.
+Backend auth mode is controlled by `GPU_BOOKING_AUTH_MODE`.
 
 - Default when unset: `insecure`
 - Production recommendation: `oidc`
 
-When running with `AUTH_MODE=insecure`:
+When running with `GPU_BOOKING_AUTH_MODE=insecure`:
 
 - The app enables developer impersonation (`Switch User`) in the UI.
 - The backend accepts `X-Dev-User` and treats requests as that email.
 - This mode is intended for local development only.
 
-When running with `AUTH_MODE=oidc`:
+When running with `GPU_BOOKING_AUTH_MODE=oidc`:
 
 - `Switch User` is hidden.
 - The frontend root page becomes a sign-in landing page for unauthenticated users.
@@ -123,14 +141,14 @@ For production, explicitly set OIDC-related variables and do not rely on default
 
 Frontend OIDC settings:
 
-- `OIDC_ISSUER_URL` or `OIDC_ISSUER`
-- `OIDC_CLIENT_ID`
-- `OIDC_CLIENT_SECRET`
-- `OIDC_REDIRECT_URI` (optional)
-- `OIDC_POST_LOGOUT_REDIRECT_URI` (optional)
-- `OIDC_SCOPES` (optional, defaults to `openid profile email`)
+- `GPU_BOOKING_OIDC_ISSUER_URL` or `GPU_BOOKING_OIDC_ISSUER`
+- `GPU_BOOKING_OIDC_CLIENT_ID`
+- `GPU_BOOKING_OIDC_CLIENT_SECRET`
+- `GPU_BOOKING_OIDC_REDIRECT_URI` (optional)
+- `GPU_BOOKING_OIDC_POST_LOGOUT_REDIRECT_URI` (optional)
+- `GPU_BOOKING_OIDC_SCOPES` (optional, defaults to `openid profile email`)
 
-Backend accepts both historical `OKTA_*` names and corresponding `OIDC_*` aliases for issuer, audience, and client settings.
+Backend accepts both historical `OKTA_*`/`OIDC_*` names and corresponding `GPU_BOOKING_*` aliases for issuer, audience, and client settings.
 
 ## Running tests and checks
 
@@ -170,10 +188,10 @@ Notes:
 
 Before starting production services, set backend auth configuration (at minimum):
 
-- `AUTH_MODE=oidc`
-- `OKTA_ISSUER`
-- `OKTA_AUDIENCE` (if your token validation requires audience checking)
-- `INITIAL_ADMIN_EMAILS` (comma-separated bootstrap list used by seed/admin workflows)
+- `GPU_BOOKING_AUTH_MODE=oidc`
+- `GPU_BOOKING_OIDC_ISSUER_URL` (or `GPU_BOOKING_OKTA_ISSUER`)
+- `GPU_BOOKING_OIDC_AUDIENCE` (if your token validation requires audience checking)
+- `GPU_BOOKING_INITIAL_ADMIN_EMAILS` (comma-separated bootstrap list used by seed/admin workflows)
 
 Equivalent backend aliases are also accepted:
 

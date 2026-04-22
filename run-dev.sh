@@ -21,11 +21,12 @@ Examples:
   $0 --frontend-port 4000 --backend-port 9000
 
 Logs are written to ./logs/frontend.log and ./logs/backend.log
+Repo-root .env values are loaded by make before this script runs.
 EOF
 }
 
-FRONTEND_PORT=3000
-BACKEND_PORT=8000
+FRONTEND_PORT=${GPU_BOOKING_FRONTEND_PORT:-${FRONTEND_PORT:-3000}}
+BACKEND_PORT=${GPU_BOOKING_BACKEND_PORT:-${BACKEND_PORT:-8000}}
 FRONT_PID=""
 BACK_PID=""
 FRONT_KILL_MODE="pid"
@@ -103,20 +104,20 @@ mkdir -p logs
 echo "Starting backend on port ${BACKEND_PORT} (logs: logs/backend.log)"
 # Use setsid when available so the command runs in its own process group.
 if command -v setsid >/dev/null 2>&1; then
-  setsid bash -lc "cd backend && BACKEND_PORT=${BACKEND_PORT} ./run_uvicorn.sh" > logs/backend.log 2>&1 &
+  setsid bash -lc "cd backend && GPU_BOOKING_BACKEND_PORT=${BACKEND_PORT} BACKEND_PORT=${BACKEND_PORT} ./run_uvicorn.sh" > logs/backend.log 2>&1 &
   BACK_KILL_MODE="group"
 else
-  bash -lc "cd backend && BACKEND_PORT=${BACKEND_PORT} exec ./run_uvicorn.sh" > logs/backend.log 2>&1 &
+  bash -lc "cd backend && GPU_BOOKING_BACKEND_PORT=${BACKEND_PORT} BACKEND_PORT=${BACKEND_PORT} exec ./run_uvicorn.sh" > logs/backend.log 2>&1 &
   BACK_KILL_MODE="pid"
 fi
 BACK_PID=$!
 
 echo "Starting frontend on port ${FRONTEND_PORT} (logs: logs/frontend.log)"
 if command -v setsid >/dev/null 2>&1; then
-  setsid bash -lc "cd frontend && FRONTEND_PORT=${FRONTEND_PORT} BACKEND_PORT=${BACKEND_PORT} BACKEND_URL=http://127.0.0.1:${BACKEND_PORT} pnpm dev" > logs/frontend.log 2>&1 &
+  setsid bash -lc "cd frontend && GPU_BOOKING_FRONTEND_PORT=${FRONTEND_PORT} FRONTEND_PORT=${FRONTEND_PORT} GPU_BOOKING_BACKEND_PORT=${BACKEND_PORT} BACKEND_PORT=${BACKEND_PORT} GPU_BOOKING_BACKEND_URL=http://127.0.0.1:${BACKEND_PORT} BACKEND_URL=http://127.0.0.1:${BACKEND_PORT} pnpm dev" > logs/frontend.log 2>&1 &
   FRONT_KILL_MODE="group"
 else
-  bash -lc "cd frontend && FRONTEND_PORT=${FRONTEND_PORT} BACKEND_PORT=${BACKEND_PORT} BACKEND_URL=http://127.0.0.1:${BACKEND_PORT} exec pnpm dev" > logs/frontend.log 2>&1 &
+  bash -lc "cd frontend && GPU_BOOKING_FRONTEND_PORT=${FRONTEND_PORT} FRONTEND_PORT=${FRONTEND_PORT} GPU_BOOKING_BACKEND_PORT=${BACKEND_PORT} BACKEND_PORT=${BACKEND_PORT} GPU_BOOKING_BACKEND_URL=http://127.0.0.1:${BACKEND_PORT} BACKEND_URL=http://127.0.0.1:${BACKEND_PORT} exec pnpm dev" > logs/frontend.log 2>&1 &
   FRONT_KILL_MODE="pid"
 fi
 FRONT_PID=$!

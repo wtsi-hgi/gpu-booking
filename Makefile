@@ -1,7 +1,12 @@
 .PHONY: lint format test run backend-lint backend-format backend-test frontend-lint frontend-format frontend-test frontend-e2e-test
 
-FRONTEND_PORT ?= 3000
-BACKEND_PORT ?= 8000
+ifneq (,$(wildcard .env))
+include .env
+export $(shell sed -n 's/^\([A-Za-z_][A-Za-z0-9_]*\)=.*/\1/p' .env)
+endif
+
+GPU_BOOKING_FRONTEND_PORT ?= 3000
+GPU_BOOKING_BACKEND_PORT ?= 8000
 BACKEND_VENV_BIN := backend/.venv/bin
 RUFF := $(BACKEND_VENV_BIN)/ruff
 PYTEST := $(BACKEND_VENV_BIN)/pytest
@@ -14,7 +19,7 @@ format: backend-format frontend-format
 test: backend-test frontend-test frontend-e2e-test
 
 run:
-	FRONTEND_PORT=$(FRONTEND_PORT) BACKEND_PORT=$(BACKEND_PORT) ./run-dev.sh --frontend-port $(FRONTEND_PORT) --backend-port $(BACKEND_PORT)
+	GPU_BOOKING_FRONTEND_PORT=$(GPU_BOOKING_FRONTEND_PORT) GPU_BOOKING_BACKEND_PORT=$(GPU_BOOKING_BACKEND_PORT) ./run-dev.sh --frontend-port $(GPU_BOOKING_FRONTEND_PORT) --backend-port $(GPU_BOOKING_BACKEND_PORT)
 
 backend-lint:
 	@test -x $(RUFF) || { echo "Missing $(RUFF). Install backend dev dependencies first."; exit 1; }

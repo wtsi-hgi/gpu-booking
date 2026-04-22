@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Simple helper to run uvicorn with an optional BACKEND_PORT environment variable
+# Simple helper to run uvicorn with an optional GPU_BOOKING_BACKEND_PORT environment variable
 set -euo pipefail
 
-PORT=${BACKEND_PORT:-8000}
-RELOAD=${UVICORN_RELOAD:-1}
+PORT=${GPU_BOOKING_BACKEND_PORT:-${BACKEND_PORT:-8000}}
+RELOAD=${GPU_BOOKING_UVICORN_RELOAD:-${UVICORN_RELOAD:-1}}
 
 if [ -f ".venv/bin/activate" ]; then
   # shellcheck disable=SC1091
