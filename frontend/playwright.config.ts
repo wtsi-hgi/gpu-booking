@@ -5,6 +5,7 @@ import { defineConfig } from '@playwright/test'
 const frontendDir = __dirname
 const repoRoot = path.resolve(frontendDir, '..')
 const scratchDir = path.join(repoRoot, '.tmp', 'agent', 'playwright')
+const isolatedFrontendDir = path.join(scratchDir, 'frontend-app')
 const databasePath = path.join(scratchDir, 'gpu-booking-e2e.sqlite3')
 const outputDir = path.join(scratchDir, 'test-results')
 const htmlReportDir = path.join(scratchDir, 'playwright-report')
@@ -13,6 +14,14 @@ const backendPort = 8100
 const playwrightBackendUrl =
   process.env.PLAYWRIGHT_BACKEND_URL ?? `http://127.0.0.1:${backendPort}`
 const playwrightBrowsersPath = process.env.PLAYWRIGHT_BROWSERS_PATH?.trim()
+const shellQuote = (value: string): string => JSON.stringify(value)
+const syncFrontendWorkspaceCommand = [
+  `mkdir -p ${shellQuote(isolatedFrontendDir)}`,
+  `if command -v rsync >/dev/null 2>&1; then rsync -a --delete --exclude .next --exclude node_modules --exclude playwright-report --exclude test-results ${shellQuote(`${frontendDir}/`)} ${shellQuote(`${isolatedFrontendDir}/`)}; else cp -a ${shellQuote(`${frontendDir}/.`)} ${shellQuote(isolatedFrontendDir)} && rm -rf ${shellQuote(path.join(isolatedFrontendDir, '.next'))} ${shellQuote(path.join(isolatedFrontendDir, 'node_modules'))}; fi`,
+  `ln -sfn ${shellQuote(path.join(frontendDir, 'node_modules'))} ${shellQuote(path.join(isolatedFrontendDir, 'node_modules'))}`,
+  `cd ${shellQuote(isolatedFrontendDir)}`,
+  `pnpm exec next dev --webpack -H 0.0.0.0 -p ${frontendPort}`,
+].join(' && ')
 
 export default defineConfig({
   testDir: './e2e',
@@ -57,7 +66,7 @@ export default defineConfig({
       url: `http://127.0.0.1:${backendPort}/api/v1/health`,
     },
     {
-      command: `cd frontend && pnpm dev -H 0.0.0.0 -p ${frontendPort}`,
+      command: syncFrontendWorkspaceCommand,
       cwd: repoRoot,
       env: {
         ...process.env,
