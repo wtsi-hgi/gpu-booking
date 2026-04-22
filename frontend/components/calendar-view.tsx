@@ -1261,17 +1261,12 @@ export function CalendarView({
           </div>
         </div>
       ) : (
-        <div className="space-y-4">
-          <div className="border-border/70 bg-muted/20 text-muted-foreground rounded-lg border px-4 py-3 text-sm">
-            Showing current and future bookings
-          </div>
-          <BookingTable
-            bookings={tableBookings}
-            isAdmin={false}
-            currentUserEmail={currentUserEmail}
-            onBookingCancelled={handleBookingCancelled}
-          />
-        </div>
+        <BookingTable
+          bookings={tableBookings}
+          isAdmin={false}
+          currentUserEmail={currentUserEmail}
+          onBookingCancelled={handleBookingCancelled}
+        />
       )}
     </section>
   )

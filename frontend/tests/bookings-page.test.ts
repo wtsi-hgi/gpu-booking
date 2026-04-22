@@ -879,7 +879,7 @@ describe('bookings page - F1 calendar grid', () => {
     ).toBeNull()
   })
 
-  it('shows all current and future bookings in table view instead of limiting rows to the visible calendar month', async () => {
+  it('shows all current and future bookings in table view without an extra status banner', async () => {
     mocks.getBookingsMock.mockImplementation(async (startDate?: string) => {
       if (startDate === '2026-03-15') {
         return [
@@ -918,7 +918,9 @@ describe('bookings page - F1 calendar grid', () => {
     await Promise.resolve()
     await Promise.resolve()
 
-    expect(screen.getByText('Showing current and future bookings')).toBeTruthy()
+    expect(
+      screen.queryByText('Showing current and future bookings')
+    ).toBeNull()
     expect(document.querySelector('[data-booking-id="1"]')).toBeTruthy()
     expect(document.querySelector('[data-booking-id="2"]')).toBeTruthy()
     expect(mocks.getBookingsMock).toHaveBeenCalledWith(
