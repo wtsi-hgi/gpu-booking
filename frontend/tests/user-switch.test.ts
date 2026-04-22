@@ -5,6 +5,7 @@ import { createElement, type PropsWithChildren } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
+  pathnameMock: '/bookings',
   routerRefreshMock: vi.fn(),
   useAuthMock: vi.fn(),
 }))
@@ -19,6 +20,7 @@ vi.mock('next/link', () => ({
 }))
 
 vi.mock('next/navigation', () => ({
+  usePathname: () => mocks.pathnameMock,
   useRouter: () => ({
     refresh: mocks.routerRefreshMock,
   }),
@@ -33,6 +35,7 @@ import { UserSwitch } from '@/components/user-switch'
 afterEach(() => {
   cleanup()
   vi.clearAllMocks()
+  mocks.pathnameMock = '/bookings'
 })
 
 describe('user switch header controls', () => {
@@ -72,6 +75,25 @@ describe('user switch header controls', () => {
     const signOutLink = screen.getByRole('link', { name: 'Sign Out' })
     expect(signOutLink.getAttribute('href')).toBe('/auth/logout')
     expect(screen.queryByRole('textbox', { name: 'Impersonate user' })).toBeNull()
+  })
+
+  it('shows a bookings link instead of admin dashboard when already on an admin page', () => {
+    mocks.pathnameMock = '/admin'
+    mocks.useAuthMock.mockReturnValue({
+      authMode: 'insecure',
+      email: 'sb10@sanger.ac.uk',
+      error: null,
+      isAdmin: true,
+      loading: false,
+      refresh: vi.fn(),
+      switchUser: vi.fn(),
+    })
+
+    render(createElement(UserSwitch))
+
+    const bookingsLink = screen.getByRole('link', { name: 'Bookings' })
+    expect(bookingsLink.getAttribute('href')).toBe('/bookings')
+    expect(screen.queryByRole('link', { name: 'Admin Dashboard' })).toBeNull()
   })
 
   it('shows a sign-in link for unauthenticated OIDC users', () => {

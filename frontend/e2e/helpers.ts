@@ -401,16 +401,16 @@ export async function switchUser(page: Page, email: string, expectAdmin = false)
   await expect(input).toBeVisible()
   await expect(input).toHaveValue(email)
 
-  const adminDashboardLink = page.getByRole('link', {
-    name: 'Admin Dashboard',
+  const adminNavigationLink = page.getByRole('link', {
+    name: /^(Admin Dashboard|Bookings)$/,
   })
 
   if (expectAdmin) {
-    await expect(adminDashboardLink).toBeVisible()
+    await expect(adminNavigationLink).toBeVisible()
     return
   }
 
-  await expect(adminDashboardLink).toHaveCount(0)
+  await expect(adminNavigationLink).toHaveCount(0)
 }
 
 export async function dragAcrossDays(

@@ -45,6 +45,9 @@ test.describe('admin flows', () => {
       page.getByRole('heading', { name: 'Admin Dashboard' })
     ).toBeVisible()
     await expect(page.getByText('0 pending bookings')).toBeVisible()
+    await expect(
+      page.getByRole('link', { name: 'Bookings', exact: true })
+    ).toHaveAttribute('href', '/bookings')
 
     await page.getByRole('link', { name: /Manage Bookings/i }).click()
     await expect(page).toHaveURL(/\/admin\/bookings$/)

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 
 import { useAuth } from '@/components/auth-provider'
 import { Button } from '@/components/ui/button'
@@ -12,10 +12,14 @@ import { shouldShowUserSwitch } from '@/lib/auth-state'
 
 export function UserSwitch() {
 	const router = useRouter()
+	const pathname = usePathname()
 	const { authMode, email, isAdmin, switchUser, loading } = useAuth()
 	const [nextEmail, setNextEmail] = useState(email)
 	const showUserSwitch = shouldShowUserSwitch(authMode)
 	const isSignedIn = email.length > 0
+	const isOnAdminRoute = pathname?.startsWith('/admin') ?? false
+	const adminLinkHref = isOnAdminRoute ? '/bookings' : '/admin'
+	const adminLinkLabel = isOnAdminRoute ? 'Bookings' : 'Admin Dashboard'
 
 	useEffect(() => {
 		setNextEmail(email)
@@ -46,7 +50,7 @@ export function UserSwitch() {
 		) : null}
 			{isAdmin ? (
 				<Button asChild variant="outline" size="sm">
-					<Link href="/admin">Admin Dashboard</Link>
+					<Link href={adminLinkHref}>{adminLinkLabel}</Link>
 				</Button>
 			) : null}
 			{showUserSwitch ? (
