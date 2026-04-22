@@ -5,6 +5,7 @@ import {
   cleanup,
   fireEvent,
   render,
+  type RenderResult,
   screen,
   waitFor,
   within,
@@ -1003,6 +1004,60 @@ describe('bookings page - F1 calendar grid', () => {
     fireEvent.click(screen.getByRole('tab', { name: 'Table' }))
 
     expect(document.querySelector('[data-booking-id="1"]')).toBeNull()
+  })
+
+  it('applies refreshed bookings to the calendar after switching views', async () => {
+    const activeBooking = buildBookingWithOverrides(1, {
+      start_date: '2026-03-15',
+      end_date: '2026-03-18',
+      status: 'confirmed',
+    })
+
+    mocks.getBookingsMock.mockImplementation(async () => [activeBooking])
+
+    const { default: BookingsPage } = await import('@/app/bookings/page')
+    let renderResult: RenderResult | undefined
+
+    await act(async () => {
+      renderResult = render(await BookingsPage())
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    fireEvent.mouseDown(document.querySelector('[data-date="2026-03-15"]') as Element)
+    fireEvent.mouseUp(document.querySelector('[data-date="2026-03-15"]') as Element)
+
+    const selectionPanel = document.querySelector(
+      '[data-selection-panel="true"]'
+    )
+    expect(selectionPanel?.getAttribute('data-selection-overlap-count')).toBe(
+      '1'
+    )
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Table' }))
+
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(document.querySelector('[data-booking-id="1"]')).toBeTruthy()
+
+    mocks.getBookingsMock.mockImplementation(async () => [])
+
+    await act(async () => {
+      renderResult?.rerender(await BookingsPage())
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Calendar' }))
+
+    const refreshedSelectionPanel = document.querySelector(
+      '[data-selection-panel="true"]'
+    )
+
+    expect(
+      refreshedSelectionPanel?.getAttribute('data-selection-overlap-count')
+    ).toBe('0')
   })
 
   it('deselects a committed single-day selection when the same day is clicked again without dragging', async () => {

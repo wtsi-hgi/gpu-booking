@@ -55,6 +55,11 @@ type DayBookingSummary = {
   activeCount: number
 }
 
+type SeededState<T> = {
+  seed: unknown
+  data: T
+}
+
 const weekdayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 const monthNameFormatter = new Intl.DateTimeFormat('en-GB', {
@@ -186,6 +191,16 @@ function isConfirmedBookingStatus(status: BookingResponse['status']): boolean {
 
 function shouldShowBookingInNormalView(booking: BookingResponse): boolean {
   return booking.status !== 'cancelled'
+}
+
+function getFutureBookingsForTable(
+  entries: BookingResponse[],
+  todayIso: string
+): BookingResponse[] {
+  return entries.filter(
+    (booking) =>
+      shouldShowBookingInNormalView(booking) && booking.end_date >= todayIso
+  )
 }
 
 function summariseBookings(
@@ -329,19 +344,25 @@ export function CalendarView({
   const [currentMonth, setCurrentMonth] = useState<Date>(() =>
     startOfMonthUtc(parseIsoDate(initialMonthIso))
   )
-  const [capacity, setCapacity] = useState<DailyCapacity[]>(initialCapacity)
-  const [bookings, setBookings] = useState<BookingResponse[]>(initialBookings)
+  const [capacityState, setCapacityState] = useState<SeededState<
+    DailyCapacity[]
+  >>(() => ({
+    seed: initialCapacity,
+    data: initialCapacity,
+  }))
+  const [bookingsState, setBookingsState] = useState<SeededState<
+    BookingResponse[]
+  >>(() => ({
+    seed: initialBookings,
+    data: initialBookings,
+  }))
   const [selectedGpuTypeId, setSelectedGpuTypeId] = useState<
     number | undefined
   >(undefined)
   const [visibleMonthCount, setVisibleMonthCount] = useState(1)
   const [activeTab, setActiveTab] = useState<'calendar' | 'table'>('calendar')
   const [futureBookings, setFutureBookings] = useState<BookingResponse[]>(() =>
-    initialBookings.filter(
-      (booking) =>
-        shouldShowBookingInNormalView(booking) &&
-        booking.end_date >= formatDateParam(getTodayUtc())
-    )
+    getFutureBookingsForTable(initialBookings, formatDateParam(getTodayUtc()))
   )
   const [selectedRange, setSelectedRange] = useState<SelectionRange | null>(
     null
@@ -357,6 +378,10 @@ export function CalendarView({
 
   const todayDate = useMemo(() => getTodayUtc(), [])
   const todayIso = formatDateParam(todayDate)
+  const capacity =
+    capacityState.seed === initialCapacity ? capacityState.data : initialCapacity
+  const bookings =
+    bookingsState.seed === initialBookings ? bookingsState.data : initialBookings
   const monthName = monthNameFormatter.format(currentMonth)
   const yearLabel = String(currentMonth.getUTCFullYear())
   const monthStart = startOfMonthUtc(currentMonth)
@@ -374,12 +399,7 @@ export function CalendarView({
   const capacityByDate = useMemo(() => summariseCapacity(capacity), [capacity])
   const bookingsByDate = useMemo(() => summariseBookings(bookings), [bookings])
   const tableBookings = useMemo(
-    () =>
-      futureBookings.filter(
-        (booking) =>
-          shouldShowBookingInNormalView(booking) &&
-          booking.end_date >= todayIso
-      ),
+    () => getFutureBookingsForTable(futureBookings, todayIso),
     [futureBookings, todayIso]
   )
   const dragSelection = useMemo(() => {
@@ -451,6 +471,31 @@ export function CalendarView({
     dragMovedRef.current = false
   }, [])
 
+  const updateBookingsState = useCallback(
+    (
+      updater:
+        | BookingResponse[]
+        | ((current: BookingResponse[]) => BookingResponse[])
+    ) => {
+      setBookingsState((currentState) => {
+        const currentBookings =
+          currentState.seed === initialBookings
+            ? currentState.data
+            : initialBookings
+        const nextBookings =
+          typeof updater === 'function'
+            ? updater(currentBookings)
+            : updater
+
+        return {
+          seed: initialBookings,
+          data: nextBookings,
+        }
+      })
+    },
+    [initialBookings]
+  )
+
   const handleBookingCancelled = useCallback(
     (bookingId: number, cancelledBooking: BookingResponse | null) => {
       const updateBookings = (current: BookingResponse[]) => {
@@ -463,10 +508,10 @@ export function CalendarView({
         )
       }
 
-      setBookings(updateBookings)
+      updateBookingsState(updateBookings)
       setFutureBookings(updateBookings)
     },
-    []
+    [updateBookingsState]
   )
 
   useEffect(() => {
@@ -495,8 +540,11 @@ export function CalendarView({
         return
       }
 
-      setCapacity(nextCapacity)
-      setBookings(nextBookings)
+      setCapacityState({
+        seed: initialCapacity,
+        data: nextCapacity,
+      })
+      updateBookingsState(nextBookings)
     }
 
     void loadMonthData()
@@ -504,7 +552,7 @@ export function CalendarView({
     return () => {
       cancelled = true
     }
-  }, [selectedGpuTypeId, visibleRangeEndIso, visibleRangeStartIso])
+  }, [initialCapacity, selectedGpuTypeId, updateBookingsState, visibleRangeEndIso, visibleRangeStartIso])
 
   useEffect(() => {
     let cancelled = false
