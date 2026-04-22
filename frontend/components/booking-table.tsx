@@ -13,6 +13,10 @@ type BookingTableProps = {
   showCancelledBookings?: boolean
   currentUserEmail?: string
   onBookingSelect?: (booking: BookingResponse) => void
+  onBookingCancelled?: (
+    bookingId: number,
+    booking: BookingResponse | null
+  ) => void
 }
 
 type SortDirection = 'asc' | 'desc'
@@ -222,6 +226,7 @@ export function BookingTable({
   showCancelledBookings = false,
   currentUserEmail,
   onBookingSelect,
+  onBookingCancelled,
 }: BookingTableProps) {
   const [visibleBookings, setVisibleBookings] =
     useState<BookingResponse[]>(() =>
@@ -365,6 +370,11 @@ export function BookingTable({
     const result = await cancelBooking(booking.id)
 
     if (result.success) {
+      const wasDeleted = !isAdmin && booking.admin_modified_at === null
+      const nextBooking = wasDeleted ? null : result.booking
+
+      onBookingCancelled?.(booking.id, nextBooking)
+
       setVisibleBookings((current) => {
         const next = [...current]
         const index = next.findIndex((item) => item.id === booking.id)

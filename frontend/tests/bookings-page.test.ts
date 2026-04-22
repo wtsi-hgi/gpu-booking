@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
 
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -11,6 +12,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
+  cancelBookingMock: vi.fn(),
   getCapacityMock: vi.fn(),
   getBookingsMock: vi.fn(),
   getGpuTypesMock: vi.fn(),
@@ -20,6 +22,7 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('@/app/actions', () => ({
+  cancelBooking: mocks.cancelBookingMock,
   getCapacity: mocks.getCapacityMock,
   getBookings: mocks.getBookingsMock,
   getGpuTypes: mocks.getGpuTypesMock,
@@ -175,6 +178,11 @@ describe('bookings page - F1 calendar grid', () => {
       }
     )
     mocks.getBookingsMock.mockResolvedValue([buildBooking(1)])
+    mocks.cancelBookingMock.mockResolvedValue({
+      success: true,
+      message: 'Cancelled',
+      booking: null,
+    })
     mocks.requireCurrentUserMock.mockResolvedValue({
       email: 'user@example.com',
       is_admin: false,
@@ -868,6 +876,81 @@ describe('bookings page - F1 calendar grid', () => {
       undefined,
       undefined
     )
+  })
+
+  it('keeps a cancelled booking hidden when switching between table and calendar views', async () => {
+    const activeBooking = buildBookingWithOverrides(1, {
+      start_date: '2026-03-15',
+      end_date: '2026-03-18',
+      status: 'confirmed',
+    })
+    let resolveCancellation:
+      | ((value: {
+          success: boolean
+          message: string
+          booking: typeof activeBooking
+        }) => void)
+      | null = null
+
+    mocks.getBookingsMock.mockImplementation(async () => [activeBooking])
+    mocks.cancelBookingMock.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveCancellation = resolve
+        })
+    )
+
+    const cancelledBooking = {
+      ...activeBooking,
+      status: 'cancelled' as const,
+    }
+
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+
+    const { default: BookingsPage } = await import('@/app/bookings/page')
+    render(await BookingsPage())
+
+    await Promise.resolve()
+    await Promise.resolve()
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Table' }))
+
+    await Promise.resolve()
+    await Promise.resolve()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    await act(async () => {
+      resolveCancellation?.({
+        success: true,
+        message: 'Cancelled',
+        booking: cancelledBooking,
+      })
+      await Promise.resolve()
+    })
+
+    expect(confirmSpy).toHaveBeenCalled()
+    expect(document.querySelector('[data-booking-id="1"]')).toBeNull()
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Calendar' }))
+
+    const dayCell = document.querySelector('[data-date="2026-03-15"]')
+    expect(dayCell).toBeTruthy()
+
+    fireEvent.mouseDown(dayCell as Element)
+    fireEvent.mouseUp(dayCell as Element)
+
+    const selectionPanel = document.querySelector(
+      '[data-selection-panel="true"]'
+    )
+
+    expect(selectionPanel?.getAttribute('data-selection-overlap-count')).toBe(
+      '0'
+    )
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Table' }))
+
+    expect(document.querySelector('[data-booking-id="1"]')).toBeNull()
   })
 
   it('deselects a committed single-day selection when the same day is clicked again without dragging', async () => {

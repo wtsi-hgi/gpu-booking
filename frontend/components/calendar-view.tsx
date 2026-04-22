@@ -458,6 +458,24 @@ export function CalendarView({
     dragMovedRef.current = false
   }, [])
 
+  const handleBookingCancelled = useCallback(
+    (bookingId: number, cancelledBooking: BookingResponse | null) => {
+      const updateBookings = (current: BookingResponse[]) => {
+        if (cancelledBooking === null) {
+          return current.filter((booking) => booking.id !== bookingId)
+        }
+
+        return current.map((booking) =>
+          booking.id === bookingId ? cancelledBooking : booking
+        )
+      }
+
+      setBookings(updateBookings)
+      setFutureBookings(updateBookings)
+    },
+    []
+  )
+
   useEffect(() => {
     if (!hasMountedRef.current) {
       hasMountedRef.current = true
@@ -1263,6 +1281,7 @@ export function CalendarView({
             bookings={tableBookings}
             isAdmin={false}
             currentUserEmail={currentUserEmail}
+            onBookingCancelled={handleBookingCancelled}
           />
         </div>
       )}
