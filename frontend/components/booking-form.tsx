@@ -10,6 +10,7 @@ import {
   type ChangeEvent,
   type FormEvent,
 } from 'react'
+import { X } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 
@@ -338,6 +339,15 @@ function getCreateErrorValidationFeedback(
   return {}
 }
 
+function hasUnsavedFormChanges(
+  currentValues: BookingFormValues,
+  initialValues: BookingFormValues
+): boolean {
+  return (Object.keys(currentValues) as BookingFormValueName[]).some(
+    (field) => currentValues[field] !== initialValues[field]
+  )
+}
+
 export function BookingForm({
   gpuTypes,
   gramOptions,
@@ -363,9 +373,18 @@ export function BookingForm({
   const activeValidationRequestIdRef = useRef<number | null>(null)
   const scrollRestoreRef = useRef<{ left: number; top: number } | null>(null)
   const warningSummaryRef = useRef<HTMLDivElement | null>(null)
-  const [formValues, setFormValues] = useState<BookingFormValues>(() =>
-    buildFormValues(state.values, initialStartDate, initialEndDate)
-  )
+  const initialFormValuesRef = useRef<BookingFormValues | null>(null)
+  const [formValues, setFormValues] = useState<BookingFormValues>(() => {
+    const initialValues = buildFormValues(
+      state.values,
+      initialStartDate,
+      initialEndDate
+    )
+
+    initialFormValuesRef.current = initialValues
+
+    return initialValues
+  })
 
   const { fieldFeedback: validationResultFieldFeedback, genericBlockMessage } =
     getValidationFeedback(validationResult)
@@ -662,6 +681,16 @@ export function BookingForm({
   }
 
   function handleClose() {
+    const initialValues = initialFormValuesRef.current
+
+    if (
+      initialValues &&
+      hasUnsavedFormChanges(formValues, initialValues) &&
+      !window.confirm('Discard changes to this booking request?')
+    ) {
+      return
+    }
+
     router.push('/bookings')
   }
 
@@ -675,12 +704,25 @@ export function BookingForm({
 
   return (
     <Card className="shadow-lg">
-      <CardHeader>
-        <CardTitle>Create Booking</CardTitle>
-        <CardDescription>
-          Request GPU resources for your project. Capacity checks run
-          automatically before submission.
-        </CardDescription>
+      <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
+        <div className="space-y-1.5">
+          <CardTitle>Create Booking</CardTitle>
+          <CardDescription>
+            Request GPU resources for your project. Capacity checks run
+            automatically before submission.
+          </CardDescription>
+        </div>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="text-muted-foreground hover:text-foreground"
+          aria-label="Close form"
+          disabled={pending || validating}
+          onClick={handleClose}
+        >
+          <X className="size-4" aria-hidden="true" />
+        </Button>
       </CardHeader>
       <CardContent>
         <form className="space-y-6" onSubmit={handleSubmit}>
@@ -986,14 +1028,6 @@ export function BookingForm({
 
           <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-3">
-              <Button
-                type="button"
-                variant="outline"
-                disabled={pending || validating}
-                onClick={handleClose}
-              >
-                Close
-              </Button>
               <Button type="submit" disabled={pending || validating}>
                 {actionLabel}
               </Button>

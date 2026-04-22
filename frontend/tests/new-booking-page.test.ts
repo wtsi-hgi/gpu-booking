@@ -91,6 +91,10 @@ describe('new booking page - F2 query prefill', () => {
     render(await NewBookingPage({}))
 
     expect(screen.getByRole('heading', { name: 'Create Booking' })).toBeTruthy()
+    expect(screen.queryByRole('heading', { name: 'New Booking' })).toBeNull()
+    expect(
+      screen.queryByText('Start a booking request by choosing a date range.')
+    ).toBeNull()
     expect(screen.getByLabelText('GPU Type')).toBeTruthy()
     expect(screen.getByLabelText('GRAM')).toBeTruthy()
     expect(screen.getByLabelText('System Memory')).toBeTruthy()

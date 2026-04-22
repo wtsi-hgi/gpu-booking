@@ -46,12 +46,6 @@ export default async function NewBookingPage({
 
   return (
     <main className="container mx-auto max-w-3xl px-4 py-10">
-      <header className="mb-6 space-y-2">
-        <h1 className="text-3xl font-semibold tracking-tight">New Booking</h1>
-        <p className="text-muted-foreground">
-          Start a booking request by choosing a date range.
-        </p>
-      </header>
       <BookingForm
         gpuTypes={gpuTypes}
         gramOptions={gramOptions}

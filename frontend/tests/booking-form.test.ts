@@ -224,12 +224,38 @@ describe('booking form - F3 acceptance coverage', () => {
     expect(screen.queryByRole('button', { name: 'Validate' })).toBeNull()
   })
 
-  it('provides a close action that returns to the bookings page without submitting', async () => {
+  it('provides a close icon action that returns to the bookings page without submitting', async () => {
     const user = userEvent.setup()
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
 
     renderBookingForm()
 
-    await user.click(screen.getByRole('button', { name: 'Close' }))
+    await user.click(screen.getByRole('button', { name: 'Close form' }))
+
+    expect(confirmSpy).not.toHaveBeenCalled()
+    expect(routerPushMock).toHaveBeenCalledWith('/bookings')
+    expect(validateBookingMock).not.toHaveBeenCalled()
+    expect(createBookingMock).not.toHaveBeenCalled()
+  })
+
+  it('asks for confirmation before closing when form details have changed', async () => {
+    const user = userEvent.setup()
+    const confirmSpy = vi
+      .spyOn(window, 'confirm')
+      .mockReturnValueOnce(false)
+      .mockReturnValueOnce(true)
+
+    renderBookingForm()
+
+    await user.type(screen.getByLabelText('Project Name'), 'Atlas')
+    await user.click(screen.getByRole('button', { name: 'Close form' }))
+
+    expect(confirmSpy).toHaveBeenCalledWith(
+      'Discard changes to this booking request?'
+    )
+    expect(routerPushMock).not.toHaveBeenCalled()
+
+    await user.click(screen.getByRole('button', { name: 'Close form' }))
 
     expect(routerPushMock).toHaveBeenCalledWith('/bookings')
     expect(validateBookingMock).not.toHaveBeenCalled()
