@@ -8,7 +8,6 @@ const scratchDir = path.join(repoRoot, '.tmp', 'agent', 'playwright')
 const databasePath = path.join(scratchDir, 'gpu-booking-e2e.sqlite3')
 const outputDir = path.join(scratchDir, 'test-results')
 const htmlReportDir = path.join(scratchDir, 'playwright-report')
-const frontendDistDir = path.join(scratchDir, 'next-dev')
 const frontendPort = 3100
 const backendPort = 8100
 const playwrightBackendUrl =
@@ -67,7 +66,6 @@ export default defineConfig({
         GPU_BOOKING_BACKEND_URL: `http://127.0.0.1:${backendPort}`,
         GPU_BOOKING_FRONTEND_PORT: String(frontendPort),
         GPU_BOOKING_INITIAL_ADMIN_EMAILS: 'admin@example.com',
-        GPU_BOOKING_NEXT_DIST_DIR: frontendDistDir,
         AUTH_MODE: 'insecure',
         BACKEND_PORT: String(backendPort),
         BACKEND_URL: `http://127.0.0.1:${backendPort}`,
