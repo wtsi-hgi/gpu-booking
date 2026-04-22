@@ -126,6 +126,24 @@ function addDays(value: Date, days: number): Date {
   return next
 }
 
+function getInclusiveIsoDateRange(startIso: string, endIso: string): string[] {
+  const direction = startIso <= endIso ? 1 : -1
+  const dates: string[] = []
+  let current = `${startIso}T00:00:00Z`
+
+  while (true) {
+    const currentDate = new Date(current)
+    const currentIso = toIsoDate(currentDate)
+    dates.push(currentIso)
+
+    if (currentIso === endIso) {
+      return dates
+    }
+
+    current = addDays(currentDate, direction).toISOString()
+  }
+}
+
 export function toIsoDate(value: Date): string {
   return value.toISOString().slice(0, 10)
 }
@@ -400,22 +418,20 @@ export async function dragAcrossDays(
   startCell: Locator,
   endCell: Locator
 ) {
-  const startBox = await startCell.boundingBox()
-  const endBox = await endCell.boundingBox()
+  const startDate = await startCell.getAttribute('data-date')
+  const endDate = await endCell.getAttribute('data-date')
 
-  if (!startBox || !endBox) {
-    throw new Error('Missing calendar cell bounds for drag interaction')
+  if (!startDate || !endDate) {
+    throw new Error('Missing calendar cell dates for drag interaction')
   }
 
-  await page.mouse.move(
-    startBox.x + startBox.width / 2,
-    startBox.y + startBox.height / 2
-  )
+  await startCell.hover()
   await page.mouse.down()
-  await page.mouse.move(
-    endBox.x + endBox.width / 2,
-    endBox.y + endBox.height / 2,
-    { steps: 8 }
-  )
+
+  for (const dateIso of getInclusiveIsoDateRange(startDate, endDate).slice(1)) {
+    const cell = getDayCell(page, dateIso)
+    await cell.hover()
+  }
+
   await page.mouse.up()
 }

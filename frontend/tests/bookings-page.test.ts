@@ -5,6 +5,7 @@ import {
   fireEvent,
   render,
   screen,
+  waitFor,
   within,
 } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -326,7 +327,7 @@ describe('bookings page - F1 calendar grid', () => {
     const { default: BookingsPage } = await import('@/app/bookings/page')
     render(await BookingsPage())
 
-    fireEvent.click(screen.getByRole('button', { name: 'Previous Month' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Previous month' }))
     await vi.runAllTimersAsync()
 
     expect(screen.getByText('February 2026')).toBeTruthy()
@@ -341,6 +342,47 @@ describe('bookings page - F1 calendar grid', () => {
       '2026-03-14',
       undefined
     )
+  })
+
+  it('uses arrow controls for month and year, and opens a month selector from the month label', async () => {
+    const { default: BookingsPage } = await import('@/app/bookings/page')
+    render(await BookingsPage())
+
+    expect(
+      screen.queryByRole('button', { name: 'Previous Month' })
+    ).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Next Month' })).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: 'March' }))
+
+    expect(document.querySelector('[data-month-selector="true"]')).toBeTruthy()
+    expect(
+      screen.getByRole('button', { name: 'September' })
+    ).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Next year' }))
+
+    expect(screen.getByText('2027')).toBeTruthy()
+  })
+
+  it('returns to the current month and briefly highlights today when Today is clicked', async () => {
+    const { default: BookingsPage } = await import('@/app/bookings/page')
+    render(await BookingsPage())
+
+    fireEvent.click(screen.getByRole('button', { name: 'Previous month' }))
+    await vi.runAllTimersAsync()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Today' }))
+
+    expect(screen.getByText('March')).toBeTruthy()
+
+    const todayCell = document.querySelector('[data-date="2026-03-15"]')
+
+    expect(todayCell?.getAttribute('data-today-highlighted')).toBe('true')
+
+    await vi.advanceTimersByTimeAsync(1800)
+
+    expect(todayCell?.getAttribute('data-today-highlighted')).toBe('false')
   })
 
   it('updates capacity display when GPU type filter changes to H100', async () => {
@@ -394,13 +436,13 @@ describe('bookings page - F1 calendar grid', () => {
     const { default: BookingsPage } = await import('@/app/bookings/page')
     render(await BookingsPage())
 
-    const dayCell = document.querySelector('[data-date="2026-03-15"]')
+    const dayCell = document.querySelector('[data-date="2026-03-10"]')
     expect(dayCell).toBeTruthy()
 
     fireEvent.doubleClick(dayCell as Element)
 
     expect(mocks.routerPushMock).toHaveBeenCalledWith(
-      '/bookings/new?start=2026-03-15&end=2026-03-15'
+      '/bookings/new?start=2026-03-10&end=2026-03-10'
     )
   })
 
@@ -703,17 +745,43 @@ describe('bookings page - F1 calendar grid', () => {
     )
   })
 
+  it('commits the current drag selection when mouseup is handled by the window', async () => {
+    const { default: BookingsPage } = await import('@/app/bookings/page')
+    render(await BookingsPage())
+
+    const startDayCell = document.querySelector('[data-date="2026-03-10"]')
+    const endDayCell = document.querySelector('[data-date="2026-03-14"]')
+
+    expect(startDayCell).toBeTruthy()
+    expect(endDayCell).toBeTruthy()
+
+    fireEvent.mouseDown(startDayCell as Element)
+    fireEvent.mouseEnter(endDayCell as Element)
+    fireEvent.mouseUp(window)
+
+    const selectionPanel = document.querySelector(
+      '[data-selection-panel="true"]'
+    )
+
+    expect(selectionPanel?.getAttribute('data-selection-start')).toBe(
+      '2026-03-10'
+    )
+    expect(selectionPanel?.getAttribute('data-selection-end')).toBe(
+      '2026-03-14'
+    )
+  })
+
   it('hides cancelled bookings from normal selection details and table filters', async () => {
-    mocks.getBookingsMock.mockResolvedValueOnce([
+    mocks.getBookingsMock.mockImplementation(async () => [
       buildBookingWithOverrides(1, {
-        start_date: '2026-03-10',
-        end_date: '2026-03-12',
+        start_date: '2026-03-15',
+        end_date: '2026-03-18',
         user_email: 'active@example.com',
         status: 'confirmed',
       }),
       buildBookingWithOverrides(2, {
-        start_date: '2026-03-10',
-        end_date: '2026-03-12',
+        start_date: '2026-03-15',
+        end_date: '2026-03-18',
         user_email: 'cancelled@example.com',
         status: 'cancelled',
       }),
@@ -722,7 +790,7 @@ describe('bookings page - F1 calendar grid', () => {
     const { default: BookingsPage } = await import('@/app/bookings/page')
     render(await BookingsPage())
 
-    const dayCell = document.querySelector('[data-date="2026-03-10"]')
+    const dayCell = document.querySelector('[data-date="2026-03-15"]')
     expect(dayCell).toBeTruthy()
 
     fireEvent.mouseDown(dayCell as Element)
@@ -741,6 +809,9 @@ describe('bookings page - F1 calendar grid', () => {
 
     fireEvent.click(screen.getByRole('tab', { name: 'Table' }))
 
+    await Promise.resolve()
+    await Promise.resolve()
+
     expect(document.querySelector('[data-booking-id="1"]')).toBeTruthy()
     expect(document.querySelector('[data-booking-id="2"]')).toBeNull()
 
@@ -748,6 +819,55 @@ describe('bookings page - F1 calendar grid', () => {
     expect(
       within(statusFilter).queryByRole('option', { name: 'Cancelled' })
     ).toBeNull()
+  })
+
+  it('shows all current and future bookings in table view instead of limiting rows to the visible calendar month', async () => {
+    mocks.getBookingsMock.mockImplementation(async (startDate?: string) => {
+      if (startDate === '2026-03-15') {
+        return [
+          buildBookingWithOverrides(1, {
+            start_date: '2026-03-20',
+            end_date: '2026-03-22',
+            user_email: 'march@example.com',
+          }),
+          buildBookingWithOverrides(2, {
+            start_date: '2026-04-08',
+            end_date: '2026-04-10',
+            user_email: 'april@example.com',
+          }),
+        ]
+      }
+
+      return [
+        buildBookingWithOverrides(1, {
+          start_date: '2026-03-20',
+          end_date: '2026-03-22',
+          user_email: 'march@example.com',
+        }),
+      ]
+    })
+
+    const { default: BookingsPage } = await import('@/app/bookings/page')
+    render(await BookingsPage())
+
+    await Promise.resolve()
+    await Promise.resolve()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Previous month' }))
+    await vi.runAllTimersAsync()
+    fireEvent.click(screen.getByRole('tab', { name: 'Table' }))
+
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(screen.getByText('Showing current and future bookings')).toBeTruthy()
+    expect(document.querySelector('[data-booking-id="1"]')).toBeTruthy()
+    expect(document.querySelector('[data-booking-id="2"]')).toBeTruthy()
+    expect(mocks.getBookingsMock).toHaveBeenCalledWith(
+      '2026-03-15',
+      undefined,
+      undefined
+    )
   })
 
   it('deselects a committed single-day selection when the same day is clicked again without dragging', async () => {

@@ -160,7 +160,7 @@ test.describe('bookings flows', () => {
     await expect(page).toHaveURL(/\/bookings$/)
 
     for (let step = 0; step < monthDelta; step += 1) {
-      await page.getByRole('button', { name: 'Next Month' }).click()
+      await page.getByRole('button', { name: 'Next month' }).click()
     }
 
     await page.getByRole('tab', { name: 'Table' }).click()
@@ -258,7 +258,7 @@ test.describe('bookings flows', () => {
     await expect(page).toHaveURL(/\/bookings$/)
 
     for (let step = 0; step < futureDates.monthDelta; step += 1) {
-      await page.getByRole('button', { name: 'Next Month' }).click()
+      await page.getByRole('button', { name: 'Next month' }).click()
     }
 
     await page.getByRole('tab', { name: 'Table' }).click()

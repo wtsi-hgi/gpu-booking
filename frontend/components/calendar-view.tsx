@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
 import { getBookings, getCapacity } from '@/app/actions'
@@ -62,6 +63,11 @@ const monthFormatter = new Intl.DateTimeFormat('en-GB', {
   timeZone: 'UTC',
 })
 
+const monthNameFormatter = new Intl.DateTimeFormat('en-GB', {
+  month: 'long',
+  timeZone: 'UTC',
+})
+
 const dateFormatter = new Intl.DateTimeFormat('en-GB', {
   day: 'numeric',
   month: 'long',
@@ -90,6 +96,13 @@ function addMonthsUtc(date: Date, offset: number): Date {
 function parseIsoDate(value: string): Date {
   const [year, month, day] = value.split('-').map(Number)
   return new Date(Date.UTC(year, month - 1, day))
+}
+
+function getTodayUtc(): Date {
+  const today = new Date()
+  return new Date(
+    Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate())
+  )
 }
 
 function buildMonthCells(monthStart: Date): DayCell[] {
@@ -285,6 +298,32 @@ function formatDisplayRange(startDate: string, endDate: string): string {
   return `${formatDisplayDate(startDate)} – ${formatDisplayDate(endDate)}`
 }
 
+function getDayCellDateFromEvent(event: MouseEvent): string | null {
+  const targetElement = event.target instanceof Element ? event.target : null
+  const targetDayCell = targetElement?.closest('[data-day-cell="true"]')
+  const targetDate = targetDayCell?.getAttribute('data-date')
+
+  if (targetDate) {
+    return targetDate
+  }
+
+  if (typeof document.elementFromPoint !== 'function') {
+    return null
+  }
+
+  const releasedElement = document.elementFromPoint(event.clientX, event.clientY)
+  return (
+    releasedElement
+      ?.closest('[data-day-cell="true"]')
+      ?.getAttribute('data-date') ?? null
+  )
+}
+
+const monthOptions = Array.from({ length: 12 }, (_, monthIndex) => ({
+  value: monthIndex,
+  label: monthNameFormatter.format(new Date(Date.UTC(2026, monthIndex, 1))),
+}))
+
 export function CalendarView({
   initialMonthIso,
   initialCapacity,
@@ -303,16 +342,30 @@ export function CalendarView({
   >(undefined)
   const [visibleMonthCount, setVisibleMonthCount] = useState(1)
   const [activeTab, setActiveTab] = useState<'calendar' | 'table'>('calendar')
+  const [futureBookings, setFutureBookings] = useState<BookingResponse[]>(() =>
+    initialBookings.filter(
+      (booking) =>
+        shouldShowBookingInNormalView(booking) &&
+        booking.end_date >= formatDateParam(getTodayUtc())
+    )
+  )
   const [selectedRange, setSelectedRange] = useState<SelectionRange | null>(
     null
   )
   const [dragStartDate, setDragStartDate] = useState<string | null>(null)
   const [dragCurrentDate, setDragCurrentDate] = useState<string | null>(null)
+  const [isMonthSelectorOpen, setIsMonthSelectorOpen] = useState(false)
+  const [isTodayHighlighted, setIsTodayHighlighted] = useState(false)
   const hasMountedRef = useRef(false)
   const dragMovedRef = useRef(false)
   const selectionPanelRef = useRef<HTMLDivElement>(null)
+  const monthSelectorRef = useRef<HTMLDivElement | null>(null)
 
+  const todayDate = useMemo(() => getTodayUtc(), [])
+  const todayIso = formatDateParam(todayDate)
   const monthTitle = monthFormatter.format(currentMonth)
+  const monthName = monthNameFormatter.format(currentMonth)
+  const yearLabel = String(currentMonth.getUTCFullYear())
   const monthStart = startOfMonthUtc(currentMonth)
   const monthEnd = endOfMonthUtc(currentMonth)
   const monthStartIso = formatDateParam(monthStart)
@@ -329,12 +382,12 @@ export function CalendarView({
   const bookingsByDate = useMemo(() => summariseBookings(bookings), [bookings])
   const tableBookings = useMemo(
     () =>
-      bookings.filter(
+      futureBookings.filter(
         (booking) =>
           shouldShowBookingInNormalView(booking) &&
-          booking.start_date <= monthEndIso && booking.end_date >= monthStartIso
+          booking.end_date >= todayIso
       ),
-    [bookings, monthEndIso, monthStartIso]
+    [futureBookings, todayIso]
   )
   const dragSelection = useMemo(() => {
     if (dragStartDate === null) {
@@ -443,20 +496,123 @@ export function CalendarView({
   }, [selectedGpuTypeId, visibleRangeEndIso, visibleRangeStartIso])
 
   useEffect(() => {
+    let cancelled = false
+
+    async function loadFutureBookings() {
+      const nextBookings = await getBookings(todayIso, undefined, selectedGpuTypeId)
+
+      if (cancelled) {
+        return
+      }
+
+      setFutureBookings(nextBookings)
+    }
+
+    void loadFutureBookings()
+
+    return () => {
+      cancelled = true
+    }
+  }, [selectedGpuTypeId, todayIso])
+
+  useEffect(() => {
+    if (!isTodayHighlighted) {
+      return
+    }
+
+    const timeout = window.setTimeout(() => {
+      setIsTodayHighlighted(false)
+    }, 1600)
+
+    return () => {
+      window.clearTimeout(timeout)
+    }
+  }, [isTodayHighlighted])
+
+  useEffect(() => {
+    if (!isMonthSelectorOpen) {
+      return
+    }
+
+    function handleDocumentMouseDown(event: MouseEvent) {
+      const target = event.target
+
+      if (!(target instanceof Node)) {
+        return
+      }
+
+      if (monthSelectorRef.current?.contains(target)) {
+        return
+      }
+
+      setIsMonthSelectorOpen(false)
+    }
+
+    document.addEventListener('mousedown', handleDocumentMouseDown)
+    return () => {
+      document.removeEventListener('mousedown', handleDocumentMouseDown)
+    }
+  }, [isMonthSelectorOpen])
+
+  const commitSelection = useCallback(
+    (endDate: string) => {
+      if (!dragStartDate) {
+        return
+      }
+
+      const isClickWithoutDrag =
+        dragMovedRef.current === false && dragStartDate === endDate
+
+      if (
+        isClickWithoutDrag &&
+        selectedRange !== null &&
+        isDateWithinRange(endDate, selectedRange)
+      ) {
+        clearSelection()
+        return
+      }
+
+      const [startDate, normalisedEndDate] = normaliseRange(
+        dragStartDate,
+        endDate
+      )
+
+      setSelectedRange({ startDate, endDate: normalisedEndDate })
+      setDragStartDate(null)
+      setDragCurrentDate(null)
+      dragMovedRef.current = false
+    },
+    [clearSelection, dragStartDate, selectedRange]
+  )
+
+  useEffect(() => {
     if (dragStartDate === null) {
       return
     }
 
-    function handleWindowMouseUp() {
+    function handleWindowMouseUp(event: MouseEvent) {
+      const releasedDate = getDayCellDateFromEvent(event)
+
+      if (releasedDate !== null) {
+        commitSelection(releasedDate)
+        return
+      }
+
+      if (dragCurrentDate !== null) {
+        commitSelection(dragCurrentDate)
+        return
+      }
+
       setDragStartDate(null)
       setDragCurrentDate(null)
+      dragMovedRef.current = false
     }
 
     window.addEventListener('mouseup', handleWindowMouseUp)
     return () => {
       window.removeEventListener('mouseup', handleWindowMouseUp)
     }
-  }, [dragStartDate])
+  }, [commitSelection, dragCurrentDate, dragStartDate])
 
   useEffect(() => {
     if (selectedRange === null) {
@@ -504,34 +660,6 @@ export function CalendarView({
     router.push(`/bookings/new?${params.toString()}`)
   }
 
-  function commitSelection(endDate: string) {
-    if (!dragStartDate) {
-      return
-    }
-
-    const isClickWithoutDrag =
-      dragMovedRef.current === false && dragStartDate === endDate
-
-    if (
-      isClickWithoutDrag &&
-      selectedRange !== null &&
-      isDateWithinRange(endDate, selectedRange)
-    ) {
-      clearSelection()
-      return
-    }
-
-    const [startDate, normalisedEndDate] = normaliseRange(
-      dragStartDate,
-      endDate
-    )
-
-    setSelectedRange({ startDate, endDate: normalisedEndDate })
-    setDragStartDate(null)
-    setDragCurrentDate(null)
-    dragMovedRef.current = false
-  }
-
   function scrollToSelectionPanel() {
     const panel = selectionPanelRef.current
 
@@ -554,11 +682,29 @@ export function CalendarView({
   function navigateMonth(offset: number) {
     setCurrentMonth((current) => addMonthsUtc(current, offset))
     setVisibleMonthCount(1)
+    setIsMonthSelectorOpen(false)
   }
 
   function jumpToToday() {
-    setCurrentMonth(startOfMonthUtc(new Date()))
+    setCurrentMonth(startOfMonthUtc(todayDate))
     setVisibleMonthCount(1)
+    setIsMonthSelectorOpen(false)
+    setIsTodayHighlighted(true)
+  }
+
+  function navigateYear(offset: number) {
+    setCurrentMonth((current) => addMonthsUtc(current, offset * 12))
+    setVisibleMonthCount(1)
+    setIsMonthSelectorOpen(false)
+  }
+
+  function selectMonth(monthIndex: number) {
+    setCurrentMonth(
+      (current) =>
+        new Date(Date.UTC(current.getUTCFullYear(), monthIndex, 1))
+    )
+    setVisibleMonthCount(1)
+    setIsMonthSelectorOpen(false)
   }
 
   return (
@@ -623,22 +769,89 @@ export function CalendarView({
 
       {activeTab === 'calendar' ? (
         <div className="space-y-4">
-          <div className="flex items-center justify-between gap-2">
-            <div className="inline-flex items-center gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => navigateMonth(-1)}
-              >
-                Previous Month
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => navigateMonth(1)}
-              >
-                Next Month
-              </Button>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="border-border bg-background inline-flex items-center gap-1 rounded-full border p-1 shadow-sm">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Previous month"
+                  onClick={() => navigateMonth(-1)}
+                >
+                  <ChevronLeft className="size-4" aria-hidden="true" />
+                </Button>
+                <div ref={monthSelectorRef} className="relative">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="h-9 px-3 font-semibold"
+                    aria-expanded={isMonthSelectorOpen}
+                    aria-haspopup="dialog"
+                    onClick={() => setIsMonthSelectorOpen((open) => !open)}
+                  >
+                    {monthName}
+                  </Button>
+                  {isMonthSelectorOpen ? (
+                    <div
+                      className="bg-popover absolute top-full left-1/2 z-20 mt-2 grid min-w-[15rem] -translate-x-1/2 grid-cols-3 gap-1 rounded-xl border p-2 shadow-xl"
+                      data-month-selector="true"
+                      role="dialog"
+                      aria-label="Month selector"
+                    >
+                      {monthOptions.map((monthOption) => (
+                        <Button
+                          key={monthOption.value}
+                          type="button"
+                          variant={
+                            monthOption.value === currentMonth.getUTCMonth()
+                              ? 'secondary'
+                              : 'ghost'
+                          }
+                          className="h-9 justify-start px-3"
+                          onClick={() => selectMonth(monthOption.value)}
+                        >
+                          {monthOption.label}
+                        </Button>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Next month"
+                  onClick={() => navigateMonth(1)}
+                >
+                  <ChevronRight className="size-4" aria-hidden="true" />
+                </Button>
+              </div>
+
+              <div className="border-border bg-background inline-flex items-center gap-1 rounded-full border p-1 shadow-sm">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Previous year"
+                  onClick={() => navigateYear(-1)}
+                >
+                  <ChevronLeft className="size-4" aria-hidden="true" />
+                </Button>
+                <div className="min-w-14 px-2 text-center text-sm font-semibold">
+                  {yearLabel}
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Next year"
+                  onClick={() => navigateYear(1)}
+                >
+                  <ChevronRight className="size-4" aria-hidden="true" />
+                </Button>
+              </div>
+
               <Button
                 type="button"
                 variant="outline"
@@ -647,10 +860,7 @@ export function CalendarView({
                 Today
               </Button>
             </div>
-            <h2
-              className="text-lg font-semibold"
-              data-month-label={monthStartIso}
-            >
+            <h2 className="sr-only" data-month-label={monthStartIso}>
               {monthTitle}
             </h2>
           </div>
@@ -689,6 +899,8 @@ export function CalendarView({
                     displayedSelection !== null &&
                     (day.dateIso === displayedSelection.startDate ||
                       day.dateIso === displayedSelection.endDate)
+                  const isToday = day.dateIso === todayIso
+                  const isTodayAnimated = isToday && isTodayHighlighted
                   const hasSelectionJump =
                     committedSelectionEndDate !== null &&
                     day.dateIso === committedSelectionEndDate
@@ -707,15 +919,23 @@ export function CalendarView({
                           ? 'bg-destructive/10'
                           : null,
                         isInDragSelection
-                          ? 'border-primary/50 bg-primary/10'
+                          ? 'border-primary/70 bg-primary/15 dark:border-primary/80 dark:bg-primary/25'
                           : null,
                         isDragBoundary ? 'ring-primary/30 ring-1' : null,
+                        isToday
+                          ? 'ring-primary/25 dark:ring-primary/50 ring-1'
+                          : null,
+                        isTodayAnimated
+                          ? 'bg-primary/20 ring-primary/70 animate-pulse ring-2 dark:bg-primary/35'
+                          : null,
                         hasSelectionJump ? 'pb-10' : null
                       )}
                       data-day-cell="true"
                       data-date={day.dateIso}
                       data-current-month={day.inCurrentMonth ? 'true' : 'false'}
                       data-drag-selected={isInDragSelection ? 'true' : 'false'}
+                      data-today={isToday ? 'true' : 'false'}
+                      data-today-highlighted={isTodayAnimated ? 'true' : 'false'}
                       onDoubleClick={() =>
                         openBookingForm(day.dateIso, day.dateIso)
                       }
@@ -832,7 +1052,7 @@ export function CalendarView({
 
             <Card
               ref={selectionPanelRef}
-              className="border-primary/10 bg-card/95 scroll-mt-4"
+              className="border-primary/30 bg-card/95 scroll-mt-4 shadow-md dark:border-primary/45"
               data-selection-panel="true"
               data-selection-start={displayedSelection?.startDate}
               data-selection-end={displayedSelection?.endDate}
@@ -898,7 +1118,7 @@ export function CalendarView({
                       </p>
                     </div>
 
-                    <div className="border-border/70 bg-muted/30 rounded-lg border p-4">
+                    <div className="border-border/80 bg-muted/30 rounded-lg border p-4 dark:border-border">
                       <div className="flex items-start justify-between gap-3">
                         <div className="space-y-1">
                           <p className="text-sm font-medium">
@@ -1035,11 +1255,16 @@ export function CalendarView({
           </div>
         </div>
       ) : (
-        <BookingTable
-          bookings={tableBookings}
-          isAdmin={false}
-          currentUserEmail={currentUserEmail}
-        />
+        <div className="space-y-4">
+          <div className="border-border/70 bg-muted/20 text-muted-foreground rounded-lg border px-4 py-3 text-sm">
+            Showing current and future bookings
+          </div>
+          <BookingTable
+            bookings={tableBookings}
+            isAdmin={false}
+            currentUserEmail={currentUserEmail}
+          />
+        </div>
       )}
     </section>
   )
