@@ -57,12 +57,6 @@ type DayBookingSummary = {
 
 const weekdayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
-const monthFormatter = new Intl.DateTimeFormat('en-GB', {
-  month: 'long',
-  year: 'numeric',
-  timeZone: 'UTC',
-})
-
 const monthNameFormatter = new Intl.DateTimeFormat('en-GB', {
   month: 'long',
   timeZone: 'UTC',
@@ -363,7 +357,6 @@ export function CalendarView({
 
   const todayDate = useMemo(() => getTodayUtc(), [])
   const todayIso = formatDateParam(todayDate)
-  const monthTitle = monthFormatter.format(currentMonth)
   const monthName = monthNameFormatter.format(currentMonth)
   const yearLabel = String(currentMonth.getUTCFullYear())
   const monthStart = startOfMonthUtc(currentMonth)
@@ -878,9 +871,6 @@ export function CalendarView({
                 Today
               </Button>
             </div>
-            <h2 className="sr-only" data-month-label={monthStartIso}>
-              {monthTitle}
-            </h2>
           </div>
 
           <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem] xl:items-start">

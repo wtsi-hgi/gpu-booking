@@ -200,7 +200,8 @@ describe('bookings page - F1 calendar grid', () => {
     render(await BookingsPage())
 
     expect(screen.getByRole('heading', { name: 'Bookings' })).toBeTruthy()
-    expect(screen.getByText('March 2026')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'March' })).toBeTruthy()
+    expect(screen.getByText('2026')).toBeTruthy()
     expect(document.querySelector('[data-calendar-grid="true"]')).toBeTruthy()
 
     const bookedDayCell = document.querySelector('[data-date="2026-03-10"]')
@@ -338,7 +339,8 @@ describe('bookings page - F1 calendar grid', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Previous month' }))
     await vi.runAllTimersAsync()
 
-    expect(screen.getByText('February 2026')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'February' })).toBeTruthy()
+    expect(screen.getByText('2026')).toBeTruthy()
 
     expect(mocks.getCapacityMock).toHaveBeenCalledWith(
       '2026-02-01',
@@ -355,6 +357,8 @@ describe('bookings page - F1 calendar grid', () => {
   it('uses arrow controls for month and year, and opens a month selector from the month label', async () => {
     const { default: BookingsPage } = await import('@/app/bookings/page')
     render(await BookingsPage())
+
+    expect(screen.queryByText('March 2026')).toBeNull()
 
     expect(
       screen.queryByRole('button', { name: 'Previous Month' })
