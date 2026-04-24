@@ -383,9 +383,20 @@ describe('bookings page - F1 calendar grid', () => {
     expect(screen.getByText('2027')).toBeTruthy()
   })
 
-  it('returns to the current month and briefly highlights today when Today is clicked', async () => {
+  it('returns to the current month and briefly flashes today when Today is clicked', async () => {
     const { default: BookingsPage } = await import('@/app/bookings/page')
     render(await BookingsPage())
+
+    const initialTodayCell = document.querySelector(
+      '[data-date="2026-03-15"]'
+    ) as HTMLElement | null
+
+    expect(initialTodayCell?.className).not.toContain('border-primary/25')
+    expect(initialTodayCell?.className).not.toContain('ring-primary/20')
+    expect(initialTodayCell?.className).not.toContain('calendar-today-pulse')
+    expect(initialTodayCell?.className).not.toContain(
+      'calendar-today-highlight'
+    )
 
     fireEvent.click(screen.getByRole('button', { name: 'Previous month' }))
     await vi.runAllTimersAsync()
@@ -399,17 +410,18 @@ describe('bookings page - F1 calendar grid', () => {
     ) as HTMLElement | null
 
     expect(todayCell?.getAttribute('data-today-highlighted')).toBe('true')
-    expect(todayCell?.className).toContain('border-primary/25')
-    expect(todayCell?.className).toContain('ring-primary/20')
-    expect(todayCell?.className).toContain('calendar-today-pulse')
-    expect(todayCell?.className).not.toContain('animate-pulse')
+    expect(todayCell?.className).toContain('calendar-today-highlight')
+    expect(todayCell?.className).not.toContain('calendar-today-pulse')
+    expect(todayCell?.className).not.toContain('border-primary/25')
+    expect(todayCell?.className).not.toContain('ring-primary/20')
 
     await vi.advanceTimersByTimeAsync(1800)
 
     expect(todayCell?.getAttribute('data-today-highlighted')).toBe('false')
-    expect(todayCell?.className).toContain('border-primary/25')
-    expect(todayCell?.className).toContain('ring-primary/20')
+    expect(todayCell?.className).not.toContain('calendar-today-highlight')
     expect(todayCell?.className).not.toContain('calendar-today-pulse')
+    expect(todayCell?.className).not.toContain('border-primary/25')
+    expect(todayCell?.className).not.toContain('ring-primary/20')
   })
 
   it('updates capacity display when GPU type filter changes to H100', async () => {

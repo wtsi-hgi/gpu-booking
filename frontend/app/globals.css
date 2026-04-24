@@ -1,7 +1,7 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 
-@source "../components/**/*.{js,ts,jsx,tsx}";
+@source '../components/**/*.{js,ts,jsx,tsx}';
 
 @theme inline {
   --font-sans:
@@ -41,6 +41,9 @@
 
   --color-popover: #ffffff;
   --color-popover-foreground: #0f172a;
+
+  --color-calendar-today-highlight: #fef3c7;
+  --color-calendar-today-highlight-strong: #fde68a;
 }
 
 .dark {
@@ -71,6 +74,9 @@
 
   --color-popover: #1e293b;
   --color-popover-foreground: #f8fafc;
+
+  --color-calendar-today-highlight: #78350f;
+  --color-calendar-today-highlight-strong: #fbbf24;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -104,6 +110,9 @@
 
     --color-popover: #1e293b;
     --color-popover-foreground: #f8fafc;
+
+    --color-calendar-today-highlight: #78350f;
+    --color-calendar-today-highlight-strong: #fbbf24;
   }
 }
 
@@ -134,30 +143,57 @@
 }
 
 @layer components {
-  .calendar-today-pulse {
-    animation: calendar-today-pulse 1.4s ease-out;
+  .calendar-today-highlight {
+    animation: calendar-today-highlight 1.4s ease-out;
   }
 
-  @keyframes calendar-today-pulse {
+  @keyframes calendar-today-highlight {
     0% {
-      border-color: color-mix(in srgb, var(--color-ring) 32%, transparent);
-      box-shadow:
-        0 0 0 1px color-mix(in srgb, var(--color-ring) 18%, transparent),
-        0 0 0 0 color-mix(in srgb, var(--color-ring) 0%, transparent);
+      background-color: transparent;
+      box-shadow: inset 0 0 0 0
+        color-mix(
+          in srgb,
+          var(--color-calendar-today-highlight-strong) 0%,
+          transparent
+        );
     }
 
-    35% {
-      border-color: color-mix(in srgb, var(--color-ring) 52%, transparent);
-      box-shadow:
-        0 0 0 1px color-mix(in srgb, var(--color-ring) 28%, transparent),
-        0 0 0 6px color-mix(in srgb, var(--color-ring) 18%, transparent);
+    20% {
+      background-color: color-mix(
+        in srgb,
+        var(--color-calendar-today-highlight) 78%,
+        var(--color-card)
+      );
+      box-shadow: inset 0 0 0 1px
+        color-mix(
+          in srgb,
+          var(--color-calendar-today-highlight-strong) 56%,
+          transparent
+        );
+    }
+
+    55% {
+      background-color: color-mix(
+        in srgb,
+        var(--color-calendar-today-highlight) 52%,
+        var(--color-card)
+      );
+      box-shadow: inset 0 0 0 1px
+        color-mix(
+          in srgb,
+          var(--color-calendar-today-highlight-strong) 28%,
+          transparent
+        );
     }
 
     100% {
-      border-color: color-mix(in srgb, var(--color-ring) 20%, transparent);
-      box-shadow:
-        0 0 0 1px color-mix(in srgb, var(--color-ring) 14%, transparent),
-        0 0 0 0 color-mix(in srgb, var(--color-ring) 0%, transparent);
+      background-color: transparent;
+      box-shadow: inset 0 0 0 0
+        color-mix(
+          in srgb,
+          var(--color-calendar-today-highlight-strong) 0%,
+          transparent
+        );
     }
   }
 }
