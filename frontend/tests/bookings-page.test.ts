@@ -1270,9 +1270,9 @@ describe('bookings page - F1 calendar grid', () => {
     ).toBeNull()
     expect(dayCell?.getAttribute('data-drag-selected')).toBe('false')
     expect(
-      screen.getByText(
+      screen.queryByText(
         /choose a single day or drag across several days to preview/i
       )
-    ).toBeTruthy()
+    ).toBeNull()
   })
 })

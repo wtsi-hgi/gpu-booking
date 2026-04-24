@@ -1155,12 +1155,8 @@ export function CalendarView({
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
-                {selectionDetails === null || displayedSelection === null ? (
-                  <div className="border-border/70 text-muted-foreground bg-muted/20 rounded-lg border border-dashed p-4 text-sm">
-                    Choose a single day or drag across several days to preview
-                    the best-fit booking window without leaving this page.
-                  </div>
-                ) : (
+                {selectionDetails === null ||
+                displayedSelection === null ? null : (
                   <>
                     <div className="space-y-1">
                       <p className="text-muted-foreground text-xs font-semibold tracking-[0.24em] uppercase">
