@@ -1,5 +1,8 @@
 /** @vitest-environment jsdom */
 
+import { readFile } from 'node:fs/promises'
+import path from 'node:path'
+
 import {
   act,
   cleanup,
@@ -136,6 +139,10 @@ function buildDateRange(startDate: string, endDate: string): string[] {
   }
 
   return dates
+}
+
+async function readGlobalsCss(): Promise<string> {
+  return readFile(path.join(process.cwd(), 'app/globals.css'), 'utf8')
 }
 
 describe('bookings page - F1 calendar grid', () => {
@@ -526,7 +533,7 @@ describe('bookings page - F1 calendar grid', () => {
     )
   })
 
-  it('uses higher-contrast dark-mode styling for selected days and the selection details panel', async () => {
+  it('uses a dedicated selection highlight so dark mode stays visible without the old light-mode tint', async () => {
     document.documentElement.classList.add('dark')
 
     const { default: BookingsPage } = await import('@/app/bookings/page')
@@ -539,20 +546,24 @@ describe('bookings page - F1 calendar grid', () => {
     fireEvent.mouseUp(dayCell as Element)
 
     const selectedDayClassName = dayCell?.getAttribute('class') ?? ''
-    const selectionPanel = document.querySelector(
-      '[data-selection-panel="true"]'
-    )
-    const selectionPanelClassName = selectionPanel?.getAttribute('class') ?? ''
-    const availabilityPanel = screen
-      .getByText('Availability for selected day')
-      .closest('div.border')
+    const globalsCss = await readGlobalsCss()
 
-    expect(selectedDayClassName).toContain('dark:border-primary')
-    expect(selectedDayClassName).toContain('dark:bg-primary/40')
-    expect(selectionPanelClassName).toContain('dark:border-primary/70')
-    expect(availabilityPanel?.getAttribute('class') ?? '').toContain(
-      'dark:border-primary/50'
+    expect(selectedDayClassName).toContain('calendar-selection-highlight')
+    expect(selectedDayClassName).not.toContain('border-primary/70')
+    expect(selectedDayClassName).not.toContain('bg-primary/15')
+    expect(selectedDayClassName).not.toContain('dark:border-primary')
+    expect(selectedDayClassName).not.toContain('dark:bg-primary/40')
+    expect(globalsCss).toMatch(
+      /\.calendar-selection-highlight\s*\{[\s\S]*background-color:\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*8%,\s*var\(--color-card\)\s*\);[\s\S]*border-color:\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*18%,\s*var\(--color-border\)\s*\);[\s\S]*box-shadow:\s*inset 0 0 0 1px\s*color-mix\(in srgb,\s*var\(--color-primary\)\s*10%,\s*transparent\);[\s\S]*\}/
     )
+    expect(globalsCss).toMatch(
+      /\.dark\s+\.calendar-selection-highlight\s*\{[\s\S]*background-color:\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*18%,\s*var\(--color-card\)\s*\);[\s\S]*border-color:\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*58%,\s*var\(--color-border\)\s*\);[\s\S]*box-shadow:\s*inset 0 0 0 1px\s*color-mix\(in srgb,\s*var\(--color-primary\)\s*32%,\s*transparent\);[\s\S]*\}/
+    )
+    expect(globalsCss).toMatch(
+      /@media\s*\(prefers-color-scheme:\s*dark\)\s*\{[\s\S]*html:not\(\.light\)\s+\.calendar-selection-highlight\s*\{[\s\S]*background-color:\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*18%,\s*var\(--color-card\)\s*\);[\s\S]*border-color:\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*58%,\s*var\(--color-border\)\s*\);[\s\S]*box-shadow:\s*inset 0 0 0 1px\s*color-mix\(in srgb,\s*var\(--color-primary\)\s*32%,\s*transparent\);[\s\S]*\}[\s\S]*\}/
+    )
+
+    document.documentElement.classList.remove('dark')
   })
 
   it('uses visible adjacent-month data for overflow cells and selection details', async () => {

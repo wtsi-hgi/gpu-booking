@@ -985,7 +985,7 @@ export function CalendarView({
                           ? 'bg-destructive/10'
                           : null,
                         isInDragSelection
-                          ? 'border-primary/70 bg-primary/15 dark:border-primary dark:bg-primary/40'
+                          ? 'calendar-selection-highlight'
                           : null,
                         isDragBoundary ? 'ring-primary/30 ring-1' : null,
                         isTodayAnimated ? 'calendar-today-highlight' : null,
