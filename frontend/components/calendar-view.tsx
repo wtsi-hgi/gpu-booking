@@ -320,7 +320,10 @@ function getDayCellDateFromEvent(event: MouseEvent): string | null {
     return null
   }
 
-  const releasedElement = document.elementFromPoint(event.clientX, event.clientY)
+  const releasedElement = document.elementFromPoint(
+    event.clientX,
+    event.clientY
+  )
   return (
     releasedElement
       ?.closest('[data-day-cell="true"]')
@@ -344,15 +347,15 @@ export function CalendarView({
   const [currentMonth, setCurrentMonth] = useState<Date>(() =>
     startOfMonthUtc(parseIsoDate(initialMonthIso))
   )
-  const [capacityState, setCapacityState] = useState<SeededState<
-    DailyCapacity[]
-  >>(() => ({
+  const [capacityState, setCapacityState] = useState<
+    SeededState<DailyCapacity[]>
+  >(() => ({
     seed: initialCapacity,
     data: initialCapacity,
   }))
-  const [bookingsState, setBookingsState] = useState<SeededState<
-    BookingResponse[]
-  >>(() => ({
+  const [bookingsState, setBookingsState] = useState<
+    SeededState<BookingResponse[]>
+  >(() => ({
     seed: initialBookings,
     data: initialBookings,
   }))
@@ -379,9 +382,13 @@ export function CalendarView({
   const todayDate = useMemo(() => getTodayUtc(), [])
   const todayIso = formatDateParam(todayDate)
   const capacity =
-    capacityState.seed === initialCapacity ? capacityState.data : initialCapacity
+    capacityState.seed === initialCapacity
+      ? capacityState.data
+      : initialCapacity
   const bookings =
-    bookingsState.seed === initialBookings ? bookingsState.data : initialBookings
+    bookingsState.seed === initialBookings
+      ? bookingsState.data
+      : initialBookings
   const monthName = monthNameFormatter.format(currentMonth)
   const yearLabel = String(currentMonth.getUTCFullYear())
   const monthStart = startOfMonthUtc(currentMonth)
@@ -483,9 +490,7 @@ export function CalendarView({
             ? currentState.data
             : initialBookings
         const nextBookings =
-          typeof updater === 'function'
-            ? updater(currentBookings)
-            : updater
+          typeof updater === 'function' ? updater(currentBookings) : updater
 
         return {
           seed: initialBookings,
@@ -552,13 +557,23 @@ export function CalendarView({
     return () => {
       cancelled = true
     }
-  }, [initialCapacity, selectedGpuTypeId, updateBookingsState, visibleRangeEndIso, visibleRangeStartIso])
+  }, [
+    initialCapacity,
+    selectedGpuTypeId,
+    updateBookingsState,
+    visibleRangeEndIso,
+    visibleRangeStartIso,
+  ])
 
   useEffect(() => {
     let cancelled = false
 
     async function loadFutureBookings() {
-      const nextBookings = await getBookings(todayIso, undefined, selectedGpuTypeId)
+      const nextBookings = await getBookings(
+        todayIso,
+        undefined,
+        selectedGpuTypeId
+      )
 
       if (cancelled) {
         return
@@ -759,8 +774,7 @@ export function CalendarView({
 
   function selectMonth(monthIndex: number) {
     setCurrentMonth(
-      (current) =>
-        new Date(Date.UTC(current.getUTCFullYear(), monthIndex, 1))
+      (current) => new Date(Date.UTC(current.getUTCFullYear(), monthIndex, 1))
     )
     setVisibleMonthCount(1)
     setIsMonthSelectorOpen(false)
@@ -853,7 +867,7 @@ export function CalendarView({
                   </Button>
                   {isMonthSelectorOpen ? (
                     <div
-                      className="bg-popover absolute top-full left-1/2 z-20 mt-2 grid w-max min-w-[18rem] max-w-[calc(100vw-2rem)] -translate-x-1/2 grid-cols-1 gap-1 rounded-xl border p-2 shadow-xl sm:grid-cols-2"
+                      className="bg-popover absolute top-full left-0 z-20 mt-2 grid w-max max-w-[calc(100vw-2rem)] min-w-[18rem] grid-cols-1 gap-1 rounded-xl border p-2 shadow-xl sm:grid-cols-2"
                       data-month-selector="true"
                       role="dialog"
                       aria-label="Month selector"
@@ -911,11 +925,7 @@ export function CalendarView({
                 </Button>
               </div>
 
-              <Button
-                type="button"
-                variant="outline"
-                onClick={jumpToToday}
-              >
+              <Button type="button" variant="outline" onClick={jumpToToday}>
                 Today
               </Button>
             </div>
@@ -989,7 +999,9 @@ export function CalendarView({
                       data-current-month={day.inCurrentMonth ? 'true' : 'false'}
                       data-drag-selected={isInDragSelection ? 'true' : 'false'}
                       data-today={isToday ? 'true' : 'false'}
-                      data-today-highlighted={isTodayAnimated ? 'true' : 'false'}
+                      data-today-highlighted={
+                        isTodayAnimated ? 'true' : 'false'
+                      }
                       onDoubleClick={() =>
                         openBookingForm(day.dateIso, day.dateIso)
                       }
@@ -1106,7 +1118,7 @@ export function CalendarView({
 
             <Card
               ref={selectionPanelRef}
-              className="border-primary/30 bg-card/95 scroll-mt-4 shadow-md dark:border-primary/70"
+              className="border-primary/30 bg-card/95 dark:border-primary/70 scroll-mt-4 shadow-md"
               data-selection-panel="true"
               data-selection-start={displayedSelection?.startDate}
               data-selection-end={displayedSelection?.endDate}
@@ -1172,7 +1184,7 @@ export function CalendarView({
                       </p>
                     </div>
 
-                    <div className="border-border/80 bg-muted/30 rounded-lg border p-4 dark:border-primary/50 dark:bg-muted/45">
+                    <div className="border-border/80 bg-muted/30 dark:border-primary/50 dark:bg-muted/45 rounded-lg border p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div className="space-y-1">
                           <p className="text-sm font-medium">

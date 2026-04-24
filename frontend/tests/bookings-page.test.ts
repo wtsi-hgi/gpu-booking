@@ -361,25 +361,22 @@ describe('bookings page - F1 calendar grid', () => {
 
     expect(screen.queryByText('March 2026')).toBeNull()
 
-    expect(
-      screen.queryByRole('button', { name: 'Previous Month' })
-    ).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Previous Month' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Next Month' })).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: 'March' }))
 
-    const monthSelector = document.querySelector(
-      '[data-month-selector="true"]'
-    )
+    const monthSelector = document.querySelector('[data-month-selector="true"]')
 
     expect(monthSelector).toBeTruthy()
     expect(monthSelector?.className).toContain('w-max')
     expect(monthSelector?.className).toContain('min-w-[18rem]')
+    expect(monthSelector?.className).toContain('left-0')
+    expect(monthSelector?.className).not.toContain('left-1/2')
+    expect(monthSelector?.className).not.toContain('-translate-x-1/2')
     expect(monthSelector?.className).toContain('grid-cols-1')
     expect(monthSelector?.className).toContain('sm:grid-cols-2')
-    expect(
-      screen.getByRole('button', { name: 'September' })
-    ).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'September' })).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: 'Next year' }))
 
@@ -667,8 +664,12 @@ describe('bookings page - F1 calendar grid', () => {
     const extendedDayCell = document.querySelector('[data-date="2026-04-18"]')
 
     expect(extendedDayCell).toBeTruthy()
-    expect(document.querySelectorAll('[data-date="2026-04-01"]')).toHaveLength(1)
-    expect(document.querySelectorAll('[data-date="2026-04-11"]')).toHaveLength(1)
+    expect(document.querySelectorAll('[data-date="2026-04-01"]')).toHaveLength(
+      1
+    )
+    expect(document.querySelectorAll('[data-date="2026-04-11"]')).toHaveLength(
+      1
+    )
 
     fireEvent.mouseEnter(extendedDayCell as Element)
     fireEvent.mouseUp(extendedDayCell as Element)
@@ -919,9 +920,7 @@ describe('bookings page - F1 calendar grid', () => {
     await Promise.resolve()
     await Promise.resolve()
 
-    expect(
-      screen.queryByText('Showing current and future bookings')
-    ).toBeNull()
+    expect(screen.queryByText('Showing current and future bookings')).toBeNull()
     expect(document.querySelector('[data-booking-id="1"]')).toBeTruthy()
     expect(document.querySelector('[data-booking-id="2"]')).toBeTruthy()
     expect(mocks.getBookingsMock).toHaveBeenCalledWith(
@@ -1024,8 +1023,12 @@ describe('bookings page - F1 calendar grid', () => {
       await Promise.resolve()
     })
 
-    fireEvent.mouseDown(document.querySelector('[data-date="2026-03-15"]') as Element)
-    fireEvent.mouseUp(document.querySelector('[data-date="2026-03-15"]') as Element)
+    fireEvent.mouseDown(
+      document.querySelector('[data-date="2026-03-15"]') as Element
+    )
+    fireEvent.mouseUp(
+      document.querySelector('[data-date="2026-03-15"]') as Element
+    )
 
     const selectionPanel = document.querySelector(
       '[data-selection-panel="true"]'
