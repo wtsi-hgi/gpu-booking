@@ -638,7 +638,7 @@ describe('bookings page - F1 calendar grid', () => {
     expect(selectedDayClassName).not.toContain('dark:border-primary')
     expect(selectedDayClassName).not.toContain('dark:bg-primary/40')
     expect(globalsCss).toMatch(
-      /\.calendar-selection-highlight\s*\{[\s\S]*background-color:\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*15%,\s*var\(--color-card\)\s*\);[\s\S]*border-color:\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*70%,\s*var\(--color-border\)\s*\);[\s\S]*box-shadow:\s*inset 0 0 0 999px\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*15%,\s*transparent\),\s*inset 0 0 0 1px\s*color-mix\(in srgb,\s*var\(--color-primary\)\s*18%,\s*transparent\);[\s\S]*\}/
+      /\.calendar-selection-highlight\s*\{[\s\S]*background-color:\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*8%,\s*var\(--color-card\)\s*\);[\s\S]*border-color:\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*45%,\s*var\(--color-border\)\s*\);[\s\S]*box-shadow:\s*inset 0 0 0 999px\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*8%,\s*transparent\),\s*inset 0 0 0 1px\s*color-mix\(in srgb,\s*var\(--color-primary\)\s*12%,\s*transparent\);[\s\S]*\}/
     )
     expect(globalsCss).toMatch(
       /\.dark\s+\.calendar-selection-highlight\s*\{[\s\S]*background-color:\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*28%,\s*var\(--color-card\)\s*\);[\s\S]*border-color:\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*72%,\s*var\(--color-border\)\s*\);[\s\S]*box-shadow:\s*inset 0 0 0 999px\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*28%,\s*transparent\),\s*inset 0 0 0 1px\s*color-mix\(in srgb,\s*var\(--color-primary\)\s*42%,\s*transparent\);[\s\S]*\}/
@@ -648,6 +648,67 @@ describe('bookings page - F1 calendar grid', () => {
     )
 
     document.documentElement.classList.remove('dark')
+  })
+
+  it('keeps the light-mode selection highlight subtle (bug 260424-2 B)', async () => {
+    // Bug fix (260424-2 B): the light-mode multi-day selection fill was too
+    // saturated. The selection must remain visible (still a different fill
+    // and border than an unselected neighbour) but the colour-mix
+    // percentages must stay below the high-contrast pre-fix values.
+    const globalsCss = await readGlobalsCss()
+
+    const lightRuleMatch = globalsCss.match(
+      /(?<!\.dark\s)\.calendar-selection-highlight\s*\{([\s\S]*?)\}/
+    )
+    expect(lightRuleMatch).toBeTruthy()
+    const lightRuleBody = lightRuleMatch?.[1] ?? ''
+
+    function extractPercent(pattern: RegExp): number {
+      const match = lightRuleBody.match(pattern)
+      expect(match).toBeTruthy()
+      return Number(match?.[1])
+    }
+
+    const backgroundPercent = extractPercent(
+      /background-color:\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*([0-9]+)%,\s*var\(--color-card\)\s*\)/
+    )
+    const borderPercent = extractPercent(
+      /border-color:\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*([0-9]+)%,\s*var\(--color-border\)\s*\)/
+    )
+    const insetFillPercent = extractPercent(
+      /inset 0 0 0 999px\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*([0-9]+)%,\s*transparent\)/
+    )
+    const insetBorderPercent = extractPercent(
+      /inset 0 0 0 1px\s*color-mix\(in srgb,\s*var\(--color-primary\)\s*([0-9]+)%,\s*transparent\)/
+    )
+
+    expect(backgroundPercent).toBeLessThanOrEqual(10)
+    expect(borderPercent).toBeLessThanOrEqual(50)
+    expect(insetFillPercent).toBeLessThanOrEqual(10)
+    expect(insetBorderPercent).toBeLessThanOrEqual(15)
+
+    // Selection must still be visible: not zeroed out.
+    expect(backgroundPercent).toBeGreaterThan(0)
+    expect(borderPercent).toBeGreaterThan(0)
+    expect(insetFillPercent).toBeGreaterThan(0)
+    expect(insetBorderPercent).toBeGreaterThan(0)
+
+    // Summary highlight should be no stronger than the cell highlight.
+    const summaryRuleMatch = globalsCss.match(
+      /(?<!\.dark\s)\.calendar-selection-summary-highlight\s*\{([\s\S]*?)\}/
+    )
+    expect(summaryRuleMatch).toBeTruthy()
+    const summaryBody = summaryRuleMatch?.[1] ?? ''
+    const summaryBgMatch = summaryBody.match(
+      /background-color:\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*([0-9]+)%,\s*var\(--color-card\)\s*\)/
+    )
+    const summaryBorderMatch = summaryBody.match(
+      /border-color:\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*([0-9]+)%,\s*var\(--color-border\)\s*\)/
+    )
+    expect(summaryBgMatch).toBeTruthy()
+    expect(summaryBorderMatch).toBeTruthy()
+    expect(Number(summaryBgMatch?.[1])).toBeLessThanOrEqual(10)
+    expect(Number(summaryBorderMatch?.[1])).toBeLessThanOrEqual(20)
   })
 
   it('keeps multi-day selection interiors visibly highlighted in light and dark mode', async () => {
