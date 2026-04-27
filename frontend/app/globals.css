@@ -160,23 +160,6 @@
       inset 0 0 0 1px color-mix(in srgb, var(--color-primary) 12%, transparent);
   }
 
-  .dark .calendar-selection-highlight {
-    background-color: color-mix(
-      in srgb,
-      var(--color-primary) 28%,
-      var(--color-card)
-    );
-    border-color: color-mix(
-      in srgb,
-      var(--color-primary) 72%,
-      var(--color-border)
-    );
-    box-shadow:
-      inset 0 0 0 999px
-        color-mix(in srgb, var(--color-primary) 28%, transparent),
-      inset 0 0 0 1px color-mix(in srgb, var(--color-primary) 42%, transparent);
-  }
-
   .calendar-selection-summary-highlight {
     background-color: color-mix(
       in srgb,
@@ -188,52 +171,6 @@
       var(--color-primary) 18%,
       var(--color-border)
     );
-  }
-
-  .dark .calendar-selection-summary-highlight {
-    background-color: color-mix(
-      in srgb,
-      var(--color-primary) 22%,
-      var(--color-card)
-    );
-    border-color: color-mix(
-      in srgb,
-      var(--color-primary) 48%,
-      var(--color-border)
-    );
-  }
-
-  @media (prefers-color-scheme: dark) {
-    html:not(.light) .calendar-selection-highlight {
-      background-color: color-mix(
-        in srgb,
-        var(--color-primary) 28%,
-        var(--color-card)
-      );
-      border-color: color-mix(
-        in srgb,
-        var(--color-primary) 72%,
-        var(--color-border)
-      );
-      box-shadow:
-        inset 0 0 0 999px
-          color-mix(in srgb, var(--color-primary) 28%, transparent),
-        inset 0 0 0 1px
-          color-mix(in srgb, var(--color-primary) 42%, transparent);
-    }
-
-    html:not(.light) .calendar-selection-summary-highlight {
-      background-color: color-mix(
-        in srgb,
-        var(--color-primary) 22%,
-        var(--color-card)
-      );
-      border-color: color-mix(
-        in srgb,
-        var(--color-primary) 48%,
-        var(--color-border)
-      );
-    }
   }
 
   .calendar-today-indicator {
@@ -307,5 +244,76 @@
             transparent
           );
     }
+  }
+}
+
+/*
+ * Dark-mode multi-day selection highlight (bug 260424-2 C).
+ *
+ * These rules are intentionally placed OUTSIDE `@layer components` so they
+ * win the cascade against Tailwind's `bg-card` utility, which lives in
+ * `@layer utilities` and would otherwise override a component-layer
+ * `background-color` regardless of selector specificity. Un-layered rules
+ * out-rank any `@layer` rule, so the selection fill is guaranteed to render.
+ */
+.dark .calendar-selection-highlight {
+  background-color: color-mix(
+    in srgb,
+    var(--color-primary) 40%,
+    var(--color-card)
+  );
+  border-color: color-mix(
+    in srgb,
+    var(--color-primary) 78%,
+    var(--color-border)
+  );
+  box-shadow:
+    inset 0 0 0 999px
+      color-mix(in srgb, var(--color-primary) 40%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--color-primary) 60%, transparent);
+}
+
+.dark .calendar-selection-summary-highlight {
+  background-color: color-mix(
+    in srgb,
+    var(--color-primary) 35%,
+    var(--color-card)
+  );
+  border-color: color-mix(
+    in srgb,
+    var(--color-primary) 70%,
+    var(--color-border)
+  );
+}
+
+@media (prefers-color-scheme: dark) {
+  html:not(.light) .calendar-selection-highlight {
+    background-color: color-mix(
+      in srgb,
+      var(--color-primary) 40%,
+      var(--color-card)
+    );
+    border-color: color-mix(
+      in srgb,
+      var(--color-primary) 78%,
+      var(--color-border)
+    );
+    box-shadow:
+      inset 0 0 0 999px
+        color-mix(in srgb, var(--color-primary) 40%, transparent),
+      inset 0 0 0 1px color-mix(in srgb, var(--color-primary) 60%, transparent);
+  }
+
+  html:not(.light) .calendar-selection-summary-highlight {
+    background-color: color-mix(
+      in srgb,
+      var(--color-primary) 35%,
+      var(--color-card)
+    );
+    border-color: color-mix(
+      in srgb,
+      var(--color-primary) 70%,
+      var(--color-border)
+    );
   }
 }

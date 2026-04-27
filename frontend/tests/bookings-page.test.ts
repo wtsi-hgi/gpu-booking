@@ -641,10 +641,10 @@ describe('bookings page - F1 calendar grid', () => {
       /\.calendar-selection-highlight\s*\{[\s\S]*background-color:\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*8%,\s*var\(--color-card\)\s*\);[\s\S]*border-color:\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*45%,\s*var\(--color-border\)\s*\);[\s\S]*box-shadow:\s*inset 0 0 0 999px\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*8%,\s*transparent\),\s*inset 0 0 0 1px\s*color-mix\(in srgb,\s*var\(--color-primary\)\s*12%,\s*transparent\);[\s\S]*\}/
     )
     expect(globalsCss).toMatch(
-      /\.dark\s+\.calendar-selection-highlight\s*\{[\s\S]*background-color:\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*28%,\s*var\(--color-card\)\s*\);[\s\S]*border-color:\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*72%,\s*var\(--color-border\)\s*\);[\s\S]*box-shadow:\s*inset 0 0 0 999px\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*28%,\s*transparent\),\s*inset 0 0 0 1px\s*color-mix\(in srgb,\s*var\(--color-primary\)\s*42%,\s*transparent\);[\s\S]*\}/
+      /\.dark\s+\.calendar-selection-highlight\s*\{[\s\S]*background-color:\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*40%,\s*var\(--color-card\)\s*\);[\s\S]*border-color:\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*78%,\s*var\(--color-border\)\s*\);[\s\S]*box-shadow:\s*inset 0 0 0 999px\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*40%,\s*transparent\),\s*inset 0 0 0 1px\s*color-mix\(in srgb,\s*var\(--color-primary\)\s*60%,\s*transparent\);[\s\S]*\}/
     )
     expect(globalsCss).toMatch(
-      /@media\s*\(prefers-color-scheme:\s*dark\)\s*\{[\s\S]*html:not\(\.light\)\s+\.calendar-selection-highlight\s*\{[\s\S]*background-color:\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*28%,\s*var\(--color-card\)\s*\);[\s\S]*border-color:\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*72%,\s*var\(--color-border\)\s*\);[\s\S]*box-shadow:\s*inset 0 0 0 999px\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*28%,\s*transparent\),\s*inset 0 0 0 1px\s*color-mix\(in srgb,\s*var\(--color-primary\)\s*42%,\s*transparent\);[\s\S]*\}[\s\S]*\}/
+      /@media\s*\(prefers-color-scheme:\s*dark\)\s*\{[\s\S]*html:not\(\.light\)\s+\.calendar-selection-highlight\s*\{[\s\S]*background-color:\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*40%,\s*var\(--color-card\)\s*\);[\s\S]*border-color:\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*78%,\s*var\(--color-border\)\s*\);[\s\S]*box-shadow:\s*inset 0 0 0 999px\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*40%,\s*transparent\),\s*inset 0 0 0 1px\s*color-mix\(in srgb,\s*var\(--color-primary\)\s*60%,\s*transparent\);[\s\S]*\}[\s\S]*\}/
     )
 
     document.documentElement.classList.remove('dark')
@@ -709,6 +709,102 @@ describe('bookings page - F1 calendar grid', () => {
     expect(summaryBorderMatch).toBeTruthy()
     expect(Number(summaryBgMatch?.[1])).toBeLessThanOrEqual(10)
     expect(Number(summaryBorderMatch?.[1])).toBeLessThanOrEqual(20)
+  })
+
+  it('renders multi-day selection visibly in dark mode (bug 260424-2 C)', async () => {
+    // Bug fix (260424-2 C): in dark mode the multi-day selection was invisible
+    // on intermediate cells. Two structural problems:
+    //  1. The dark-mode rule lived in `@layer components`, but Tailwind's
+    //     `bg-card` utility (applied on the same cell) lives in `@layer
+    //     utilities`, which has higher cascade priority. The component-layer
+    //     `background-color` was therefore overridden.
+    //  2. The colour-mix percentages on the dark rule were too low to read
+    //     over the dark card background even when they did render.
+    // The fix must (a) place the dark-mode selection rules where they win
+    // against Tailwind utilities (outside `@layer components`, OR use
+    // `!important`), and (b) bump the dark-mode percentages so the fill and
+    // border are clearly visible.
+    const globalsCss = await readGlobalsCss()
+
+    const darkRuleMatch = globalsCss.match(
+      /\.dark\s+\.calendar-selection-highlight\s*\{([\s\S]*?)\}/
+    )
+    expect(darkRuleMatch).toBeTruthy()
+    const darkBody = darkRuleMatch?.[1] ?? ''
+
+    const darkBgMatch = darkBody.match(
+      /background-color:\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*([0-9]+)%,\s*var\(--color-card\)\s*\)/
+    )
+    const darkBorderMatch = darkBody.match(
+      /border-color:\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*([0-9]+)%,\s*var\(--color-border\)\s*\)/
+    )
+    expect(darkBgMatch).toBeTruthy()
+    expect(darkBorderMatch).toBeTruthy()
+    const darkBgPercent = Number(darkBgMatch?.[1])
+    const darkBorderPercent = Number(darkBorderMatch?.[1])
+    expect(darkBgPercent).toBeGreaterThanOrEqual(35)
+    expect(darkBgPercent).toBeLessThanOrEqual(45)
+    expect(darkBorderPercent).toBeGreaterThanOrEqual(70)
+    expect(darkBorderPercent).toBeLessThanOrEqual(85)
+
+    // The dark-mode selection rule must out-rank Tailwind's `bg-card`
+    // utility (which sits in `@layer utilities`). It is therefore either
+    // placed outside `@layer components` entirely, or it uses `!important`.
+    const layerComponentsStart = globalsCss.indexOf('@layer components')
+    expect(layerComponentsStart).toBeGreaterThanOrEqual(0)
+    let depth = 0
+    let layerComponentsEnd = -1
+    for (let i = layerComponentsStart; i < globalsCss.length; i++) {
+      const character = globalsCss[i]
+      if (character === '{') {
+        depth += 1
+      } else if (character === '}') {
+        depth -= 1
+        if (depth === 0) {
+          layerComponentsEnd = i
+          break
+        }
+      }
+    }
+    expect(layerComponentsEnd).toBeGreaterThan(layerComponentsStart)
+
+    const darkRuleIndex = globalsCss.indexOf(
+      '.dark .calendar-selection-highlight'
+    )
+    const summaryDarkRuleIndex = globalsCss.indexOf(
+      '.dark .calendar-selection-summary-highlight'
+    )
+    const mediaDarkRuleIndex = globalsCss.indexOf(
+      'html:not(.light) .calendar-selection-highlight'
+    )
+    expect(darkRuleIndex).toBeGreaterThanOrEqual(0)
+    expect(summaryDarkRuleIndex).toBeGreaterThanOrEqual(0)
+    expect(mediaDarkRuleIndex).toBeGreaterThanOrEqual(0)
+
+    const ruleIsOutsideComponents = darkRuleIndex > layerComponentsEnd
+    const ruleUsesImportant = /background-color[^;]*!important/i.test(darkBody)
+    expect(ruleIsOutsideComponents || ruleUsesImportant).toBe(true)
+
+    const summaryRuleIsOutsideComponents =
+      summaryDarkRuleIndex > layerComponentsEnd
+    const mediaRuleIsOutsideComponents =
+      mediaDarkRuleIndex > layerComponentsEnd
+    expect(
+      summaryRuleIsOutsideComponents || ruleUsesImportant
+    ).toBe(true)
+    expect(mediaRuleIsOutsideComponents || ruleUsesImportant).toBe(true)
+
+    // Summary highlight must also bump up so the inner pill row reads in dark.
+    const darkSummaryMatch = globalsCss.match(
+      /\.dark\s+\.calendar-selection-summary-highlight\s*\{([\s\S]*?)\}/
+    )
+    expect(darkSummaryMatch).toBeTruthy()
+    const darkSummaryBody = darkSummaryMatch?.[1] ?? ''
+    const darkSummaryBg = darkSummaryBody.match(
+      /background-color:\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*([0-9]+)%,\s*var\(--color-card\)\s*\)/
+    )
+    expect(darkSummaryBg).toBeTruthy()
+    expect(Number(darkSummaryBg?.[1])).toBeGreaterThanOrEqual(30)
   })
 
   it('keeps multi-day selection interiors visibly highlighted in light and dark mode', async () => {
