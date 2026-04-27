@@ -20,6 +20,11 @@ import {
 
 type Rgb = [number, number, number]
 
+type CellFrame = {
+  borderTopColor: Rgb
+  boxShadow: string
+}
+
 function rgbDistance(a: Rgb, b: Rgb): number {
   const dr = a[0] - b[0]
   const dg = a[1] - b[1]
@@ -70,6 +75,48 @@ async function readCellColour(
     { iso: dateIso, prop: property }
   )
   return [triplet[0], triplet[1], triplet[2]]
+}
+
+async function readCellFrame(page: Page, dateIso: string): Promise<CellFrame> {
+  const frame = await page.evaluate((iso) => {
+    const cell = document.querySelector(
+      `[data-day-cell="true"][data-date="${iso}"]`
+    )
+    if (!cell) {
+      throw new Error(`Day cell ${iso} not found`)
+    }
+    const computed = window.getComputedStyle(cell as Element)
+    const canvas = document.createElement('canvas')
+    canvas.width = 1
+    canvas.height = 1
+    const ctx = canvas.getContext('2d')
+    if (!ctx) {
+      throw new Error('canvas 2d context unavailable')
+    }
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, 1, 1)
+    ctx.fillStyle = computed.borderTopColor
+    ctx.fillRect(0, 0, 1, 1)
+    const data = ctx.getImageData(0, 0, 1, 1).data
+
+    return {
+      borderTopColor: [data[0], data[1], data[2]],
+      boxShadow: computed.boxShadow,
+    }
+  }, dateIso)
+
+  return {
+    borderTopColor: [
+      frame.borderTopColor[0],
+      frame.borderTopColor[1],
+      frame.borderTopColor[2],
+    ],
+    boxShadow: frame.boxShadow,
+  }
+}
+
+function hasStrongTodayFrame(frame: CellFrame): boolean {
+  return frame.boxShadow.includes('0px 0px 0px 3px')
 }
 
 function todayIsoUtc(): string {
@@ -150,6 +197,31 @@ test.describe('calendar styling regressions (bug 260424-2)', () => {
     )
   })
 
+  test('only the data-today cell receives the strong frame in light mode', async ({
+    page,
+  }) => {
+    await gotoPath(page, '/bookings')
+    await switchUser(page, 'researcher@example.com')
+
+    const todayIso = todayIsoUtc()
+    const neighbourIso = await findNonTodayCurrentMonthCell(page)
+
+    await page.evaluate((iso) => {
+      document
+        .querySelector(`[data-day-cell="true"][data-date="${iso}"]`)
+        ?.classList.add('calendar-today-indicator')
+    }, neighbourIso)
+
+    const todayFrame = await readCellFrame(page, todayIso)
+    const neighbourFrame = await readCellFrame(page, neighbourIso)
+
+    expect(hasStrongTodayFrame(todayFrame)).toBe(true)
+    expect(hasStrongTodayFrame(neighbourFrame)).toBe(false)
+    expect(
+      rgbDistance(todayFrame.borderTopColor, neighbourFrame.borderTopColor)
+    ).toBeGreaterThanOrEqual(300)
+  })
+
   test('today cell has no background fill but a clearly distinct border in dark mode', async ({
     page,
   }) => {
@@ -179,6 +251,32 @@ test.describe('calendar styling regressions (bug 260424-2)', () => {
     expect(rgbDistance(todayBorder, neighbourBorder)).toBeGreaterThanOrEqual(
       300
     )
+  })
+
+  test('only the data-today cell receives the strong frame in dark mode', async ({
+    page,
+  }) => {
+    await gotoPath(page, '/bookings')
+    await switchUser(page, 'researcher@example.com')
+    await forceDarkMode(page)
+
+    const todayIso = todayIsoUtc()
+    const neighbourIso = await findNonTodayCurrentMonthCell(page)
+
+    await page.evaluate((iso) => {
+      document
+        .querySelector(`[data-day-cell="true"][data-date="${iso}"]`)
+        ?.classList.add('calendar-today-indicator')
+    }, neighbourIso)
+
+    const todayFrame = await readCellFrame(page, todayIso)
+    const neighbourFrame = await readCellFrame(page, neighbourIso)
+
+    expect(hasStrongTodayFrame(todayFrame)).toBe(true)
+    expect(hasStrongTodayFrame(neighbourFrame)).toBe(false)
+    expect(
+      rgbDistance(todayFrame.borderTopColor, neighbourFrame.borderTopColor)
+    ).toBeGreaterThanOrEqual(300)
   })
 
   test('multi-day selection paints a real background colour on intermediate cells in dark mode', async ({

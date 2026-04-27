@@ -207,7 +207,7 @@
 }
 
 /*
- * Today indicator (bug 260424-2 A; strengthened in 260427-1).
+ * Today indicator (bug 260424-2 A; strengthened in 260427-1 and 260427-2).
  *
  * NO `background-color` — the user explicitly does not want a coloured
  * today background. The cell keeps its default `bg-card`. Today is marked
@@ -219,12 +219,16 @@
  *      which give the cell a clearly visible thick frame without
  *      disturbing grid layout (a real `border-width` change would shift
  *      the grid).
+ *
+ * The selector is deliberately keyed to the semantic `data-today="true"`
+ * attribute instead of the helper class alone. That prevents a stale or
+ * misplaced class from giving non-today cells the stronger frame.
  */
-.calendar-today-indicator {
+[data-day-cell='true'][data-today='true'] {
   border-color: var(--color-primary) !important;
   box-shadow:
     inset 0 0 0 3px var(--color-primary),
-    0 0 0 1px var(--color-primary);
+    0 0 0 1px var(--color-primary) !important;
 }
 
 /*

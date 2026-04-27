@@ -442,11 +442,13 @@ describe('bookings page - F1 calendar grid', () => {
     expect(initialTodayCell?.getAttribute('data-today')).toBe('true')
     expect(initialTodayCell?.className).toContain('calendar-today-indicator')
     expect(initialTodayCell?.className).not.toContain('calendar-today-flash')
-    expect(globalsCss).toContain('.calendar-today-indicator')
+    expect(globalsCss).toContain("[data-day-cell='true'][data-today='true']")
     // The today indicator must be border-only (no background fill) and use
-    // `--color-primary` so it adapts to both light and dark themes.
+    // `--color-primary` so it adapts to both light and dark themes. The
+    // visual rule must be keyed to `data-today` rather than the helper class
+    // alone, so a misplaced class cannot give non-today cells the strong frame.
     const todayIndicatorRuleMatch = globalsCss.match(
-      /\.calendar-today-indicator\s*\{([^}]*)\}/
+      /\[data-day-cell='true'\]\[data-today='true'\]\s*\{([^}]*)\}/
     )
     expect(todayIndicatorRuleMatch).toBeTruthy()
     const todayIndicatorRuleBody = todayIndicatorRuleMatch?.[1] ?? ''
