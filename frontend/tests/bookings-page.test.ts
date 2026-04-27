@@ -145,6 +145,44 @@ async function readGlobalsCss(): Promise<string> {
   return readFile(path.join(process.cwd(), 'app/globals.css'), 'utf8')
 }
 
+const calendarSelectionProbeStyleId = 'calendar-selection-probe-styles'
+
+function installCalendarSelectionProbeStyles() {
+  document.getElementById(calendarSelectionProbeStyleId)?.remove()
+
+  const style = document.createElement('style')
+  style.id = calendarSelectionProbeStyleId
+  style.textContent = `
+    [data-day-cell="true"][data-current-month="true"] {
+      background-color: rgb(255, 255, 255);
+      border-color: rgb(226, 232, 240);
+    }
+
+    .dark [data-day-cell="true"][data-current-month="true"] {
+      background-color: rgb(30, 41, 59);
+      border-color: rgb(51, 65, 85);
+    }
+
+    .calendar-selection-highlight {
+      background-color: rgb(219, 234, 254) !important;
+      border-color: rgb(29, 78, 216) !important;
+      box-shadow:
+        inset 0 0 0 999px rgba(219, 234, 254, 0.9),
+        inset 0 0 0 1px rgba(29, 78, 216, 0.65) !important;
+    }
+
+    .dark .calendar-selection-highlight {
+      background-color: rgb(30, 64, 175) !important;
+      border-color: rgb(191, 219, 254) !important;
+      box-shadow:
+        inset 0 0 0 999px rgba(30, 64, 175, 0.92),
+        inset 0 0 0 1px rgba(191, 219, 254, 0.72) !important;
+    }
+  `
+
+  document.head.append(style)
+}
+
 describe('bookings page - F1 calendar grid', () => {
   beforeEach(() => {
     vi.useFakeTimers()
@@ -200,6 +238,8 @@ describe('bookings page - F1 calendar grid', () => {
 
   afterEach(() => {
     cleanup()
+    document.documentElement.classList.remove('dark')
+    document.getElementById(calendarSelectionProbeStyleId)?.remove()
     vi.useRealTimers()
   })
 
@@ -390,20 +430,40 @@ describe('bookings page - F1 calendar grid', () => {
     expect(screen.getByText('2027')).toBeTruthy()
   })
 
-  it('returns to the current month and briefly flashes today when Today is clicked', async () => {
+  it('shows a persistent today marker and adds a separate flash when Today is clicked', async () => {
     const { default: BookingsPage } = await import('@/app/bookings/page')
     render(await BookingsPage())
 
     const initialTodayCell = document.querySelector(
       '[data-date="2026-03-15"]'
     ) as HTMLElement | null
+    const globalsCss = await readGlobalsCss()
 
+    expect(initialTodayCell?.getAttribute('data-today')).toBe('true')
+    expect(initialTodayCell?.className).toContain('calendar-today-indicator')
+    expect(initialTodayCell?.getAttribute('data-today-highlighted')).toBe(
+      'false'
+    )
+    expect(initialTodayCell?.className).not.toContain('calendar-today-flash')
     expect(initialTodayCell?.className).not.toContain('border-primary/25')
     expect(initialTodayCell?.className).not.toContain('ring-primary/20')
     expect(initialTodayCell?.className).not.toContain('calendar-today-pulse')
     expect(initialTodayCell?.className).not.toContain(
       'calendar-today-highlight'
     )
+    expect(globalsCss).toContain('.calendar-today-indicator')
+    expect(globalsCss).toContain('var(--color-calendar-today-highlight) 32%')
+    expect(globalsCss).toContain(
+      'var(--color-calendar-today-highlight-strong) 72%'
+    )
+    expect(globalsCss).toContain(
+      'var(--color-calendar-today-highlight-strong) 22%'
+    )
+    expect(globalsCss).toContain('.calendar-today-flash')
+    expect(globalsCss).toContain(
+      'animation: calendar-today-flash 1.4s ease-out;'
+    )
+    expect(globalsCss).toContain('@keyframes calendar-today-flash')
 
     fireEvent.click(screen.getByRole('button', { name: 'Previous month' }))
     await vi.runAllTimersAsync()
@@ -417,7 +477,8 @@ describe('bookings page - F1 calendar grid', () => {
     ) as HTMLElement | null
 
     expect(todayCell?.getAttribute('data-today-highlighted')).toBe('true')
-    expect(todayCell?.className).toContain('calendar-today-highlight')
+    expect(todayCell?.className).toContain('calendar-today-indicator')
+    expect(todayCell?.className).toContain('calendar-today-flash')
     expect(todayCell?.className).not.toContain('calendar-today-pulse')
     expect(todayCell?.className).not.toContain('border-primary/25')
     expect(todayCell?.className).not.toContain('ring-primary/20')
@@ -425,7 +486,8 @@ describe('bookings page - F1 calendar grid', () => {
     await vi.advanceTimersByTimeAsync(1800)
 
     expect(todayCell?.getAttribute('data-today-highlighted')).toBe('false')
-    expect(todayCell?.className).not.toContain('calendar-today-highlight')
+    expect(todayCell?.className).toContain('calendar-today-indicator')
+    expect(todayCell?.className).not.toContain('calendar-today-flash')
     expect(todayCell?.className).not.toContain('calendar-today-pulse')
     expect(todayCell?.className).not.toContain('border-primary/25')
     expect(todayCell?.className).not.toContain('ring-primary/20')
@@ -554,16 +616,83 @@ describe('bookings page - F1 calendar grid', () => {
     expect(selectedDayClassName).not.toContain('dark:border-primary')
     expect(selectedDayClassName).not.toContain('dark:bg-primary/40')
     expect(globalsCss).toMatch(
-      /\.calendar-selection-highlight\s*\{[\s\S]*background-color:\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*8%,\s*var\(--color-card\)\s*\);[\s\S]*border-color:\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*18%,\s*var\(--color-border\)\s*\);[\s\S]*box-shadow:\s*inset 0 0 0 1px\s*color-mix\(in srgb,\s*var\(--color-primary\)\s*10%,\s*transparent\);[\s\S]*\}/
+      /\.calendar-selection-highlight\s*\{[\s\S]*background-color:\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*15%,\s*var\(--color-card\)\s*\);[\s\S]*border-color:\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*70%,\s*var\(--color-border\)\s*\);[\s\S]*box-shadow:\s*inset 0 0 0 999px\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*15%,\s*transparent\),\s*inset 0 0 0 1px\s*color-mix\(in srgb,\s*var\(--color-primary\)\s*18%,\s*transparent\);[\s\S]*\}/
     )
     expect(globalsCss).toMatch(
-      /\.dark\s+\.calendar-selection-highlight\s*\{[\s\S]*background-color:\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*18%,\s*var\(--color-card\)\s*\);[\s\S]*border-color:\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*58%,\s*var\(--color-border\)\s*\);[\s\S]*box-shadow:\s*inset 0 0 0 1px\s*color-mix\(in srgb,\s*var\(--color-primary\)\s*32%,\s*transparent\);[\s\S]*\}/
+      /\.dark\s+\.calendar-selection-highlight\s*\{[\s\S]*background-color:\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*28%,\s*var\(--color-card\)\s*\);[\s\S]*border-color:\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*72%,\s*var\(--color-border\)\s*\);[\s\S]*box-shadow:\s*inset 0 0 0 999px\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*28%,\s*transparent\),\s*inset 0 0 0 1px\s*color-mix\(in srgb,\s*var\(--color-primary\)\s*42%,\s*transparent\);[\s\S]*\}/
     )
     expect(globalsCss).toMatch(
-      /@media\s*\(prefers-color-scheme:\s*dark\)\s*\{[\s\S]*html:not\(\.light\)\s+\.calendar-selection-highlight\s*\{[\s\S]*background-color:\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*18%,\s*var\(--color-card\)\s*\);[\s\S]*border-color:\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*58%,\s*var\(--color-border\)\s*\);[\s\S]*box-shadow:\s*inset 0 0 0 1px\s*color-mix\(in srgb,\s*var\(--color-primary\)\s*32%,\s*transparent\);[\s\S]*\}[\s\S]*\}/
+      /@media\s*\(prefers-color-scheme:\s*dark\)\s*\{[\s\S]*html:not\(\.light\)\s+\.calendar-selection-highlight\s*\{[\s\S]*background-color:\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*28%,\s*var\(--color-card\)\s*\);[\s\S]*border-color:\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*72%,\s*var\(--color-border\)\s*\);[\s\S]*box-shadow:\s*inset 0 0 0 999px\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*28%,\s*transparent\),\s*inset 0 0 0 1px\s*color-mix\(in srgb,\s*var\(--color-primary\)\s*42%,\s*transparent\);[\s\S]*\}[\s\S]*\}/
     )
 
     document.documentElement.classList.remove('dark')
+  })
+
+  it('keeps multi-day selection interiors visibly highlighted in light and dark mode', async () => {
+    const { default: BookingsPage } = await import('@/app/bookings/page')
+    render(await BookingsPage())
+
+    installCalendarSelectionProbeStyles()
+
+    const startDayCell = document.querySelector('[data-date="2026-03-10"]')
+    const middleDayCell = document.querySelector('[data-date="2026-03-11"]')
+    const endDayCell = document.querySelector('[data-date="2026-03-12"]')
+    const unselectedDayCell = document.querySelector('[data-date="2026-03-13"]')
+
+    expect(startDayCell).toBeTruthy()
+    expect(middleDayCell).toBeTruthy()
+    expect(endDayCell).toBeTruthy()
+    expect(unselectedDayCell).toBeTruthy()
+
+    fireEvent.mouseDown(startDayCell as Element)
+    fireEvent.mouseEnter(middleDayCell as Element)
+    fireEvent.mouseEnter(endDayCell as Element)
+    fireEvent.mouseUp(endDayCell as Element)
+
+    expect(startDayCell?.getAttribute('data-drag-selected')).toBe('true')
+    expect(middleDayCell?.getAttribute('data-drag-selected')).toBe('true')
+    expect(endDayCell?.getAttribute('data-drag-selected')).toBe('true')
+    expect(unselectedDayCell?.getAttribute('data-drag-selected')).toBe('false')
+
+    const middleDayClassName = middleDayCell?.getAttribute('class') ?? ''
+    const globalsCss = await readGlobalsCss()
+    const lightSelectedStyle = getComputedStyle(middleDayCell as Element)
+    const lightUnselectedStyle = getComputedStyle(unselectedDayCell as Element)
+
+    expect(middleDayClassName).toContain('calendar-selection-highlight')
+    expect(globalsCss).toContain('.calendar-selection-highlight')
+    expect(globalsCss).toContain('.dark .calendar-selection-highlight')
+    expect(globalsCss).toContain(
+      'html:not(.light) .calendar-selection-highlight'
+    )
+    expect(lightSelectedStyle.backgroundColor).toBe('rgb(219, 234, 254)')
+    expect(lightSelectedStyle.borderTopColor).toBe('rgb(29, 78, 216)')
+    expect(lightSelectedStyle.boxShadow).toContain(
+      'inset 0 0 0 999px rgba(219, 234, 254, 0.9)'
+    )
+    expect(lightSelectedStyle.backgroundColor).not.toBe(
+      lightUnselectedStyle.backgroundColor
+    )
+    expect(lightSelectedStyle.borderTopColor).not.toBe(
+      lightUnselectedStyle.borderTopColor
+    )
+
+    document.documentElement.classList.add('dark')
+
+    const darkSelectedStyle = getComputedStyle(middleDayCell as Element)
+    const darkUnselectedStyle = getComputedStyle(unselectedDayCell as Element)
+
+    expect(darkSelectedStyle.backgroundColor).toBe('rgb(30, 64, 175)')
+    expect(darkSelectedStyle.borderTopColor).toBe('rgb(191, 219, 254)')
+    expect(darkSelectedStyle.boxShadow).toContain(
+      'inset 0 0 0 999px rgba(30, 64, 175, 0.92)'
+    )
+    expect(darkSelectedStyle.backgroundColor).not.toBe(
+      darkUnselectedStyle.backgroundColor
+    )
+    expect(darkSelectedStyle.borderTopColor).not.toBe(
+      darkUnselectedStyle.borderTopColor
+    )
   })
 
   it('uses visible adjacent-month data for overflow cells and selection details', async () => {

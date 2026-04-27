@@ -988,7 +988,8 @@ export function CalendarView({
                           ? 'calendar-selection-highlight'
                           : null,
                         isDragBoundary ? 'ring-primary/30 ring-1' : null,
-                        isTodayAnimated ? 'calendar-today-highlight' : null,
+                        isToday ? 'calendar-today-indicator' : null,
+                        isTodayAnimated ? 'calendar-today-flash' : null,
                         hasSelectionJump ? 'pb-10' : null
                       )}
                       data-day-cell="true"
@@ -1051,6 +1052,8 @@ export function CalendarView({
                         <div
                           className={cn(
                             'border-border/60 bg-background/70 mt-3 flex flex-wrap gap-1.5 rounded-md border px-2 py-2 shadow-sm backdrop-blur-[2px]',
+                            isInDragSelection &&
+                              'calendar-selection-summary-highlight',
                             !day.inCurrentMonth &&
                               'bg-background/50 text-foreground/80'
                           )}

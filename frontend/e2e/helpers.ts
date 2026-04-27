@@ -1,4 +1,9 @@
-import { expect, type APIRequestContext, type Locator, type Page } from '@playwright/test'
+import {
+  expect,
+  type APIRequestContext,
+  type Locator,
+  type Page,
+} from '@playwright/test'
 
 type ApiHeaders = Record<string, string>
 
@@ -30,7 +35,13 @@ export type BookingRecord = {
   workflow_type_name: string
   start_date: string
   end_date: string
-  status: 'unconfirmed' | 'confirmed' | 'tentative' | 'spot' | 'rejected' | 'cancelled'
+  status:
+    | 'unconfirmed'
+    | 'confirmed'
+    | 'tentative'
+    | 'spot'
+    | 'rejected'
+    | 'cancelled'
   alt_email: string | null
   project_name: string | null
   project_pi: string | null
@@ -156,9 +167,15 @@ export function getCurrentMonthInteractionDates() {
   const today = atUtcMidnight(new Date())
   const year = today.getUTCFullYear()
   const month = today.getUTCMonth()
-  const monthEnd = new Date(Date.UTC(year, month + 1, 0)).getUTCDate()
-  const anchorDay = Math.min(Math.max(today.getUTCDate() + 1, 8), monthEnd - 4)
-  const anchor = new Date(Date.UTC(year, month, anchorDay))
+  const firstWeekday = new Date(Date.UTC(year, month, 1)).getUTCDay()
+  const preferredAnchor = new Date(
+    Date.UTC(year, month, Math.max(today.getUTCDate() + 1, 8))
+  )
+  const latestVisibleAnchor = new Date(Date.UTC(year, month, 38 - firstWeekday))
+  const anchor =
+    preferredAnchor > latestVisibleAnchor
+      ? latestVisibleAnchor
+      : preferredAnchor
 
   return {
     focus: toIsoDate(anchor),
@@ -188,16 +205,16 @@ export function getBookingRow(page: Page, bookingId: number): Locator {
 }
 
 export function getDayCell(page: Page, dateIso: string): Locator {
-  return page.locator(
-    `[data-day-cell="true"][data-date="${dateIso}"]`
-  ).first()
+  return page.locator(`[data-day-cell="true"][data-date="${dateIso}"]`).first()
 }
 
 function authHeaders(email: string): ApiHeaders {
   return { 'X-Dev-User': email }
 }
 
-async function readJson<T>(response: Awaited<ReturnType<APIRequestContext['get']>>) {
+async function readJson<T>(
+  response: Awaited<ReturnType<APIRequestContext['get']>>
+) {
   const body = await response.text()
   expect(response.ok(), body).toBeTruthy()
   return JSON.parse(body) as T
@@ -223,22 +240,30 @@ async function waitForBackend(request: APIRequestContext) {
   throw new Error(`Backend did not become ready: ${String(lastError)}`)
 }
 
-async function getCatalog(request: APIRequestContext, email: string): Promise<Catalog> {
+async function getCatalog(
+  request: APIRequestContext,
+  email: string
+): Promise<Catalog> {
   const headers = authHeaders(email)
-  const [gpuTypesResponse, workflowTypesResponse, gramOptionsResponse, memoryOptionsResponse] =
-    await Promise.all([
-      request.get(`${backendBaseUrl}/api/v1/gpu-types`, { headers }),
-      request.get(`${backendBaseUrl}/api/v1/workflow-types`, { headers }),
-      request.get(`${backendBaseUrl}/api/v1/gram-options`, { headers }),
-      request.get(`${backendBaseUrl}/api/v1/memory-options`, { headers }),
-    ])
-
-  const [gpuTypes, workflowTypes, gramOptions, memoryOptions] = await Promise.all([
-    readJson<ReferenceItem[]>(gpuTypesResponse),
-    readJson<ReferenceItem[]>(workflowTypesResponse),
-    readJson<ReferenceItem[]>(gramOptionsResponse),
-    readJson<ReferenceItem[]>(memoryOptionsResponse),
+  const [
+    gpuTypesResponse,
+    workflowTypesResponse,
+    gramOptionsResponse,
+    memoryOptionsResponse,
+  ] = await Promise.all([
+    request.get(`${backendBaseUrl}/api/v1/gpu-types`, { headers }),
+    request.get(`${backendBaseUrl}/api/v1/workflow-types`, { headers }),
+    request.get(`${backendBaseUrl}/api/v1/gram-options`, { headers }),
+    request.get(`${backendBaseUrl}/api/v1/memory-options`, { headers }),
   ])
+
+  const [gpuTypes, workflowTypes, gramOptions, memoryOptions] =
+    await Promise.all([
+      readJson<ReferenceItem[]>(gpuTypesResponse),
+      readJson<ReferenceItem[]>(workflowTypesResponse),
+      readJson<ReferenceItem[]>(gramOptionsResponse),
+      readJson<ReferenceItem[]>(memoryOptionsResponse),
+    ])
 
   return {
     gpuTypes,
@@ -260,7 +285,11 @@ export async function getTotalGpuCapacity(
   )
 }
 
-function requireNamedItem(items: ReferenceItem[], key: 'name' | 'label', value: string): ReferenceItem {
+function requireNamedItem(
+  items: ReferenceItem[],
+  key: 'name' | 'label',
+  value: string
+): ReferenceItem {
   const item = items.find((entry) => entry[key] === value)
   if (!item) {
     throw new Error(`Missing ${key}=${value} in reference data`)
@@ -384,7 +413,11 @@ export async function adminUpdateBookingExpectingFailure(
   }
 }
 
-export async function switchUser(page: Page, email: string, expectAdmin = false) {
+export async function switchUser(
+  page: Page,
+  email: string,
+  expectAdmin = false
+) {
   const input = page.getByLabel('Impersonate user')
 
   await page.context().addCookies([
