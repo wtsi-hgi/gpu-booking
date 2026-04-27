@@ -463,10 +463,10 @@ describe('bookings page - F1 calendar grid', () => {
     const todayIndicatorRuleBody = todayIndicatorRuleMatch?.[1] ?? ''
     expect(todayIndicatorRuleBody).not.toMatch(/background-color:/)
     expect(todayIndicatorRuleBody).toMatch(
-      /border-color:\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*75%,\s*var\(--color-border\)\s*\)\s*!important/
+      /border-color:\s*var\(--color-primary\)\s*!important/
     )
     expect(todayIndicatorRuleBody).toMatch(
-      /box-shadow:\s*inset 0 0 0 2px\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*70%,\s*transparent\)/
+      /box-shadow:[\s\S]*inset 0 0 0 3px\s*var\(--color-primary\)[\s\S]*0 0 0 1px\s*var\(--color-primary\)/
     )
     expect(globalsCss).toContain('.calendar-today-flash')
     expect(globalsCss).toContain('@keyframes calendar-today-flash')

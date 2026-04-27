@@ -142,7 +142,12 @@ test.describe('calendar styling regressions (bug 260424-2)', () => {
     // Today's bg must be essentially identical to a normal in-month neighbour.
     expect(rgbDistance(todayBg, neighbourBg)).toBeLessThanOrEqual(4)
     // But the border must be obviously different so today is still visible.
-    expect(rgbDistance(todayBorder, neighbourBorder)).toBeGreaterThanOrEqual(30)
+    // Bug fix (260427-1): pre-fix distance was 289 (color-mix at 75% primary);
+    // post-fix is 357 (solid `--color-primary`). Threshold 300 catches the
+    // pre-fix subtlety regression in light mode.
+    expect(rgbDistance(todayBorder, neighbourBorder)).toBeGreaterThanOrEqual(
+      300
+    )
   })
 
   test('today cell has no background fill but a clearly distinct border in dark mode', async ({
@@ -169,7 +174,11 @@ test.describe('calendar styling regressions (bug 260424-2)', () => {
     )
 
     expect(rgbDistance(todayBg, neighbourBg)).toBeLessThanOrEqual(4)
-    expect(rgbDistance(todayBorder, neighbourBorder)).toBeGreaterThanOrEqual(30)
+    // Bug fix (260427-1): pre-fix dark-mode distance was 49 (extremely subtle);
+    // post-fix is 318. Threshold 300 catches the regression in dark mode.
+    expect(rgbDistance(todayBorder, neighbourBorder)).toBeGreaterThanOrEqual(
+      300
+    )
   })
 
   test('Today button click runs a clearly visible CSS animation on the today cell', async ({

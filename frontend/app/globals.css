@@ -193,27 +193,38 @@
 }
 
 /*
- * Today indicator (bug 260424-2 A).
+ * Day cell border (bug 260427-1).
+ *
+ * Tailwind v4 with `@theme inline` literally inlines theme token values
+ * into the generated utility classes, so the `border-border` utility on
+ * each cell renders as the light-mode slate-200 value even in dark mode.
+ * Override that with a runtime `var()` lookup so dark mode actually
+ * shows dark neighbour borders — and so the today indicator (which uses
+ * `--color-primary`) stands out clearly in both themes.
+ */
+[data-day-cell='true'] {
+  border-color: var(--color-border);
+}
+
+/*
+ * Today indicator (bug 260424-2 A; strengthened in 260427-1).
  *
  * NO `background-color` — the user explicitly does not want a coloured
  * today background. The cell keeps its default `bg-card`. Today is marked
  * exclusively by:
- *   1. A bold border colour (`--color-primary` 75% over `--color-border`).
- *      `--color-primary` resolves to slate-950 in light mode and slate-50
- *      in dark mode, so a single rule produces a clearly visible border
- *      in both themes without separate dark overrides.
- *   2. An additional 2px inset box-shadow in the same colour, which gives
- *      a thicker visual weight without disturbing cell layout (a real
- *      `border-width: 2px` would shift the grid).
+ *   1. A solid `--color-primary` border. `--color-primary` resolves to
+ *      slate-950 in light mode and slate-50 in dark mode, so a single
+ *      rule produces an unmistakable border in both themes.
+ *   2. A 3px inset box-shadow plus a 1px outer ring in the same colour,
+ *      which give the cell a clearly visible thick frame without
+ *      disturbing grid layout (a real `border-width` change would shift
+ *      the grid).
  */
 .calendar-today-indicator {
-  border-color: color-mix(
-    in srgb,
-    var(--color-primary) 75%,
-    var(--color-border)
-  ) !important;
-  box-shadow: inset 0 0 0 2px
-    color-mix(in srgb, var(--color-primary) 70%, transparent);
+  border-color: var(--color-primary) !important;
+  box-shadow:
+    inset 0 0 0 3px var(--color-primary),
+    0 0 0 1px var(--color-primary);
 }
 
 /*
