@@ -1,8 +1,5 @@
 /** @vitest-environment jsdom */
 
-import fs from 'node:fs/promises'
-import path from 'node:path'
-
 import { render, screen } from '@testing-library/react'
 import { createElement } from 'react'
 import { describe, expect, it, vi } from 'vitest'
@@ -39,21 +36,17 @@ describe('theme handling', () => {
     })
   })
 
-  it('provides a prefers-color-scheme dark fallback before hydration', async () => {
-    const globalsCssPath = path.join(process.cwd(), 'app', 'globals.css')
-    const globalsCss = await fs.readFile(globalsCssPath, 'utf8')
+  it('keeps next-themes responsible for class-driven light and dark modes', () => {
+    render(
+      createElement(ThemeProvider, null, createElement('span', null, 'content'))
+    )
 
-    expect(globalsCss).toContain('@media (prefers-color-scheme: dark)')
-    expect(globalsCss).toContain('html:not(.light)')
-    expect(globalsCss).toContain('color-scheme: dark')
-  })
-
-  it('keeps Tailwind dark utilities aligned with next-themes class mode', async () => {
-    const globalsCssPath = path.join(process.cwd(), 'app', 'globals.css')
-    const globalsCss = await fs.readFile(globalsCssPath, 'utf8')
-
-    expect(globalsCss).toContain(
-      '@custom-variant dark (&:where(.dark, .dark *));'
+    expect(nextThemesMocks.providerMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        attribute: 'class',
+        defaultTheme: 'system',
+        enableSystem: true,
+      })
     )
   })
 })

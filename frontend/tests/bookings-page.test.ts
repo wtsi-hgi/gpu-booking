@@ -1,8 +1,5 @@
 /** @vitest-environment jsdom */
 
-import { readFile } from 'node:fs/promises'
-import path from 'node:path'
-
 import {
   act,
   cleanup,
@@ -141,48 +138,6 @@ function buildDateRange(startDate: string, endDate: string): string[] {
   return dates
 }
 
-async function readGlobalsCss(): Promise<string> {
-  return readFile(path.join(process.cwd(), 'app/globals.css'), 'utf8')
-}
-
-const calendarSelectionProbeStyleId = 'calendar-selection-probe-styles'
-
-function installCalendarSelectionProbeStyles() {
-  document.getElementById(calendarSelectionProbeStyleId)?.remove()
-
-  const style = document.createElement('style')
-  style.id = calendarSelectionProbeStyleId
-  style.textContent = `
-    [data-day-cell="true"][data-current-month="true"] {
-      background-color: rgb(255, 255, 255);
-      border-color: rgb(226, 232, 240);
-    }
-
-    .dark [data-day-cell="true"][data-current-month="true"] {
-      background-color: rgb(30, 41, 59);
-      border-color: rgb(51, 65, 85);
-    }
-
-    .calendar-selection-highlight {
-      background-color: rgb(219, 234, 254) !important;
-      border-color: rgb(29, 78, 216) !important;
-      box-shadow:
-        inset 0 0 0 999px rgba(219, 234, 254, 0.9),
-        inset 0 0 0 1px rgba(29, 78, 216, 0.65) !important;
-    }
-
-    .dark .calendar-selection-highlight {
-      background-color: rgb(30, 64, 175) !important;
-      border-color: rgb(191, 219, 254) !important;
-      box-shadow:
-        inset 0 0 0 999px rgba(30, 64, 175, 0.92),
-        inset 0 0 0 1px rgba(191, 219, 254, 0.72) !important;
-    }
-  `
-
-  document.head.append(style)
-}
-
 describe('bookings page - F1 calendar grid', () => {
   beforeEach(() => {
     vi.useFakeTimers()
@@ -239,7 +194,6 @@ describe('bookings page - F1 calendar grid', () => {
   afterEach(() => {
     cleanup()
     document.documentElement.classList.remove('dark')
-    document.getElementById(calendarSelectionProbeStyleId)?.remove()
     vi.useRealTimers()
   })
 
@@ -582,11 +536,9 @@ describe('bookings page - F1 calendar grid', () => {
     document.documentElement.classList.remove('dark')
   })
 
-  it('keeps multi-day selection interiors visibly highlighted in light and dark mode', async () => {
+  it('wires multi-day selection classes for browser-level visual coverage', async () => {
     const { default: BookingsPage } = await import('@/app/bookings/page')
     render(await BookingsPage())
-
-    installCalendarSelectionProbeStyles()
 
     const startDayCell = document.querySelector('[data-date="2026-03-10"]')
     const middleDayCell = document.querySelector('[data-date="2026-03-11"]')
@@ -609,43 +561,10 @@ describe('bookings page - F1 calendar grid', () => {
     expect(unselectedDayCell?.getAttribute('data-drag-selected')).toBe('false')
 
     const middleDayClassName = middleDayCell?.getAttribute('class') ?? ''
-    const globalsCss = await readGlobalsCss()
-    const lightSelectedStyle = getComputedStyle(middleDayCell as Element)
-    const lightUnselectedStyle = getComputedStyle(unselectedDayCell as Element)
 
     expect(middleDayClassName).toContain('calendar-selection-highlight')
-    expect(globalsCss).toContain('.calendar-selection-highlight')
-    expect(globalsCss).toContain('.dark .calendar-selection-highlight')
-    expect(globalsCss).toContain(
-      'html:not(.light) .calendar-selection-highlight'
-    )
-    expect(lightSelectedStyle.backgroundColor).toBe('rgb(219, 234, 254)')
-    expect(lightSelectedStyle.borderTopColor).toBe('rgb(29, 78, 216)')
-    expect(lightSelectedStyle.boxShadow).toContain(
-      'inset 0 0 0 999px rgba(219, 234, 254, 0.9)'
-    )
-    expect(lightSelectedStyle.backgroundColor).not.toBe(
-      lightUnselectedStyle.backgroundColor
-    )
-    expect(lightSelectedStyle.borderTopColor).not.toBe(
-      lightUnselectedStyle.borderTopColor
-    )
-
-    document.documentElement.classList.add('dark')
-
-    const darkSelectedStyle = getComputedStyle(middleDayCell as Element)
-    const darkUnselectedStyle = getComputedStyle(unselectedDayCell as Element)
-
-    expect(darkSelectedStyle.backgroundColor).toBe('rgb(30, 64, 175)')
-    expect(darkSelectedStyle.borderTopColor).toBe('rgb(191, 219, 254)')
-    expect(darkSelectedStyle.boxShadow).toContain(
-      'inset 0 0 0 999px rgba(30, 64, 175, 0.92)'
-    )
-    expect(darkSelectedStyle.backgroundColor).not.toBe(
-      darkUnselectedStyle.backgroundColor
-    )
-    expect(darkSelectedStyle.borderTopColor).not.toBe(
-      darkUnselectedStyle.borderTopColor
+    expect(unselectedDayCell?.getAttribute('class') ?? '').not.toContain(
+      'calendar-selection-highlight'
     )
   })
 

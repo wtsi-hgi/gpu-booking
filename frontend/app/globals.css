@@ -43,7 +43,7 @@
   --app-color-popover-foreground: #0f172a;
 
   --app-color-calendar-today-highlight: #fef3c7;
-  --app-color-calendar-today-highlight-strong: #fde68a;
+  --app-color-calendar-today-highlight-strong: #f59e0b;
 }
 
 @theme inline {
@@ -121,43 +121,6 @@
   --app-color-calendar-today-highlight-strong: #fbbf24;
 }
 
-@media (prefers-color-scheme: dark) {
-  html:not(.light) {
-    color-scheme: dark;
-
-    --app-color-background: #0f172a;
-    --app-color-foreground: #f8fafc;
-
-    --app-color-primary: #f8fafc;
-    --app-color-primary-foreground: #0f172a;
-
-    --app-color-secondary: #1e293b;
-    --app-color-secondary-foreground: #f8fafc;
-
-    --app-color-accent: #1e293b;
-    --app-color-accent-foreground: #f8fafc;
-
-    --app-color-muted: #1e293b;
-    --app-color-muted-foreground: #94a3b8;
-
-    --app-color-destructive: #dc2626;
-    --app-color-destructive-foreground: #f8fafc;
-
-    --app-color-border: #334155;
-    --app-color-input: #334155;
-    --app-color-ring: #f8fafc;
-
-    --app-color-card: #1e293b;
-    --app-color-card-foreground: #f8fafc;
-
-    --app-color-popover: #1e293b;
-    --app-color-popover-foreground: #f8fafc;
-
-    --app-color-calendar-today-highlight: #78350f;
-    --app-color-calendar-today-highlight-strong: #fbbf24;
-  }
-}
-
 @layer base {
   *,
   *::before,
@@ -171,6 +134,10 @@
   }
 
   html {
+    color-scheme: light;
+  }
+
+  html.light {
     color-scheme: light;
   }
 
@@ -237,13 +204,9 @@
 }
 
 /*
- * Day cell border (bug 260427-1).
- *
- * Tailwind v4 with `@theme inline` literally inlines theme token values
- * into the generated utility classes, so the `border-border` utility on
- * Theme colours are routed through `--app-color-*` runtime variables so both
- * Tailwind utilities and these custom rules follow the next-themes `.dark`
- * class instead of keeping light-mode literals from `@theme inline`.
+ * Day cell border (bug 260427-1). Theme colours are routed through
+ * `--app-color-*` runtime variables so Tailwind utilities and custom rules
+ * follow the next-themes `.light` / `.dark` classes.
  */
 [data-day-cell='true'] {
   border-color: var(--app-color-border);
@@ -255,10 +218,8 @@
  * NO `background-color` — the user explicitly does not want a coloured
  * today background. The cell keeps its default `bg-card`. Today is marked
  * exclusively by:
- *   1. A solid `--app-color-primary` border. It resolves to
- *      slate-950 in light mode and slate-50 in dark mode, so a single
- *      rule produces an unmistakable border in both themes.
- *   2. A 3px inset box-shadow plus a 1px outer ring in the same colour,
+ *   1. A solid calendar highlight border.
+ *   2. A 2px inset box-shadow plus a 1px outer ring in the same colour,
  *      which give the cell a clearly visible thick frame without
  *      disturbing grid layout (a real `border-width` change would shift
  *      the grid).
@@ -268,10 +229,15 @@
  * misplaced class from giving non-today cells the stronger frame.
  */
 [data-day-cell='true'][data-today='true'] {
-  border-color: var(--app-color-primary) !important;
+  border-color: var(--app-color-calendar-today-highlight-strong) !important;
   box-shadow:
-    inset 0 0 0 3px var(--app-color-primary),
-    0 0 0 1px var(--app-color-primary) !important;
+    inset 0 0 0 2px var(--app-color-calendar-today-highlight-strong),
+    0 0 0 1px
+      color-mix(
+        in srgb,
+        var(--app-color-calendar-today-highlight-strong) 65%,
+        transparent
+      ) !important;
 }
 
 /*
@@ -341,55 +307,4 @@
     var(--app-color-primary) 70%,
     var(--app-color-border)
   ) !important;
-}
-
-@media (prefers-color-scheme: dark) {
-  html:not(.light) .calendar-selection-highlight {
-    background-color: color-mix(
-      in srgb,
-      var(--app-color-primary) 40%,
-      var(--app-color-card)
-    ) !important;
-    border-color: color-mix(
-      in srgb,
-      var(--app-color-primary) 78%,
-      var(--app-color-border)
-    ) !important;
-    box-shadow:
-      inset 0 0 0 999px
-        color-mix(in srgb, var(--app-color-primary) 40%, transparent),
-      inset 0 0 0 1px
-        color-mix(in srgb, var(--app-color-primary) 60%, transparent);
-  }
-
-  html:not(.light) [data-day-cell='true'].calendar-selection-highlight {
-    background-color: color-mix(
-      in srgb,
-      var(--app-color-primary) 40%,
-      var(--app-color-card)
-    ) !important;
-    border-color: color-mix(
-      in srgb,
-      var(--app-color-primary) 78%,
-      var(--app-color-border)
-    ) !important;
-    box-shadow:
-      inset 0 0 0 999px
-        color-mix(in srgb, var(--app-color-primary) 40%, transparent),
-      inset 0 0 0 1px
-        color-mix(in srgb, var(--app-color-primary) 60%, transparent);
-  }
-
-  html:not(.light) .calendar-selection-summary-highlight {
-    background-color: color-mix(
-      in srgb,
-      var(--app-color-primary) 35%,
-      var(--app-color-card)
-    ) !important;
-    border-color: color-mix(
-      in srgb,
-      var(--app-color-primary) 70%,
-      var(--app-color-border)
-    ) !important;
-  }
 }

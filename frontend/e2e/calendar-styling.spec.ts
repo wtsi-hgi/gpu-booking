@@ -25,6 +25,8 @@ type CellFrame = {
   frameContrast: number
 }
 
+type ThemeName = 'light' | 'dark'
+
 type ScreenshotPixels = {
   width: number
   height: number
@@ -36,6 +38,10 @@ function rgbDistance(a: Rgb, b: Rgb): number {
   const dg = a[1] - b[1]
   const db = a[2] - b[2]
   return Math.sqrt(dr * dr + dg * dg + db * db)
+}
+
+function rgbBrightness(value: Rgb): number {
+  return (value[0] + value[1] + value[2]) / 3
 }
 
 /**
@@ -81,6 +87,33 @@ async function readCellColour(
     { iso: dateIso, prop: property }
   )
   return [triplet[0], triplet[1], triplet[2]]
+}
+
+async function forceThemeMode(
+  page: Page,
+  theme: ThemeName,
+  systemPreference: ThemeName
+) {
+  await page.emulateMedia({ colorScheme: systemPreference })
+  await page.addInitScript((selectedTheme) => {
+    window.localStorage.setItem('theme', selectedTheme)
+  }, theme)
+}
+
+async function expectThemeMode(page: Page, theme: ThemeName) {
+  await expect
+    .poll(() =>
+      page.evaluate((expectedTheme) => {
+        const root = document.documentElement
+        return {
+          hasExpectedClass: root.classList.contains(expectedTheme),
+          hasOppositeClass: root.classList.contains(
+            expectedTheme === 'dark' ? 'light' : 'dark'
+          ),
+        }
+      }, theme)
+    )
+    .toEqual({ hasExpectedClass: true, hasOppositeClass: false })
 }
 
 function readUint32(buffer: Buffer, offset: number): number {
@@ -272,25 +305,14 @@ async function findUnselectedCurrentMonthCell(page: Page): Promise<string> {
   return iso
 }
 
-async function forceDarkMode(page: Page) {
-  await page.emulateMedia({ colorScheme: 'dark' })
-  await page.evaluate(() => {
-    window.localStorage.setItem('theme', 'dark')
-  })
-  await page.reload()
-  await expect
-    .poll(() =>
-      page.evaluate(() => document.documentElement.classList.contains('dark'))
-    )
-    .toBe(true)
-}
-
 test.describe('calendar styling regressions (bug 260424-2)', () => {
-  test('today cell has no background fill but a clearly distinct border in light mode', async ({
+  test('explicit light mode keeps light surfaces and a restrained today frame under dark system preference', async ({
     page,
   }) => {
+    await forceThemeMode(page, 'light', 'dark')
     await gotoPath(page, '/bookings')
     await switchUser(page, 'researcher@example.com')
+    await expectThemeMode(page, 'light')
 
     const todayIso = todayIsoUtc()
     await expect(getDayCell(page, todayIso)).toHaveAttribute(
@@ -302,18 +324,22 @@ test.describe('calendar styling regressions (bug 260424-2)', () => {
     const todayFrame = await readRenderedCellFrame(page, todayIso)
     const neighbourFrame = await readRenderedCellFrame(page, neighbourIso)
 
+    expect(rgbBrightness(todayFrame.fillColor)).toBeGreaterThanOrEqual(220)
     expect(
       rgbDistance(todayFrame.fillColor, neighbourFrame.fillColor)
     ).toBeLessThanOrEqual(8)
-    expect(todayFrame.frameContrast).toBeGreaterThanOrEqual(140)
+    expect(todayFrame.frameContrast).toBeGreaterThanOrEqual(100)
+    expect(todayFrame.frameContrast).toBeLessThanOrEqual(340)
     expect(neighbourFrame.frameContrast).toBeLessThanOrEqual(70)
   })
 
   test('only the data-today cell receives the strong frame in light mode', async ({
     page,
   }) => {
+    await forceThemeMode(page, 'light', 'dark')
     await gotoPath(page, '/bookings')
     await switchUser(page, 'researcher@example.com')
+    await expectThemeMode(page, 'light')
 
     const todayIso = todayIsoUtc()
     const neighbourIso = await findNonTodayCurrentMonthCell(page)
@@ -327,7 +353,8 @@ test.describe('calendar styling regressions (bug 260424-2)', () => {
     const todayFrame = await readRenderedCellFrame(page, todayIso)
     const neighbourFrame = await readRenderedCellFrame(page, neighbourIso)
 
-    expect(todayFrame.frameContrast).toBeGreaterThanOrEqual(140)
+    expect(todayFrame.frameContrast).toBeGreaterThanOrEqual(100)
+    expect(todayFrame.frameContrast).toBeLessThanOrEqual(340)
     expect(neighbourFrame.frameContrast).toBeLessThanOrEqual(70)
     expect(
       rgbDistance(todayFrame.frameColor, neighbourFrame.frameColor)
@@ -337,9 +364,10 @@ test.describe('calendar styling regressions (bug 260424-2)', () => {
   test('today cell has no background fill but a clearly distinct border in dark mode', async ({
     page,
   }) => {
+    await forceThemeMode(page, 'dark', 'light')
     await gotoPath(page, '/bookings')
     await switchUser(page, 'researcher@example.com')
-    await forceDarkMode(page)
+    await expectThemeMode(page, 'dark')
 
     const todayIso = todayIsoUtc()
     const neighbourIso = await findNonTodayCurrentMonthCell(page)
@@ -347,19 +375,21 @@ test.describe('calendar styling regressions (bug 260424-2)', () => {
     const todayFrame = await readRenderedCellFrame(page, todayIso)
     const neighbourFrame = await readRenderedCellFrame(page, neighbourIso)
 
+    expect(rgbBrightness(todayFrame.fillColor)).toBeLessThanOrEqual(90)
     expect(
       rgbDistance(todayFrame.fillColor, neighbourFrame.fillColor)
     ).toBeLessThanOrEqual(8)
-    expect(todayFrame.frameContrast).toBeGreaterThanOrEqual(180)
+    expect(todayFrame.frameContrast).toBeGreaterThanOrEqual(150)
     expect(neighbourFrame.frameContrast).toBeLessThanOrEqual(70)
   })
 
   test('only the data-today cell receives the strong frame in dark mode', async ({
     page,
   }) => {
+    await forceThemeMode(page, 'dark', 'light')
     await gotoPath(page, '/bookings')
     await switchUser(page, 'researcher@example.com')
-    await forceDarkMode(page)
+    await expectThemeMode(page, 'dark')
 
     const todayIso = todayIsoUtc()
     const neighbourIso = await findNonTodayCurrentMonthCell(page)
@@ -373,7 +403,7 @@ test.describe('calendar styling regressions (bug 260424-2)', () => {
     const todayFrame = await readRenderedCellFrame(page, todayIso)
     const neighbourFrame = await readRenderedCellFrame(page, neighbourIso)
 
-    expect(todayFrame.frameContrast).toBeGreaterThanOrEqual(180)
+    expect(todayFrame.frameContrast).toBeGreaterThanOrEqual(150)
     expect(neighbourFrame.frameContrast).toBeLessThanOrEqual(70)
     expect(
       rgbDistance(todayFrame.frameColor, neighbourFrame.frameColor)
@@ -385,9 +415,10 @@ test.describe('calendar styling regressions (bug 260424-2)', () => {
   }) => {
     const dates = getCurrentMonthInteractionDates()
 
+    await forceThemeMode(page, 'dark', 'light')
     await gotoPath(page, '/bookings')
     await switchUser(page, 'researcher@example.com')
-    await forceDarkMode(page)
+    await expectThemeMode(page, 'dark')
 
     const startCell = getDayCell(page, dates.focus)
     const endCell = getDayCell(page, dates.focusPlusTwo)
