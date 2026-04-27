@@ -37,7 +37,8 @@ export async function buildAuthHeaders(
     return { Authorization: `Bearer ${accessToken}` }
   }
 
-  const resolvedEmail = devUserEmail ?? (await getCookieValue(DEV_USER_COOKIE_NAME))
+  const resolvedEmail =
+    devUserEmail ?? (await getCookieValue(DEV_USER_COOKIE_NAME))
   if (!resolvedEmail) {
     return undefined
   }

@@ -234,10 +234,9 @@ export function BookingTable({
   onBookingSelect,
   onBookingCancelled,
 }: BookingTableProps) {
-  const [visibleBookings, setVisibleBookings] =
-    useState<BookingResponse[]>(() =>
-      filterDisplayableBookings(bookings, showCancelledBookings)
-    )
+  const [visibleBookings, setVisibleBookings] = useState<BookingResponse[]>(
+    () => filterDisplayableBookings(bookings, showCancelledBookings)
+  )
   const [searchText, setSearchText] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [gpuTypeFilter, setGpuTypeFilter] = useState<string>('all')
@@ -252,7 +251,9 @@ export function BookingTable({
   )
 
   useEffect(() => {
-    setVisibleBookings(filterDisplayableBookings(bookings, showCancelledBookings))
+    setVisibleBookings(
+      filterDisplayableBookings(bookings, showCancelledBookings)
+    )
   }, [bookings, showCancelledBookings])
 
   useEffect(() => {

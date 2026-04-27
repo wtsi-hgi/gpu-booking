@@ -265,9 +265,9 @@ describe('booking form - F3 acceptance coverage', () => {
   it('defaults event dates to the booking range for a new booking flow', () => {
     renderBookingForm('2026-05-12', '2026-05-16')
 
-    expect((screen.getByLabelText('Start Date') as HTMLInputElement).value).toBe(
-      '2026-05-12'
-    )
+    expect(
+      (screen.getByLabelText('Start Date') as HTMLInputElement).value
+    ).toBe('2026-05-12')
     expect((screen.getByLabelText('End Date') as HTMLInputElement).value).toBe(
       '2026-05-16'
     )

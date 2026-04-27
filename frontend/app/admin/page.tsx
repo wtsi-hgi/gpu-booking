@@ -1,7 +1,4 @@
-import {
-  buildRequestInitWithAuth,
-  requireCurrentUser,
-} from '@/lib/server-auth'
+import { buildRequestInitWithAuth, requireCurrentUser } from '@/lib/server-auth'
 import {
   Card,
   CardContent,

@@ -13,7 +13,10 @@ import {
   sanitizeReturnTo,
 } from '@/lib/oidc'
 
-function readCookieValue(cookieHeader: string, name: string): string | undefined {
+function readCookieValue(
+  cookieHeader: string,
+  name: string
+): string | undefined {
   const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   const match = cookieHeader.match(new RegExp(`${escapedName}=([^;]+)`))
   if (!match) {
@@ -98,7 +101,8 @@ export async function GET(request: Request): Promise<Response> {
     })
 
     const response = NextResponse.redirect(new URL(returnTo, request.url))
-    const maxAge = typeof expiresIn === 'number' && expiresIn > 0 ? expiresIn : 3600
+    const maxAge =
+      typeof expiresIn === 'number' && expiresIn > 0 ? expiresIn : 3600
     response.cookies.set({
       name: OIDC_ACCESS_TOKEN_COOKIE_NAME,
       value: accessToken,

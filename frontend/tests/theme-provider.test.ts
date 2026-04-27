@@ -14,7 +14,11 @@ const nextThemesMocks = vi.hoisted(() => ({
 vi.mock('next-themes', () => ({
   ThemeProvider: ({ children, ...props }: React.PropsWithChildren<object>) => {
     nextThemesMocks.providerMock(props)
-    return createElement('div', { 'data-testid': 'next-themes-provider' }, children)
+    return createElement(
+      'div',
+      { 'data-testid': 'next-themes-provider' },
+      children
+    )
   },
 }))
 
@@ -23,11 +27,7 @@ import { ThemeProvider } from '@/components/theme-provider'
 describe('theme handling', () => {
   it('defaults to system theme selection', () => {
     render(
-      createElement(
-        ThemeProvider,
-        null,
-        createElement('span', null, 'content')
-      )
+      createElement(ThemeProvider, null, createElement('span', null, 'content'))
     )
 
     expect(screen.getByText('content')).toBeTruthy()

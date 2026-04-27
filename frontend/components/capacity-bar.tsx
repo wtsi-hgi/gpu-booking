@@ -42,12 +42,12 @@ export function CapacityBar({
       data-capacity-used-percent={usedPercent}
     >
       <div
-        className="absolute inset-y-0 left-0 bg-primary"
+        className="bg-primary absolute inset-y-0 left-0"
         style={{ width: `${confirmedPercent}%` }}
         data-capacity-segment="confirmed"
       />
       <div
-        className="absolute inset-y-0 bg-accent bg-[repeating-linear-gradient(-45deg,transparent,transparent_3px,color-mix(in_oklab,var(--color-foreground)_22%,transparent)_3px,color-mix(in_oklab,var(--color-foreground)_22%,transparent)_6px)]"
+        className="bg-accent absolute inset-y-0 bg-[repeating-linear-gradient(-45deg,transparent,transparent_3px,color-mix(in_oklab,var(--color-foreground)_22%,transparent)_3px,color-mix(in_oklab,var(--color-foreground)_22%,transparent)_6px)]"
         style={{ left: `${confirmedPercent}%`, width: `${pendingPercent}%` }}
         data-capacity-segment="pending"
       />

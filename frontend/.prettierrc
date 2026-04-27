@@ -1,11 +1,9 @@
 {
-	"semi": false,
-	"singleQuote": true,
-	"tabWidth": 2,
-	"endOfLine": "lf",
-	"trailingComma": "es5",
-	"useTabs": false,
-	"plugins": [
-		"prettier-plugin-tailwindcss"
-	]
+  "semi": false,
+  "singleQuote": true,
+  "tabWidth": 2,
+  "endOfLine": "lf",
+  "trailingComma": "es5",
+  "useTabs": false,
+  "plugins": ["prettier-plugin-tailwindcss"]
 }

@@ -87,7 +87,7 @@ function buildFormValues(
     nextValues.end_date = initialEndDate
   }
 
-   if (!nextValues.event_start_date && nextValues.start_date) {
+  if (!nextValues.event_start_date && nextValues.start_date) {
     nextValues.event_start_date = nextValues.start_date
   }
 

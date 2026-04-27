@@ -1,8 +1,4 @@
-import {
-  getBookings,
-  getCapacity,
-  getGpuTypes,
-} from '@/app/actions'
+import { getBookings, getCapacity, getGpuTypes } from '@/app/actions'
 import { CalendarView } from '@/components/calendar-view'
 import { requireCurrentUser } from '@/lib/server-auth'
 

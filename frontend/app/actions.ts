@@ -504,14 +504,10 @@ export async function createBooking(
   }
 
   try {
-    await backendJsonWithAuth(
-      '/api/v1/bookings',
-      bookingResponseSchema,
-      {
-        method: 'POST',
-        body: JSON.stringify(parsed.payload),
-      }
-    )
+    await backendJsonWithAuth('/api/v1/bookings', bookingResponseSchema, {
+      method: 'POST',
+      body: JSON.stringify(parsed.payload),
+    })
     safeRevalidate('/bookings')
     return {
       status: 'success',

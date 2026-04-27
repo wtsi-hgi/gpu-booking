@@ -220,7 +220,6 @@ export function AdminBookingPanel({
     }
 
     if (!statusConsumesCapacity(draft.status)) {
-      setCapacityWarning(null)
       return
     }
 

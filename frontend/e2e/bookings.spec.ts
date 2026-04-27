@@ -83,7 +83,9 @@ test.describe('bookings flows', () => {
     await searchInput.fill('PW E2E Other Booking')
     await expect(getBookingRow(page, otherBooking.id)).toBeVisible()
     await expect(
-      getBookingRow(page, otherBooking.id).getByRole('button', { name: 'Cancel' })
+      getBookingRow(page, otherBooking.id).getByRole('button', {
+        name: 'Cancel',
+      })
     ).toHaveCount(0)
 
     await searchInput.fill('PW E2E Own Booking')
@@ -134,7 +136,7 @@ test.describe('bookings flows', () => {
     await switchUser(page, 'researcher@example.com')
 
     await page.getByLabel('GPU Type').selectOption({ label: 'H100' })
-  await page.getByLabel('GPU Count').fill(String(proposedGpuCount))
+    await page.getByLabel('GPU Count').fill(String(proposedGpuCount))
     await page.getByLabel('GRAM').selectOption({ label: '80GB' })
     await page.getByLabel('System Memory').selectOption({ label: '500GB' })
     await page
@@ -151,9 +153,9 @@ test.describe('bookings flows', () => {
       page.getByText('Review warnings before confirming.')
     ).toBeVisible()
     await expect(
-      page.getByRole('status').getByText(
-        /Proposed booking exceeds 40% per-user capacity/i
-      )
+      page
+        .getByRole('status')
+        .getByText(/Proposed booking exceeds 40% per-user capacity/i)
     ).toBeVisible()
 
     await page.getByRole('button', { name: 'Confirm' }).click()
@@ -193,12 +195,12 @@ test.describe('bookings flows', () => {
     await expect(page.getByLabel('End Date', { exact: true })).toHaveValue(
       monthDates.focusPlusOne
     )
-    await expect(page.getByLabel('Event Start Date', { exact: true })).toHaveValue(
-      monthDates.focusPlusOne
-    )
-    await expect(page.getByLabel('Event End Date', { exact: true })).toHaveValue(
-      monthDates.focusPlusOne
-    )
+    await expect(
+      page.getByLabel('Event Start Date', { exact: true })
+    ).toHaveValue(monthDates.focusPlusOne)
+    await expect(
+      page.getByLabel('Event End Date', { exact: true })
+    ).toHaveValue(monthDates.focusPlusOne)
 
     await gotoPath(page, '/bookings')
 
@@ -235,12 +237,12 @@ test.describe('bookings flows', () => {
     await expect(page.getByLabel('End Date', { exact: true })).toHaveValue(
       futureDates.end
     )
-    await expect(page.getByLabel('Event Start Date', { exact: true })).toHaveValue(
-      futureDates.start
-    )
-    await expect(page.getByLabel('Event End Date', { exact: true })).toHaveValue(
-      futureDates.end
-    )
+    await expect(
+      page.getByLabel('Event Start Date', { exact: true })
+    ).toHaveValue(futureDates.start)
+    await expect(
+      page.getByLabel('Event End Date', { exact: true })
+    ).toHaveValue(futureDates.end)
 
     await page.getByLabel('GPU Type').selectOption({ label: 'H100' })
     await page.getByLabel('GPU Count').fill('2')

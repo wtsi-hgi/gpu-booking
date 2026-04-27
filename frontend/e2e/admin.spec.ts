@@ -172,9 +172,9 @@ test.describe('admin flows', () => {
     await expect(sidePanel.getByRole('alert')).toContainText(
       '100% capacity exceeded'
     )
-    await expect(page.getByTestId(`status-badge-${pendingBooking.id}`)).toContainText(
-      'Pending'
-    )
+    await expect(
+      page.getByTestId(`status-badge-${pendingBooking.id}`)
+    ).toContainText('Pending')
   })
 
   test('manages GPU types through the admin UI', async ({ page }) => {
@@ -317,7 +317,11 @@ test.describe('admin flows', () => {
     await expect(updatedGramInputs.nth(2)).toHaveValue('1')
     await updatedGramEditingRow.getByRole('button', { name: 'Cancel' }).click()
 
-    const updatedGramRow = getOptionRow(gramSection, 'gram-row', updatedGramLabel)
+    const updatedGramRow = getOptionRow(
+      gramSection,
+      'gram-row',
+      updatedGramLabel
+    )
     await updatedGramRow.getByRole('button', { name: 'Delete' }).click()
     await expect(
       gramSection.getByTestId('gram-row').filter({ hasText: updatedGramLabel })
@@ -333,7 +337,9 @@ test.describe('admin flows', () => {
     await expect(createdMemoryRow).toContainText('1024')
     await expect(createdMemoryRow).toContainText('0')
 
-    const memoryEditButton = createdMemoryRow.getByRole('button', { name: 'Edit' })
+    const memoryEditButton = createdMemoryRow.getByRole('button', {
+      name: 'Edit',
+    })
     if ((await memoryEditButton.count()) > 0) {
       await memoryEditButton.click()
     }
@@ -354,7 +360,9 @@ test.describe('admin flows', () => {
     await expect(updatedMemoryInputs.nth(0)).toHaveValue(updatedMemoryLabel)
     await expect(updatedMemoryInputs.nth(1)).toHaveValue('1536')
     await expect(updatedMemoryInputs.nth(2)).toHaveValue('2')
-    await updatedMemoryEditingRow.getByRole('button', { name: 'Cancel' }).click()
+    await updatedMemoryEditingRow
+      .getByRole('button', { name: 'Cancel' })
+      .click()
 
     const updatedMemoryRow = getOptionRow(
       memorySection,

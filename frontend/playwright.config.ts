@@ -27,7 +27,10 @@ export default defineConfig({
   expect: {
     timeout: 10_000,
   },
-  reporter: [['list'], ['html', { open: 'never', outputFolder: htmlReportDir }]],
+  reporter: [
+    ['list'],
+    ['html', { open: 'never', outputFolder: htmlReportDir }],
+  ],
   use: {
     baseURL: `http://127.0.0.1:${frontendPort}`,
     browserName: 'chromium',

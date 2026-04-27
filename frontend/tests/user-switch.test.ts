@@ -54,7 +54,9 @@ describe('user switch header controls', () => {
 
     const adminLink = screen.getByRole('link', { name: 'Admin Dashboard' })
     expect(adminLink.getAttribute('href')).toBe('/admin')
-    expect(screen.getByRole('textbox', { name: 'Impersonate user' })).toBeTruthy()
+    expect(
+      screen.getByRole('textbox', { name: 'Impersonate user' })
+    ).toBeTruthy()
   })
 
   it('keeps the admin dashboard link visible for OIDC admin users', () => {
@@ -74,7 +76,9 @@ describe('user switch header controls', () => {
     expect(adminLink.getAttribute('href')).toBe('/admin')
     const signOutLink = screen.getByRole('link', { name: 'Sign Out' })
     expect(signOutLink.getAttribute('href')).toBe('/auth/logout')
-    expect(screen.queryByRole('textbox', { name: 'Impersonate user' })).toBeNull()
+    expect(
+      screen.queryByRole('textbox', { name: 'Impersonate user' })
+    ).toBeNull()
   })
 
   it('shows a bookings link instead of admin dashboard when already on an admin page', () => {
@@ -110,7 +114,11 @@ describe('user switch header controls', () => {
     render(createElement(UserSwitch))
 
     const signInLink = screen.getByRole('link', { name: 'Sign In' })
-    expect(signInLink.getAttribute('href')).toBe('/auth/login?returnTo=%2Fbookings')
-    expect(screen.queryByRole('textbox', { name: 'Impersonate user' })).toBeNull()
+    expect(signInLink.getAttribute('href')).toBe(
+      '/auth/login?returnTo=%2Fbookings'
+    )
+    expect(
+      screen.queryByRole('textbox', { name: 'Impersonate user' })
+    ).toBeNull()
   })
 })

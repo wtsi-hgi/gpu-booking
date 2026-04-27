@@ -1,7 +1,4 @@
-import type {
-  GpuType,
-  WorkflowType,
-} from '@/lib/admin-contracts'
+import type { GpuType, WorkflowType } from '@/lib/admin-contracts'
 import type { BookingResponse } from '@/lib/booking-contracts'
 
 export type FormState = {

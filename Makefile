@@ -1,4 +1,4 @@
-.PHONY: lint format test run backend-lint backend-format backend-test frontend-lint frontend-format frontend-test frontend-e2e-test
+.PHONY: lint format format-check test run backend-lint backend-format backend-format-check backend-test frontend-lint frontend-format frontend-format-check frontend-test frontend-e2e-test
 
 ifneq (,$(wildcard .env))
 include .env
@@ -16,6 +16,8 @@ lint: backend-lint frontend-lint
 
 format: backend-format frontend-format
 
+format-check: backend-format-check frontend-format-check
+
 test: backend-test frontend-test frontend-e2e-test
 
 run:
@@ -23,21 +25,28 @@ run:
 
 backend-lint:
 	@test -x $(RUFF) || { echo "Missing $(RUFF). Install backend dev dependencies first."; exit 1; }
-	cd backend && .venv/bin/ruff check .
+	cd backend && .venv/bin/ruff check . && .venv/bin/ruff format --check .
 
 backend-format:
 	@test -x $(RUFF) || { echo "Missing $(RUFF). Install backend dev dependencies first."; exit 1; }
 	cd backend && .venv/bin/ruff check --fix . && .venv/bin/ruff format .
+
+backend-format-check:
+	@test -x $(RUFF) || { echo "Missing $(RUFF). Install backend dev dependencies first."; exit 1; }
+	cd backend && .venv/bin/ruff format --check .
 
 backend-test:
 	@test -x $(PYTEST) || { echo "Missing $(PYTEST). Install backend dev dependencies first."; exit 1; }
 	cd backend && .venv/bin/pytest tests/ -v
 
 frontend-lint:
-	$(PNPM) lint
+	$(PNPM) lint && $(PNPM) format:check
 
 frontend-format:
 	$(PNPM) format
+
+frontend-format-check:
+	$(PNPM) format:check
 
 frontend-test:
 	$(PNPM) test
