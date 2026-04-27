@@ -430,7 +430,7 @@ describe('bookings page - F1 calendar grid', () => {
     expect(screen.getByText('2027')).toBeTruthy()
   })
 
-  it('shows a persistent today marker and adds a separate flash when Today is clicked', async () => {
+  it('shows a persistent today border with no flash animation', async () => {
     const { default: BookingsPage } = await import('@/app/bookings/page')
     render(await BookingsPage())
 
@@ -441,21 +441,10 @@ describe('bookings page - F1 calendar grid', () => {
 
     expect(initialTodayCell?.getAttribute('data-today')).toBe('true')
     expect(initialTodayCell?.className).toContain('calendar-today-indicator')
-    expect(initialTodayCell?.getAttribute('data-today-highlighted')).toBe(
-      'false'
-    )
     expect(initialTodayCell?.className).not.toContain('calendar-today-flash')
-    expect(initialTodayCell?.className).not.toContain('border-primary/25')
-    expect(initialTodayCell?.className).not.toContain('ring-primary/20')
-    expect(initialTodayCell?.className).not.toContain('calendar-today-pulse')
-    expect(initialTodayCell?.className).not.toContain(
-      'calendar-today-highlight'
-    )
     expect(globalsCss).toContain('.calendar-today-indicator')
-    // Bug fix (260424-2 A round 3): today must NOT have a coloured background
-    // (the previous yellow-mix rendered as an "ugly greenish wash" over white).
-    // The indicator is border-only, using `--color-primary` so a single rule
-    // adapts to both light and dark themes (slate-950 vs slate-50).
+    // The today indicator must be border-only (no background fill) and use
+    // `--color-primary` so it adapts to both light and dark themes.
     const todayIndicatorRuleMatch = globalsCss.match(
       /\.calendar-today-indicator\s*\{([^}]*)\}/
     )
@@ -468,34 +457,11 @@ describe('bookings page - F1 calendar grid', () => {
     expect(todayIndicatorRuleBody).toMatch(
       /box-shadow:[\s\S]*inset 0 0 0 3px\s*var\(--color-primary\)[\s\S]*0 0 0 1px\s*var\(--color-primary\)/
     )
-    expect(globalsCss).toContain('.calendar-today-flash')
-    expect(globalsCss).toContain('@keyframes calendar-today-flash')
 
-    // Bug fix (260424-2 A round 3): the Today flash must be obviously
-    // visible. A box-shadow-only animation was too subtle; the new keyframe
-    // combines a `transform: scale` pulse with an outward ring pulse, runs
-    // for ≥ 1.4s ease-in-out, and iterates at least twice so the user
-    // definitely sees it.
-    const flashRuleMatch = globalsCss.match(
-      /\.calendar-today-flash\s*\{\s*animation:\s*calendar-today-flash\s+([0-9.]+)s\s+(ease-in-out|ease-in|ease-out|ease|linear|cubic-bezier\([^)]+\))(?:\s+([0-9]+))?\s*;?\s*\}/
-    )
-    expect(flashRuleMatch).toBeTruthy()
-    const flashDurationSeconds = Number(flashRuleMatch?.[1])
-    const flashEasing = flashRuleMatch?.[2]
-    const flashIterations = Number(flashRuleMatch?.[3] ?? '1')
-    expect(flashDurationSeconds).toBeGreaterThanOrEqual(1.4)
-    expect(flashDurationSeconds).toBeLessThanOrEqual(1.8)
-    expect(flashEasing).toBe('ease-in-out')
-    expect(flashIterations).toBeGreaterThanOrEqual(2)
-
-    // Keyframe must include a transform-based scale pulse (the visual
-    // change a box-shadow-only animation lacked).
-    const keyframeBlockMatch = globalsCss.match(
-      /@keyframes calendar-today-flash\s*\{[\s\S]*?\n\s*\}\s*\}/
-    )
-    expect(keyframeBlockMatch).toBeTruthy()
-    const keyframeBlock = keyframeBlockMatch?.[0] ?? ''
-    expect(keyframeBlock).toMatch(/transform:\s*scale\(\s*1\.0?[1-9]/)
+    // The today flash animation has been removed entirely. Lock that in
+    // with negative assertions on globals.css.
+    expect(globalsCss).not.toContain('calendar-today-flash')
+    expect(globalsCss).not.toContain('@keyframes calendar-today-flash')
 
     fireEvent.click(screen.getByRole('button', { name: 'Previous month' }))
     await vi.runAllTimersAsync()
@@ -508,21 +474,8 @@ describe('bookings page - F1 calendar grid', () => {
       '[data-date="2026-03-15"]'
     ) as HTMLElement | null
 
-    expect(todayCell?.getAttribute('data-today-highlighted')).toBe('true')
-    expect(todayCell?.className).toContain('calendar-today-indicator')
-    expect(todayCell?.className).toContain('calendar-today-flash')
-    expect(todayCell?.className).not.toContain('calendar-today-pulse')
-    expect(todayCell?.className).not.toContain('border-primary/25')
-    expect(todayCell?.className).not.toContain('ring-primary/20')
-
-    await vi.advanceTimersByTimeAsync(3400)
-
-    expect(todayCell?.getAttribute('data-today-highlighted')).toBe('false')
     expect(todayCell?.className).toContain('calendar-today-indicator')
     expect(todayCell?.className).not.toContain('calendar-today-flash')
-    expect(todayCell?.className).not.toContain('calendar-today-pulse')
-    expect(todayCell?.className).not.toContain('border-primary/25')
-    expect(todayCell?.className).not.toContain('ring-primary/20')
   })
 
   it('updates capacity display when GPU type filter changes to H100', async () => {

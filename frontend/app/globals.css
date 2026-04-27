@@ -228,36 +228,6 @@
 }
 
 /*
- * Today click flash (bug 260424-2 A).
- *
- * The previous box-shadow-only flash was too subtle to register. This
- * version combines a scale pulse and an outward ring pulse, runs for
- * 1.6s ease-in-out, and iterates TWICE so the user definitely sees it.
- * The cell already has `position: relative` (Tailwind `relative` class)
- * so the transform composites cleanly without affecting siblings.
- */
-.calendar-today-flash {
-  animation: calendar-today-flash 1.6s ease-in-out 2;
-}
-
-@keyframes calendar-today-flash {
-  0%,
-  100% {
-    transform: scale(1);
-    box-shadow:
-      inset 0 0 0 2px color-mix(in srgb, var(--color-primary) 70%, transparent),
-      0 0 0 0 color-mix(in srgb, var(--color-primary) 40%, transparent);
-  }
-
-  50% {
-    transform: scale(1.04);
-    box-shadow:
-      inset 0 0 0 2px color-mix(in srgb, var(--color-primary) 95%, transparent),
-      0 0 0 8px color-mix(in srgb, var(--color-primary) 0%, transparent);
-  }
-}
-
-/*
  * Dark-mode selection overrides. Same cascade-layer reasoning as above:
  * kept un-layered with `!important`. A second rule with the
  * `[data-day-cell="true"]` attribute selector raises specificity to

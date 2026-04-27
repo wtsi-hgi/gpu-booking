@@ -373,7 +373,6 @@ export function CalendarView({
   const [dragStartDate, setDragStartDate] = useState<string | null>(null)
   const [dragCurrentDate, setDragCurrentDate] = useState<string | null>(null)
   const [isMonthSelectorOpen, setIsMonthSelectorOpen] = useState(false)
-  const [isTodayHighlighted, setIsTodayHighlighted] = useState(false)
   const hasMountedRef = useRef(false)
   const dragMovedRef = useRef(false)
   const selectionPanelRef = useRef<HTMLDivElement>(null)
@@ -590,20 +589,6 @@ export function CalendarView({
   }, [selectedGpuTypeId, todayIso])
 
   useEffect(() => {
-    if (!isTodayHighlighted) {
-      return
-    }
-
-    const timeout = window.setTimeout(() => {
-      setIsTodayHighlighted(false)
-    }, 3400)
-
-    return () => {
-      window.clearTimeout(timeout)
-    }
-  }, [isTodayHighlighted])
-
-  useEffect(() => {
     if (!isMonthSelectorOpen) {
       return
     }
@@ -763,7 +748,6 @@ export function CalendarView({
     setCurrentMonth(startOfMonthUtc(todayDate))
     setVisibleMonthCount(1)
     setIsMonthSelectorOpen(false)
-    setIsTodayHighlighted(true)
   }
 
   function navigateYear(offset: number) {
@@ -966,7 +950,6 @@ export function CalendarView({
                     (day.dateIso === displayedSelection.startDate ||
                       day.dateIso === displayedSelection.endDate)
                   const isToday = day.dateIso === todayIso
-                  const isTodayAnimated = isToday && isTodayHighlighted
                   const hasSelectionJump =
                     committedSelectionEndDate !== null &&
                     day.dateIso === committedSelectionEndDate
@@ -989,7 +972,6 @@ export function CalendarView({
                           : null,
                         isDragBoundary ? 'ring-primary/30 ring-1' : null,
                         isToday ? 'calendar-today-indicator' : null,
-                        isTodayAnimated ? 'calendar-today-flash' : null,
                         hasSelectionJump ? 'pb-10' : null
                       )}
                       data-day-cell="true"
@@ -997,9 +979,6 @@ export function CalendarView({
                       data-current-month={day.inCurrentMonth ? 'true' : 'false'}
                       data-drag-selected={isInDragSelection ? 'true' : 'false'}
                       data-today={isToday ? 'true' : 'false'}
-                      data-today-highlighted={
-                        isTodayAnimated ? 'true' : 'false'
-                      }
                       onDoubleClick={() =>
                         openBookingForm(day.dateIso, day.dateIso)
                       }
