@@ -256,64 +256,56 @@
   }
 
   .calendar-today-flash {
-    animation: calendar-today-flash 1.4s ease-out;
+    animation: calendar-today-flash 1.8s ease-in-out;
   }
 
   @keyframes calendar-today-flash {
     0% {
-      background-color: color-mix(
-        in srgb,
-        var(--color-calendar-today-highlight) 32%,
-        var(--color-card)
-      );
-      box-shadow: inset 0 0 0 1px
-        color-mix(
-          in srgb,
-          var(--color-calendar-today-highlight-strong) 22%,
-          transparent
-        );
+      box-shadow:
+        inset 0 0 0 1px
+          color-mix(
+            in srgb,
+            var(--color-calendar-today-highlight-strong) 22%,
+            transparent
+          ),
+        0 0 0 0
+          color-mix(
+            in srgb,
+            var(--color-calendar-today-highlight-strong) 0%,
+            transparent
+          );
     }
 
-    18% {
-      background-color: color-mix(
-        in srgb,
-        var(--color-calendar-today-highlight-strong) 92%,
-        var(--color-card)
-      );
-      box-shadow: inset 0 0 0 1px
-        color-mix(
-          in srgb,
-          var(--color-calendar-today-highlight-strong) 68%,
-          transparent
-        );
-    }
-
-    55% {
-      background-color: color-mix(
-        in srgb,
-        var(--color-calendar-today-highlight) 58%,
-        var(--color-card)
-      );
-      box-shadow: inset 0 0 0 1px
-        color-mix(
-          in srgb,
-          var(--color-calendar-today-highlight-strong) 34%,
-          transparent
-        );
+    50% {
+      box-shadow:
+        inset 0 0 0 1px
+          color-mix(
+            in srgb,
+            var(--color-calendar-today-highlight-strong) 38%,
+            transparent
+          ),
+        0 0 0 6px
+          color-mix(
+            in srgb,
+            var(--color-calendar-today-highlight-strong) 18%,
+            transparent
+          );
     }
 
     100% {
-      background-color: color-mix(
-        in srgb,
-        var(--color-calendar-today-highlight) 32%,
-        var(--color-card)
-      );
-      box-shadow: inset 0 0 0 1px
-        color-mix(
-          in srgb,
-          var(--color-calendar-today-highlight-strong) 22%,
-          transparent
-        );
+      box-shadow:
+        inset 0 0 0 1px
+          color-mix(
+            in srgb,
+            var(--color-calendar-today-highlight-strong) 22%,
+            transparent
+          ),
+        0 0 0 0
+          color-mix(
+            in srgb,
+            var(--color-calendar-today-highlight-strong) 0%,
+            transparent
+          );
     }
   }
 }

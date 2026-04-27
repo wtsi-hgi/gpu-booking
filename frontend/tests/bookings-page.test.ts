@@ -460,10 +460,32 @@ describe('bookings page - F1 calendar grid', () => {
       'var(--color-calendar-today-highlight-strong) 22%'
     )
     expect(globalsCss).toContain('.calendar-today-flash')
-    expect(globalsCss).toContain(
-      'animation: calendar-today-flash 1.4s ease-out;'
-    )
     expect(globalsCss).toContain('@keyframes calendar-today-flash')
+
+    // Bug fix (260424-2): the Today flash must be subtle and smooth.
+    // Require ease-in-out (not ease-out) and a duration of at least 1.6s.
+    const flashRuleMatch = globalsCss.match(
+      /\.calendar-today-flash\s*{\s*animation:\s*calendar-today-flash\s+([0-9.]+)s\s+(ease-in-out|ease-in|ease-out|ease|linear|cubic-bezier\([^)]+\))\s*;?\s*}/
+    )
+    expect(flashRuleMatch).toBeTruthy()
+    const flashDurationSeconds = Number(flashRuleMatch?.[1])
+    const flashEasing = flashRuleMatch?.[2]
+    expect(flashDurationSeconds).toBeGreaterThanOrEqual(1.6)
+    expect(flashEasing).toBe('ease-in-out')
+
+    // The keyframe must not swap the cell background to a strong colour
+    // mid-animation (the previous harsh pulse used 92% / 68% strong mixes).
+    const keyframeBlockMatch = globalsCss.match(
+      /@keyframes calendar-today-flash\s*{[\s\S]*?\n\s*}\s*}/
+    )
+    expect(keyframeBlockMatch).toBeTruthy()
+    const keyframeBlock = keyframeBlockMatch?.[0] ?? ''
+    expect(keyframeBlock).not.toMatch(
+      /var\(--color-calendar-today-highlight-strong\)\s+(?:6[8-9]|[7-9][0-9]|100)%/
+    )
+    expect(keyframeBlock).not.toMatch(
+      /var\(--color-calendar-today-highlight\)\s+(?:5[0-9]|[6-9][0-9]|100)%/
+    )
 
     fireEvent.click(screen.getByRole('button', { name: 'Previous month' }))
     await vi.runAllTimersAsync()
