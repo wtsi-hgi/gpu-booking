@@ -787,11 +787,8 @@ describe('bookings page - F1 calendar grid', () => {
 
     const summaryRuleIsOutsideComponents =
       summaryDarkRuleIndex > layerComponentsEnd
-    const mediaRuleIsOutsideComponents =
-      mediaDarkRuleIndex > layerComponentsEnd
-    expect(
-      summaryRuleIsOutsideComponents || ruleUsesImportant
-    ).toBe(true)
+    const mediaRuleIsOutsideComponents = mediaDarkRuleIndex > layerComponentsEnd
+    expect(summaryRuleIsOutsideComponents || ruleUsesImportant).toBe(true)
     expect(mediaRuleIsOutsideComponents || ruleUsesImportant).toBe(true)
 
     // Summary highlight must also bump up so the inner pill row reads in dark.
