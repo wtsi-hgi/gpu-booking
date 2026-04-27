@@ -1,36 +1,39 @@
-import { HelloForm } from '@/components/hello-form'
-import { HealthStatus } from '@/components/health-status'
+import { redirect } from 'next/navigation'
 
-import { fetchHealth, fetchInitialGreeting } from './actions'
+import { Button } from '@/components/ui/button'
+import { buildLoginPath, hasFrontendOidcConfig } from '@/lib/oidc'
+import { getOptionalCurrentUser } from '@/lib/server-auth'
 
-export default async function Home() {
-  const [greeting, health] = await Promise.all([
-    fetchInitialGreeting(),
-    fetchHealth(),
-  ])
+export default async function HomePage() {
+  const user = await getOptionalCurrentUser()
+  if (user) {
+    redirect('/bookings')
+  }
+
+  if (!hasFrontendOidcConfig()) {
+    redirect('/bookings')
+  }
 
   return (
-    <main className="container mx-auto max-w-4xl px-4 py-12">
-      <section className="space-y-4">
-        <p className="text-primary text-sm tracking-[0.3em] uppercase">
-          Next.js + FastAPI
-        </p>
-        <h1 className="text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
-          Full-stack starter with Server Actions and shadcn/ui
-        </h1>
-        <p className="text-muted-foreground max-w-2xl text-lg">
-          This template calls FastAPI directly from the server layer, validates
-          every payload with Zod, and keeps client components focused on UX.
-        </p>
-        <div className="flex items-center gap-3">
-          <HealthStatus status={health.status} />
-          <p className="text-muted-foreground text-sm">
-            FastAPI `/api/v1/health` check
+    <main className="container mx-auto flex min-h-[calc(100vh-3.5rem)] max-w-4xl items-center px-4 py-16">
+      <section className="border-border/70 bg-card/80 w-full rounded-3xl border p-10 shadow-sm backdrop-blur">
+        <div className="max-w-2xl space-y-4">
+          <p className="text-primary text-sm font-medium tracking-[0.24em] uppercase">
+            GPU Booking
           </p>
+          <h1 className="text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
+            Sign in to request and manage GPU bookings.
+          </h1>
+          <p className="text-muted-foreground text-lg leading-8">
+            Use your organisation account to review availability, submit new
+            bookings, and manage existing requests.
+          </p>
+          <div className="pt-2">
+            <Button asChild size="lg">
+              <a href={buildLoginPath('/bookings')}>Sign In</a>
+            </Button>
+          </div>
         </div>
-      </section>
-      <section className="mt-10">
-        <HelloForm initialMessage={greeting.message} />
       </section>
     </main>
   )

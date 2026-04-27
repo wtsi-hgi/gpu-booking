@@ -1,250 +1,228 @@
 # gpu-booking
 
-This project is a full-stack app with a Next.js (React) frontend using the
-**App Router**, Tailwind CSS v4 + shadcn/ui, and a FastAPI backend.
+GPU Booking is a full-stack scheduling application for shared accelerator infrastructure.
 
-### Highlights
+- Frontend: Next.js App Router (TypeScript, Server Actions, Tailwind/shadcn)
+- Backend: FastAPI + SQLAlchemy
+- Scope: request/track bookings, review capacity, and administer reference data
 
-- **Server Actions first**: Next.js Server Actions call FastAPI directly from
-  the server without exposing backend URLs to the browser.
-- **Typed contracts**: FastAPI responses are validated on the frontend with
-  `zod` so regressions are caught immediately.
-- **Modern styling**: Tailwind v4 `@theme` tokens power shadcn/ui components,
-  theme switching, and animation primitives.
-- **Tests built-in**: Vitest covers the shared contracts, while pytest + httpx
-  validate the FastAPI routers.
+## What the app does
 
-If you are new to this stack, think of it as:
+### User workflows
+- Create a booking with GPU type, memory/GRAM options, workflow type, and dates.
+- See booking status (`unconfirmed`, `confirmed`, `tentative`, `spot`, `rejected`, `cancelled`).
+- View bookings in table/calendar-oriented screens.
+- Validate requested allocations against capacity rules before submit.
 
-- Next.js handles **routing, rendering, and UI**.
-- FastAPI exposes a **typed JSON API**.
-- Zod bridges the two by validating **everything that crosses the boundary**.
+### Admin workflows
+- Manage reference data:
+  - GPU types
+  - workflow types
+  - memory options
+  - GRAM options
+- Review and update bookings, including status and admin notes.
+- Inspect capacity and guardrails for over-allocation.
 
----
+## Repository layout
 
-## Directory Structure
+- `frontend/`: Next.js application and Vitest suite.
+- `backend/`: FastAPI application, SQLAlchemy models/services, pytest suite.
+- `Makefile`: repo-level lint, format, test, and run entrypoints.
+- `run-dev.sh`: thin local runtime launcher with health checks.
 
--- `frontend/` — Next.js 16 (App Router) + React 19 + shadcn/ui + Tailwind CSS v4 (TypeScript)
-  - `app/` — App Router pages, layouts, and API routes
-    - `app/page.tsx` — Home page that calls Server Actions
-    - `app/actions.ts` — Server Actions that talk to FastAPI
-    - `app/api/health/route.ts` — Health check proxy for external monitors
-  - `components/` — React components including shadcn/ui
-    - `components/hello-form.tsx` — Client component with a form that calls a Server Action
-    - `components/health-status.tsx` — Small status indicator for backend health
-    - `components/ui/` — shadcn/ui primitives (button, card, input, etc.)
-  - `lib/` — Shared frontend utilities and contracts
-    - `lib/backend-client.ts` — Thin `fetch` wrapper used by Server Actions
-    - `lib/contracts.ts` — Zod schemas mirroring FastAPI responses
-    - `lib/greeting-state.ts` — State machine for the greeting form
--- `backend/` — FastAPI + Uvicorn (Python 3.11)
-  - `main.py` — FastAPI app with lifespan + logging
-  - `config.py` — Pydantic settings (ports, URLs, log level, etc.)
-  - `api/` — Versioned routers and schemas
-    - `api/v1/greetings.py` — `GET /api/v1/hello` greeting endpoint
-    - `api/v1/health.py` — `GET /api/v1/health` health endpoint
-    - `api/schemas.py` — Pydantic models shared across routers
-  - `tests/` — pytest suite using `httpx.AsyncClient`
+## Quick start (development)
 
----
+Prerequisites:
+- Node.js 20+
+- pnpm
+- Python 3.11+
 
-## Developer Setup
+From repo root:
 
-### Prerequisites
-- Node.js 20+ (in your PATH)
-- Python 3.11+ (in your PATH)
-- pnpm (in your PATH)
-
-### 0. Fresh Start
 ```bash
-git clean -fdX
-```
-
-### 1. Frontend Setup
-```bash
+# Frontend dependencies
 cd frontend
 pnpm install
-
-# (optional) Add more shadcn components:
-pnpm dlx shadcn@latest add [component-name]
-
-pnpm dev
-```
-
-Visit `http://localhost:3000` to see the Server Action-powered greeting page.
-
-Server Actions call `FastAPI` via the shared `backendJson` helper. If you still
-need a browser-accessible endpoint, the `/app/api/*` routes proxy requests with
-response validation before returning data to the client.
-
-### How the pieces fit together
-
-At a high level, a greeting request flows like this:
-
-1. User types a name into `HelloForm` (`components/hello-form.tsx`) and submits.
-2. The form calls the `requestGreeting` Server Action in `app/actions.ts`.
-3. `requestGreeting` calls `backendJson` from `lib/backend-client.ts` with the
-  FastAPI URL and the relevant Zod schema from `lib/contracts.ts`.
-4. FastAPI serves the request from `backend/api/v1/greetings.py` and returns
-  a JSON payload.
-5. `backendJson` validates the JSON with Zod and returns a typed object to the
-  Server Action, which updates the greeting state.
-
-The health check uses a slightly different path:
-
-1. `Home` (`app/page.tsx`) calls the `fetchHealth` Server Action.
-2. `fetchHealth` calls the FastAPI `/api/v1/health` endpoint using `backendJson`.
-3. The `/app/api/health/route.ts` API Route exists **only** for external
-  monitors that need a simple unauthenticated `GET /api/health` endpoint.
-
-### 2. Backend Setup
-```bash
-cd backend
-python3 -m venv .venv
-source .venv/bin/activate
-pip install --upgrade pip
-pip install -r requirements.txt
-
-# For development (linting, testing):
-pip install -r requirements-dev.txt
-```
-
-**Start the server:**
-```bash
-uvicorn main:app --reload
-```
-
-Visit `http://localhost:8000` to see the FastAPI Hello World endpoint, and try
-the example query endpoint:
-
-- `http://localhost:8000/hello?name=YourName` => { "message": "Hello, YourName from FastAPI!" }
-
-### 3. Environment Variables
-
-Copy `.env.example` to `.env` and customize as needed:
-```bash
-cp .env.example .env
-```
-
-The app will work with defaults, but you can customize:
-- `FRONTEND_PORT` - Frontend dev server port (default: 3000)
-- `BACKEND_PORT` - Backend server port (default: 8000)
-- `BACKEND_URL` - Full backend URL (optional, overrides BACKEND_PORT)
-- `LOG_LEVEL` - Backend logging level (default `INFO`).
-
-### 4. Linting, Formatting & Tests
-
-To ensure code quality, run the following commands in the `frontend/` directory:
-
-- **Linting**: `pnpm lint` (Checks for errors)
-- **Formatting**: `pnpm format` (Fixes formatting issues)
-- **Unit tests**: `pnpm test`
-
-In the `backend/` directory run:
-
-- **Unit tests**: `pytest`
-
-The `run-dev.sh` script automatically runs linting **and** the relevant unit
-tests (frontend Vitest + backend pytest) before starting the development
-servers. If any check fails, the script reruns it with full output and aborts
-the startup.
-
-## Port configuration
-
-- Frontend: set `FRONTEND_PORT` environment variable to choose the dev port (default `3000`). Example:
-
-```bash
-FRONTEND_PORT=4000 pnpm dev
-```
-
-- Backend: set `BACKEND_PORT` environment variable (default `8000`). Example:
-
-```bash
-BACKEND_PORT=9000 ./run_uvicorn.sh
-```
-
-Run both services together
-
-You can run both the frontend and backend dev servers together with `run-dev.sh`
-at the repository root. The script starts both servers, writes logs to
-`./logs/`, and stops both cleanly if it is interrupted (SIGINT/SIGTERM).
-
-```bash
-# default ports (frontend:3000, backend:8000)
-./run-dev.sh
-
-# custom ports
-./run-dev.sh -f 4000 -b 9000
-```
-
-Logs are written to `./logs/frontend.log` and `./logs/backend.log`.
-Follow them with: `tail -F logs/frontend.log logs/backend.log`.
-
-To update dependencies:
-
-```bash
-cd frontend && pnpm update --latest
-
 cd ..
-source backend/.venv/bin/activate && pip install --upgrade pip && pip install --upgrade -r backend/requirements.txt -r backend/requirements-dev.txt
+
+# Backend virtual environment + dependencies
+python3 -m venv backend/.venv
+backend/.venv/bin/pip install --upgrade pip
+backend/.venv/bin/pip install -r backend/requirements-dev.txt
 ```
 
----
+Run repo checks:
 
-## Production Deployment
+```bash
+make lint
+make test
+```
+
+Apply formatting:
+
+```bash
+make format
+```
+
+Start both services:
+
+```bash
+make run
+```
+
+To keep local overrides out of your shell, put them in a repo-root `.env` file.
+`make` automatically loads that file before `run`, `test`, `lint`, and `format`.
+
+Example `.env`:
+
+```bash
+GPU_BOOKING_FRONTEND_PORT=4000
+GPU_BOOKING_BACKEND_PORT=9000
+GPU_BOOKING_AUTH_MODE=insecure
+```
+
+Custom ports:
+
+```bash
+make run GPU_BOOKING_FRONTEND_PORT=4000 GPU_BOOKING_BACKEND_PORT=9000
+```
+
+Logs:
+
+```bash
+tail -F logs/frontend.log logs/backend.log
+```
+
+Important:
+- `make run` is a thin wrapper around `./run-dev.sh`.
+- `run-dev.sh` only starts, health-checks, and stops the frontend/backend processes cleanly.
+- `run-dev.sh` sets `GPU_BOOKING_BACKEND_URL` for the frontend process so custom backend ports override frontend-local `.env` defaults during dev startup.
+- `run-dev.sh` launches backend via `backend/run_uvicorn.sh`, which uses `backend/.venv`.
+- Installing deps into a different venv (for example repo-root `.venv`) will not satisfy backend runtime dependencies.
+
+## Environment variables
+
+The app runs with defaults, but these are commonly set:
+
+- `GPU_BOOKING_FRONTEND_PORT` (default `3000`)
+- `GPU_BOOKING_BACKEND_PORT` (default `8000`)
+- `GPU_BOOKING_BACKEND_URL` (optional override used by frontend server-side calls)
+- `GPU_BOOKING_AUTH_MODE` (`insecure` by default, `oidc` in production)
+- `GPU_BOOKING_DATABASE_URL`
+- `GPU_BOOKING_INITIAL_ADMIN_EMAILS`
+- backend auth and app settings from `backend/.env.example`
+
+Historical unprefixed names such as `FRONTEND_PORT`, `BACKEND_PORT`, `BACKEND_URL`,
+`AUTH_MODE`, and `DATABASE_URL` are still accepted as compatibility aliases, but
+new configuration should use the `GPU_BOOKING_` names.
+
+### Authentication mode (important)
+
+Backend auth mode is controlled by `GPU_BOOKING_AUTH_MODE`.
+
+- Default when unset: `insecure`
+- Production recommendation: `oidc`
+
+When running with `GPU_BOOKING_AUTH_MODE=insecure`:
+
+- The app enables developer impersonation (`Switch User`) in the UI.
+- The backend accepts `X-Dev-User` and treats requests as that email.
+- This mode is intended for local development only.
+
+When running with `GPU_BOOKING_AUTH_MODE=oidc`:
+
+- `Switch User` is hidden.
+- The frontend root page becomes a sign-in landing page for unauthenticated users.
+- Frontend server actions and server-rendered pages forward the OIDC bearer token to the backend.
+- Backend ignores dev impersonation headers and requires bearer tokens.
+- Admin access is based on authenticated user email membership in the admins table.
+
+For production, explicitly set OIDC-related variables and do not rely on defaults.
+
+Frontend OIDC settings:
+
+- `GPU_BOOKING_OIDC_ISSUER_URL` or `GPU_BOOKING_OIDC_ISSUER`
+- `GPU_BOOKING_OIDC_CLIENT_ID`
+- `GPU_BOOKING_OIDC_CLIENT_SECRET`
+- `GPU_BOOKING_OIDC_REDIRECT_URI` (optional)
+- `GPU_BOOKING_OIDC_POST_LOGOUT_REDIRECT_URI` (optional)
+- `GPU_BOOKING_OIDC_SCOPES` (optional, defaults to `openid profile email`)
+
+Backend accepts both historical `OKTA_*`/`OIDC_*` names and corresponding `GPU_BOOKING_*` aliases for issuer, audience, and client settings.
+
+## Running tests and checks
+
+Repo root:
+
+```bash
+make lint
+make format
+make test
+make run
+```
+
+Frontend (`frontend/`):
+
+```bash
+pnpm lint
+pnpm format
+pnpm test
+pnpm test:e2e
+```
+
+Backend (`backend/`):
+
+```bash
+.venv/bin/pytest
+.venv/bin/ruff check .
+.venv/bin/ruff format .
+```
+
+Notes:
+- Frontend tests are Vitest-based and include route/component/action contract coverage.
+- Frontend Playwright E2E coverage starts the repo locally via `run-dev.sh` against an isolated SQLite database and uses the preinstalled Chromium/browser path from the environment.
+- A server-action export contract test now guards against invalid `use server` exports.
+- A homepage smoke test verifies the root page renders with successful backend responses.
+
+## Production essentials
+
+Before starting production services, set backend auth configuration (at minimum):
+
+- `GPU_BOOKING_AUTH_MODE=oidc`
+- `GPU_BOOKING_OIDC_ISSUER_URL` (or `GPU_BOOKING_OKTA_ISSUER`)
+- `GPU_BOOKING_OIDC_AUDIENCE` (if your token validation requires audience checking)
+- `GPU_BOOKING_INITIAL_ADMIN_EMAILS` (comma-separated bootstrap list used by seed/admin workflows)
+
+Equivalent backend aliases are also accepted:
+
+- `OIDC_ISSUER_URL` or `OIDC_ISSUER`
+- `OIDC_CLIENT_ID`
+- `OIDC_CLIENT_SECRET`
+- `OIDC_AUDIENCE`
 
 ### Frontend
+
 ```bash
 cd frontend
+pnpm install --frozen-lockfile
 pnpm build
 pnpm start
 ```
 
 ### Backend
+
 ```bash
-cd backend
-source .venv/bin/activate
-uvicorn main:app --host 0.0.0.0 --port 8000
+python3 -m venv backend/.venv
+backend/.venv/bin/pip install --upgrade pip
+backend/.venv/bin/pip install -r backend/requirements.txt
+backend/.venv/bin/uvicorn main:app --app-dir backend --host 0.0.0.0 --port 8000
 ```
 
----
+Use a process manager/container platform and external reverse proxy/load balancer as appropriate for your environment.
 
-## Health Checks & Monitoring
+## Health endpoints
 
-### External Monitoring
-External monitoring services (e.g., AWS ALB, UptimeRobot) should check the
-frontend's health endpoint:
+- Backend health: `GET /api/v1/health`
+- Frontend health proxy: `GET /api/health`
 
-- **URL**: `GET /api/health`
-- **Success**: `200 OK` `{"status": "healthy"}`
-- **Failure**: `503 Service Unavailable` `{"status": "unhealthy"}`
-
-### Why a Proxy Route?
-While most of the application uses **Server Actions** to communicate with the
-backend, the health check requires a dedicated API Route
-(`/app/api/health/route.ts`) for specific reasons:
-
-1.  **Protocol Compatibility**: Server Actions use a specialized POST protocol
-    internal to Next.js. Standard load balancers and monitoring tools expect a
-    simple HTTP `GET` request returning a 200 OK status code.
-2.  **Network Isolation**: In production, the FastAPI backend is often deployed
-    in a private network, inaccessible to the public internet. The frontend acts
-    as a gateway.
-3.  **Status Codes**: The proxy route explicitly translates backend connectivity
-    issues into standard HTTP 503 status codes, which automated monitors rely on
-    to detect failures.
-
-**Note**: Other application features do **not** use proxy routes. They use
-Server Actions to communicate directly from the Next.js server to the FastAPI
-backend. This keeps the backend API private, reduces the public attack surface,
-and maintains type safety without manually defining API routes for every
-feature.
-
----
-
-## Notes
-- Each developer should create their own `.venv` in `backend/` and install
-  dependencies there.
-- Do not share virtual environments between users.
-- The `pnpm` binary can be shared, but each user’s global packages/cache are
-  separate by default.
+`make run` invokes `run-dev.sh`, which waits for both services and performs a warmup request against `/` before declaring startup ready.

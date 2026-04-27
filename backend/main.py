@@ -9,22 +9,18 @@ from httpx import AsyncClient
 
 from api import api_v1_router
 from config import settings
+from db.engine import async_session_factory, init_db
+from db.seed import seed_db
+from logging_config import setup_logging
+from middleware.request_context import RequestContextMiddleware
 
-logger = logging.getLogger("llm_kb.api")
+logger = logging.getLogger("gpu_booking.api")
 
 
 def configure_logging() -> None:
     """Ensure loggers emit structured, leveled messages."""
 
-    if logging.getLogger().handlers:
-        # Respect host application's logging configuration (e.g., uvicorn)
-        logging.getLogger().setLevel(settings.log_level.upper())
-        return
-
-    logging.basicConfig(
-        level=settings.log_level.upper(),
-        format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
-    )
+    setup_logging(settings.log_level)
 
 
 @asynccontextmanager
@@ -35,6 +31,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     logger.info(
         "Starting %s", settings.app_name, extra={"version": settings.app_version}
     )
+    await init_db()
+    async with async_session_factory() as session:
+        await seed_db(session)
 
     app.state.http_client = AsyncClient(timeout=settings.http_client_timeout)
 
@@ -52,6 +51,8 @@ app = FastAPI(
     version=settings.app_version,
     lifespan=lifespan,
 )
+
+app.add_middleware(RequestContextMiddleware)
 
 
 # Mount versioned API router

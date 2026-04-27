@@ -1,83 +1,131 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 
-@source "../components/**/*.{js,ts,jsx,tsx}";
+@source '../components/**/*.{js,ts,jsx,tsx}';
+@custom-variant dark (&:where(.dark, .dark *));
 
-@theme inline {
-  --font-sans:
+:root {
+  --app-font-sans:
     var(--font-sans), ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji',
     'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
 
-  --radius-sm: 0.25rem;
-  --radius-md: 0.375rem;
-  --radius-lg: 0.5rem;
-  --radius-xl: 0.75rem;
+  --app-radius-sm: 0.25rem;
+  --app-radius-md: 0.375rem;
+  --app-radius-lg: 0.5rem;
+  --app-radius-xl: 0.75rem;
 
-  /* Light mode (default) */
-  --color-background: #ffffff;
-  --color-foreground: #0f172a;
+  --app-color-background: #ffffff;
+  --app-color-foreground: #0f172a;
 
-  --color-primary: #0f172a;
-  --color-primary-foreground: #f8fafc;
+  --app-color-primary: #0f172a;
+  --app-color-primary-foreground: #f8fafc;
 
-  --color-secondary: #f1f5f9;
-  --color-secondary-foreground: #0f172a;
+  --app-color-secondary: #f1f5f9;
+  --app-color-secondary-foreground: #0f172a;
 
-  --color-accent: #f1f5f9;
-  --color-accent-foreground: #0f172a;
+  --app-color-accent: #f1f5f9;
+  --app-color-accent-foreground: #0f172a;
 
-  --color-muted: #f1f5f9;
-  --color-muted-foreground: #64748b;
+  --app-color-muted: #f1f5f9;
+  --app-color-muted-foreground: #64748b;
 
-  --color-destructive: #ef4444;
-  --color-destructive-foreground: #ffffff;
+  --app-color-destructive: #ef4444;
+  --app-color-destructive-foreground: #ffffff;
 
-  --color-border: #e2e8f0;
-  --color-input: #e2e8f0;
-  --color-ring: #0f172a;
+  --app-color-border: #e2e8f0;
+  --app-color-input: #e2e8f0;
+  --app-color-ring: #0f172a;
 
-  --color-card: #ffffff;
-  --color-card-foreground: #0f172a;
+  --app-color-card: #ffffff;
+  --app-color-card-foreground: #0f172a;
 
-  --color-popover: #ffffff;
-  --color-popover-foreground: #0f172a;
+  --app-color-popover: #ffffff;
+  --app-color-popover-foreground: #0f172a;
+
+  --app-color-calendar-today-highlight: #fef3c7;
+  --app-color-calendar-today-highlight-strong: #f59e0b;
+}
+
+@theme inline {
+  --font-sans: var(--app-font-sans);
+
+  --radius-sm: var(--app-radius-sm);
+  --radius-md: var(--app-radius-md);
+  --radius-lg: var(--app-radius-lg);
+  --radius-xl: var(--app-radius-xl);
+
+  --color-background: var(--app-color-background);
+  --color-foreground: var(--app-color-foreground);
+
+  --color-primary: var(--app-color-primary);
+  --color-primary-foreground: var(--app-color-primary-foreground);
+
+  --color-secondary: var(--app-color-secondary);
+  --color-secondary-foreground: var(--app-color-secondary-foreground);
+
+  --color-accent: var(--app-color-accent);
+  --color-accent-foreground: var(--app-color-accent-foreground);
+
+  --color-muted: var(--app-color-muted);
+  --color-muted-foreground: var(--app-color-muted-foreground);
+
+  --color-destructive: var(--app-color-destructive);
+  --color-destructive-foreground: var(--app-color-destructive-foreground);
+
+  --color-border: var(--app-color-border);
+  --color-input: var(--app-color-input);
+  --color-ring: var(--app-color-ring);
+
+  --color-card: var(--app-color-card);
+  --color-card-foreground: var(--app-color-card-foreground);
+
+  --color-popover: var(--app-color-popover);
+  --color-popover-foreground: var(--app-color-popover-foreground);
+
+  --color-calendar-today-highlight: var(--app-color-calendar-today-highlight);
+  --color-calendar-today-highlight-strong: var(
+    --app-color-calendar-today-highlight-strong
+  );
 }
 
 .dark {
-  --color-background: #0f172a;
-  --color-foreground: #f8fafc;
+  --app-color-background: #0f172a;
+  --app-color-foreground: #f8fafc;
 
-  --color-primary: #f8fafc;
-  --color-primary-foreground: #0f172a;
+  --app-color-primary: #f8fafc;
+  --app-color-primary-foreground: #0f172a;
 
-  --color-secondary: #1e293b;
-  --color-secondary-foreground: #f8fafc;
+  --app-color-secondary: #1e293b;
+  --app-color-secondary-foreground: #f8fafc;
 
-  --color-accent: #1e293b;
-  --color-accent-foreground: #f8fafc;
+  --app-color-accent: #1e293b;
+  --app-color-accent-foreground: #f8fafc;
 
-  --color-muted: #1e293b;
-  --color-muted-foreground: #94a3b8;
+  --app-color-muted: #1e293b;
+  --app-color-muted-foreground: #94a3b8;
 
-  --color-destructive: #dc2626;
-  --color-destructive-foreground: #f8fafc;
+  --app-color-destructive: #dc2626;
+  --app-color-destructive-foreground: #f8fafc;
 
-  --color-border: #334155;
-  --color-input: #334155;
-  --color-ring: #f8fafc;
+  --app-color-border: #334155;
+  --app-color-input: #334155;
+  --app-color-ring: #f8fafc;
 
-  --color-card: #1e293b;
-  --color-card-foreground: #f8fafc;
+  --app-color-card: #1e293b;
+  --app-color-card-foreground: #f8fafc;
 
-  --color-popover: #1e293b;
-  --color-popover-foreground: #f8fafc;
+  --app-color-popover: #1e293b;
+  --app-color-popover-foreground: #f8fafc;
+
+  --app-color-calendar-today-highlight: #78350f;
+  --app-color-calendar-today-highlight-strong: #fbbf24;
 }
 
 @layer base {
   *,
   *::before,
   *::after {
-    border-color: var(--color-border);
+    border-color: var(--app-color-border);
   }
 
   html,
@@ -85,8 +133,178 @@
     height: 100%;
   }
 
-  body {
-    background-color: var(--color-background);
-    color: var(--color-foreground);
+  html {
+    color-scheme: light;
   }
+
+  html.light {
+    color-scheme: light;
+  }
+
+  html.dark {
+    color-scheme: dark;
+  }
+
+  body {
+    background-color: var(--app-color-background);
+    color: var(--app-color-foreground);
+  }
+}
+
+/*
+ * Calendar custom rules (bug 260424-2 A, B and C).
+ *
+ * These rules are intentionally placed OUTSIDE `@layer components` so they
+ * win the cascade against Tailwind utilities applied on the same DOM cell
+ * (`bg-card`, `border-border`, etc.), which live in `@layer utilities` and
+ * would otherwise override component-layer `background-color` /
+ * `border-color` declarations regardless of selector specificity. Un-layered
+ * rules out-rank any `@layer` rule.
+ *
+ * `!important` is added on the two properties that genuinely conflict with
+ * Tailwind utilities (background-color, border-color) as a belt-and-braces
+ * guard. The dark-mode selection rules ALSO carry an extra
+ * `[data-day-cell="true"].calendar-...` higher-specificity selector so that
+ * even if a future rule competes through Tailwind layer ordering, the
+ * attribute+class combo (specificity 0,2,1 with the `.dark` ancestor) wins
+ * deterministically.
+ *
+ * `box-shadow` does not need `!important` because no Tailwind utility on
+ * these cells sets a competing box-shadow.
+ */
+.calendar-selection-highlight {
+  background-color: color-mix(
+    in srgb,
+    var(--app-color-primary) 8%,
+    var(--app-color-card)
+  ) !important;
+  border-color: color-mix(
+    in srgb,
+    var(--app-color-primary) 45%,
+    var(--app-color-border)
+  ) !important;
+  box-shadow:
+    inset 0 0 0 999px
+      color-mix(in srgb, var(--app-color-primary) 8%, transparent),
+    inset 0 0 0 1px
+      color-mix(in srgb, var(--app-color-primary) 12%, transparent);
+}
+
+.calendar-selection-summary-highlight {
+  background-color: color-mix(
+    in srgb,
+    var(--app-color-primary) 7%,
+    var(--app-color-card)
+  ) !important;
+  border-color: color-mix(
+    in srgb,
+    var(--app-color-primary) 18%,
+    var(--app-color-border)
+  ) !important;
+}
+
+/*
+ * Day cell border (bug 260427-1). Theme colours are routed through
+ * `--app-color-*` runtime variables so Tailwind utilities and custom rules
+ * follow the next-themes `.light` / `.dark` classes.
+ */
+[data-day-cell='true'] {
+  border-color: var(--app-color-border);
+}
+
+/*
+ * Today indicator (bug 260424-2 A; strengthened in 260427-1 and 260427-2).
+ *
+ * NO `background-color` — the user explicitly does not want a coloured
+ * today background. The cell keeps its default `bg-card`. Today is marked
+ * exclusively by:
+ *   1. A solid calendar highlight border.
+ *   2. A 2px inset box-shadow plus a 1px outer ring in the same colour,
+ *      which give the cell a clearly visible thick frame without
+ *      disturbing grid layout (a real `border-width` change would shift
+ *      the grid).
+ *
+ * The selector is deliberately keyed to the semantic `data-today="true"`
+ * attribute instead of the helper class alone. That prevents a stale or
+ * misplaced class from giving non-today cells the stronger frame.
+ */
+[data-day-cell='true'][data-today='true'] {
+  border-color: var(--app-color-calendar-today-highlight-strong) !important;
+  box-shadow:
+    inset 0 0 0 2px var(--app-color-calendar-today-highlight-strong),
+    0 0 0 1px
+      color-mix(
+        in srgb,
+        var(--app-color-calendar-today-highlight-strong) 65%,
+        transparent
+      ) !important;
+}
+
+/*
+ * Dark-mode selection overrides. Same cascade-layer reasoning as above:
+ * kept un-layered with `!important`. A second rule with the
+ * `[data-day-cell="true"]` attribute selector raises specificity to
+ * (0,2,1) under `.dark` so it cannot lose to any later single-class
+ * Tailwind utility on the same cell.
+ */
+.dark .calendar-selection-highlight {
+  background-color: color-mix(
+    in srgb,
+    var(--app-color-primary) 40%,
+    var(--app-color-card)
+  ) !important;
+  border-color: color-mix(
+    in srgb,
+    var(--app-color-primary) 78%,
+    var(--app-color-border)
+  ) !important;
+  box-shadow:
+    inset 0 0 0 999px
+      color-mix(in srgb, var(--app-color-primary) 40%, transparent),
+    inset 0 0 0 1px
+      color-mix(in srgb, var(--app-color-primary) 60%, transparent);
+}
+
+.dark [data-day-cell='true'].calendar-selection-highlight {
+  background-color: color-mix(
+    in srgb,
+    var(--app-color-primary) 40%,
+    var(--app-color-card)
+  ) !important;
+  border-color: color-mix(
+    in srgb,
+    var(--app-color-primary) 78%,
+    var(--app-color-border)
+  ) !important;
+  box-shadow:
+    inset 0 0 0 999px
+      color-mix(in srgb, var(--app-color-primary) 40%, transparent),
+    inset 0 0 0 1px
+      color-mix(in srgb, var(--app-color-primary) 60%, transparent);
+}
+
+.dark .calendar-selection-summary-highlight {
+  background-color: color-mix(
+    in srgb,
+    var(--app-color-primary) 35%,
+    var(--app-color-card)
+  ) !important;
+  border-color: color-mix(
+    in srgb,
+    var(--app-color-primary) 70%,
+    var(--app-color-border)
+  ) !important;
+}
+
+.dark [data-day-cell='true'].calendar-selection-summary-highlight {
+  background-color: color-mix(
+    in srgb,
+    var(--app-color-primary) 35%,
+    var(--app-color-card)
+  ) !important;
+  border-color: color-mix(
+    in srgb,
+    var(--app-color-primary) 70%,
+    var(--app-color-border)
+  ) !important;
 }

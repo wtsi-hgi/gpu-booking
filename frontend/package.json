@@ -3,12 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -H 0.0.0.0 -p ${FRONTEND_PORT:-3000}",
+    "dev": "next dev -H 0.0.0.0 -p ${GPU_BOOKING_FRONTEND_PORT:-${FRONTEND_PORT:-3000}}",
     "build": "next build",
-    "start": "next start -H 0.0.0.0 -p ${FRONTEND_PORT:-3000}",
+    "start": "next start -H 0.0.0.0 -p ${GPU_BOOKING_FRONTEND_PORT:-${FRONTEND_PORT:-3000}}",
     "lint": "eslint .",
     "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "test": "vitest run",
+    "test:e2e": "playwright test",
     "test:watch": "vitest"
   },
   "dependencies": {
@@ -27,11 +29,15 @@
     "zod": "^4.1.13"
   },
   "devDependencies": {
+    "@playwright/test": "^1.51.1",
     "@tailwindcss/postcss": "^4.1.17",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@types/node": "^24.10.2",
     "@types/react": "^19.2.7",
     "eslint": "^9.39.1",
     "eslint-config-next": "^16.0.8",
+    "jsdom": "^28.1.0",
     "postcss": "^8.5.6",
     "prettier": "^3.7.4",
     "prettier-plugin-tailwindcss": "^0.7.2",

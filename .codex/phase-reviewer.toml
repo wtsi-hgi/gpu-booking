@@ -1,9 +1,0 @@
-model_reasoning_effort = "medium"
-developer_instructions = """
-Phase planning reviewer role.
-
-Read and follow:
-- .github/skills/agent-conduct/SKILL.md
-- .github/skills/phase-reviewer/SKILL.md
-"""
-

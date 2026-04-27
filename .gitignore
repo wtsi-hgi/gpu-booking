@@ -8,6 +8,7 @@
 
 # ── Logs (run-dev.sh writes to ./logs/) ─────────────────────────────
 logs/
+.tmp/
 
 # ── Node / pnpm ─────────────────────────────────────────────────────
 node_modules/
@@ -22,6 +23,8 @@ out/
 
 # ── Frontend testing ────────────────────────────────────────────────
 coverage/
+frontend/playwright-report/
+frontend/test-results/
 
 # ── Python bytecode ─────────────────────────────────────────────────
 __pycache__/
