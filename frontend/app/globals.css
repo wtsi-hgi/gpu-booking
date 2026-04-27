@@ -142,130 +142,140 @@
   }
 }
 
-@layer components {
-  .calendar-selection-highlight {
-    background-color: color-mix(
+/*
+ * Calendar custom rules (bug 260424-2 A and C).
+ *
+ * These rules are intentionally placed OUTSIDE `@layer components` so they
+ * win the cascade against Tailwind utilities applied on the same DOM cell
+ * (`bg-card`, `border-border`, etc.), which live in `@layer utilities` and
+ * would otherwise override component-layer `background-color` /
+ * `border-color` declarations regardless of selector specificity. Un-layered
+ * rules out-rank any `@layer` rule, so the today indicator and the multi-day
+ * selection fill are guaranteed to render.
+ *
+ * `!important` is added on the two properties that genuinely conflict with
+ * Tailwind utilities (background-color, border-color) as a belt-and-braces
+ * guard. `box-shadow` does not need `!important` because no Tailwind utility
+ * on these cells sets a competing box-shadow.
+ */
+.calendar-selection-highlight {
+  background-color: color-mix(
+    in srgb,
+    var(--color-primary) 8%,
+    var(--color-card)
+  ) !important;
+  border-color: color-mix(
+    in srgb,
+    var(--color-primary) 45%,
+    var(--color-border)
+  ) !important;
+  box-shadow:
+    inset 0 0 0 999px color-mix(in srgb, var(--color-primary) 8%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--color-primary) 12%, transparent);
+}
+
+.calendar-selection-summary-highlight {
+  background-color: color-mix(
+    in srgb,
+    var(--color-primary) 7%,
+    var(--color-card)
+  ) !important;
+  border-color: color-mix(
+    in srgb,
+    var(--color-primary) 18%,
+    var(--color-border)
+  ) !important;
+}
+
+.calendar-today-indicator {
+  background-color: color-mix(
+    in srgb,
+    var(--color-calendar-today-highlight) 32%,
+    var(--color-card)
+  ) !important;
+  border-color: color-mix(
+    in srgb,
+    var(--color-calendar-today-highlight-strong) 72%,
+    var(--color-border)
+  ) !important;
+  box-shadow: inset 0 0 0 1px
+    color-mix(
       in srgb,
-      var(--color-primary) 8%,
-      var(--color-card)
+      var(--color-calendar-today-highlight-strong) 22%,
+      transparent
     );
-    border-color: color-mix(
-      in srgb,
-      var(--color-primary) 45%,
-      var(--color-border)
-    );
+}
+
+.calendar-today-flash {
+  animation: calendar-today-flash 1.8s ease-in-out;
+}
+
+@keyframes calendar-today-flash {
+  0% {
     box-shadow:
-      inset 0 0 0 999px color-mix(in srgb, var(--color-primary) 8%, transparent),
-      inset 0 0 0 1px color-mix(in srgb, var(--color-primary) 12%, transparent);
+      inset 0 0 0 1px
+        color-mix(
+          in srgb,
+          var(--color-calendar-today-highlight-strong) 22%,
+          transparent
+        ),
+      0 0 0 0
+        color-mix(
+          in srgb,
+          var(--color-calendar-today-highlight-strong) 0%,
+          transparent
+        );
   }
 
-  .calendar-selection-summary-highlight {
-    background-color: color-mix(
-      in srgb,
-      var(--color-primary) 7%,
-      var(--color-card)
-    );
-    border-color: color-mix(
-      in srgb,
-      var(--color-primary) 18%,
-      var(--color-border)
-    );
+  50% {
+    box-shadow:
+      inset 0 0 0 1px
+        color-mix(
+          in srgb,
+          var(--color-calendar-today-highlight-strong) 38%,
+          transparent
+        ),
+      0 0 0 6px
+        color-mix(
+          in srgb,
+          var(--color-calendar-today-highlight-strong) 18%,
+          transparent
+        );
   }
 
-  .calendar-today-indicator {
-    background-color: color-mix(
-      in srgb,
-      var(--color-calendar-today-highlight) 32%,
-      var(--color-card)
-    );
-    border-color: color-mix(
-      in srgb,
-      var(--color-calendar-today-highlight-strong) 72%,
-      var(--color-border)
-    );
-    box-shadow: inset 0 0 0 1px
-      color-mix(
-        in srgb,
-        var(--color-calendar-today-highlight-strong) 22%,
-        transparent
-      );
-  }
-
-  .calendar-today-flash {
-    animation: calendar-today-flash 1.8s ease-in-out;
-  }
-
-  @keyframes calendar-today-flash {
-    0% {
-      box-shadow:
-        inset 0 0 0 1px
-          color-mix(
-            in srgb,
-            var(--color-calendar-today-highlight-strong) 22%,
-            transparent
-          ),
-        0 0 0 0
-          color-mix(
-            in srgb,
-            var(--color-calendar-today-highlight-strong) 0%,
-            transparent
-          );
-    }
-
-    50% {
-      box-shadow:
-        inset 0 0 0 1px
-          color-mix(
-            in srgb,
-            var(--color-calendar-today-highlight-strong) 38%,
-            transparent
-          ),
-        0 0 0 6px
-          color-mix(
-            in srgb,
-            var(--color-calendar-today-highlight-strong) 18%,
-            transparent
-          );
-    }
-
-    100% {
-      box-shadow:
-        inset 0 0 0 1px
-          color-mix(
-            in srgb,
-            var(--color-calendar-today-highlight-strong) 22%,
-            transparent
-          ),
-        0 0 0 0
-          color-mix(
-            in srgb,
-            var(--color-calendar-today-highlight-strong) 0%,
-            transparent
-          );
-    }
+  100% {
+    box-shadow:
+      inset 0 0 0 1px
+        color-mix(
+          in srgb,
+          var(--color-calendar-today-highlight-strong) 22%,
+          transparent
+        ),
+      0 0 0 0
+        color-mix(
+          in srgb,
+          var(--color-calendar-today-highlight-strong) 0%,
+          transparent
+        );
   }
 }
 
 /*
- * Dark-mode multi-day selection highlight (bug 260424-2 C).
- *
- * These rules are intentionally placed OUTSIDE `@layer components` so they
- * win the cascade against Tailwind's `bg-card` utility, which lives in
- * `@layer utilities` and would otherwise override a component-layer
- * `background-color` regardless of selector specificity. Un-layered rules
- * out-rank any `@layer` rule, so the selection fill is guaranteed to render.
+ * Dark-mode overrides. Same cascade-layer reasoning as above: kept un-layered
+ * with `!important` on background-color/border-color so Tailwind's `bg-card`
+ * cannot win.
  */
 .dark .calendar-selection-highlight {
   background-color: color-mix(
     in srgb,
     var(--color-primary) 40%,
     var(--color-card)
-  );
+  ) !important;
   border-color: color-mix(
     in srgb,
     var(--color-primary) 78%,
     var(--color-border)
-  );
+  ) !important;
   box-shadow:
     inset 0 0 0 999px color-mix(in srgb, var(--color-primary) 40%, transparent),
     inset 0 0 0 1px color-mix(in srgb, var(--color-primary) 60%, transparent);
@@ -276,12 +286,31 @@
     in srgb,
     var(--color-primary) 35%,
     var(--color-card)
-  );
+  ) !important;
   border-color: color-mix(
     in srgb,
     var(--color-primary) 70%,
     var(--color-border)
-  );
+  ) !important;
+}
+
+.dark .calendar-today-indicator {
+  background-color: color-mix(
+    in srgb,
+    var(--color-calendar-today-highlight-strong) 40%,
+    var(--color-card)
+  ) !important;
+  border-color: color-mix(
+    in srgb,
+    var(--color-calendar-today-highlight-strong) 80%,
+    var(--color-border)
+  ) !important;
+  box-shadow: inset 0 0 0 1px
+    color-mix(
+      in srgb,
+      var(--color-calendar-today-highlight-strong) 35%,
+      transparent
+    );
 }
 
 @media (prefers-color-scheme: dark) {
@@ -290,12 +319,12 @@
       in srgb,
       var(--color-primary) 40%,
       var(--color-card)
-    );
+    ) !important;
     border-color: color-mix(
       in srgb,
       var(--color-primary) 78%,
       var(--color-border)
-    );
+    ) !important;
     box-shadow:
       inset 0 0 0 999px
         color-mix(in srgb, var(--color-primary) 40%, transparent),
@@ -307,11 +336,30 @@
       in srgb,
       var(--color-primary) 35%,
       var(--color-card)
-    );
+    ) !important;
     border-color: color-mix(
       in srgb,
       var(--color-primary) 70%,
       var(--color-border)
-    );
+    ) !important;
+  }
+
+  html:not(.light) .calendar-today-indicator {
+    background-color: color-mix(
+      in srgb,
+      var(--color-calendar-today-highlight-strong) 40%,
+      var(--color-card)
+    ) !important;
+    border-color: color-mix(
+      in srgb,
+      var(--color-calendar-today-highlight-strong) 80%,
+      var(--color-border)
+    ) !important;
+    box-shadow: inset 0 0 0 1px
+      color-mix(
+        in srgb,
+        var(--color-calendar-today-highlight-strong) 35%,
+        transparent
+      );
   }
 }
