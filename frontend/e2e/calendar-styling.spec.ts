@@ -111,7 +111,9 @@ async function forceDarkMode(page: Page) {
 }
 
 test.describe('calendar styling regressions (bug 260424-2)', () => {
-  test('today cell is visibly marked in light mode', async ({ page }) => {
+  test('today cell has no background fill but a clearly distinct border in light mode', async ({
+    page,
+  }) => {
     await gotoPath(page, '/bookings')
     await switchUser(page, 'researcher@example.com')
 
@@ -135,34 +137,17 @@ test.describe('calendar styling regressions (bug 260424-2)', () => {
       'borderTopColor'
     )
 
-    expect(rgbDistance(todayBg, neighbourBg)).toBeGreaterThanOrEqual(8)
-    expect(rgbDistance(todayBorder, neighbourBorder)).toBeGreaterThanOrEqual(20)
+    // The user does NOT want a coloured today background fill in light mode
+    // (the previous yellow-pale-mix rendered as an "ugly greenish background").
+    // Today's bg must be essentially identical to a normal in-month neighbour.
+    expect(rgbDistance(todayBg, neighbourBg)).toBeLessThanOrEqual(4)
+    // But the border must be obviously different so today is still visible.
+    expect(rgbDistance(todayBorder, neighbourBorder)).toBeGreaterThanOrEqual(30)
   })
 
-  test('Today button triggers a transient flash class on the today cell', async ({
+  test('today cell has no background fill but a clearly distinct border in dark mode', async ({
     page,
   }) => {
-    await gotoPath(page, '/bookings')
-    await switchUser(page, 'researcher@example.com')
-
-    const todayIso = todayIsoUtc()
-
-    // Move away from current month first so the Today button has a real effect.
-    await page.getByRole('button', { name: 'Previous month' }).click()
-    await page.getByRole('button', { name: 'Today' }).click()
-
-    const todayCell = getDayCell(page, todayIso)
-    await expect(todayCell).toHaveClass(/calendar-today-flash/)
-    await expect(todayCell).toHaveClass(/calendar-today-indicator/)
-
-    // After the 1.8s animation finishes plus the JS clear timeout, the
-    // flash class must clear, but the persistent indicator must remain.
-    await page.waitForTimeout(2500)
-    await expect(todayCell).not.toHaveClass(/calendar-today-flash/)
-    await expect(todayCell).toHaveClass(/calendar-today-indicator/)
-  })
-
-  test('today cell is visibly marked in dark mode', async ({ page }) => {
     await gotoPath(page, '/bookings')
     await switchUser(page, 'researcher@example.com')
     await forceDarkMode(page)
@@ -183,11 +168,61 @@ test.describe('calendar styling regressions (bug 260424-2)', () => {
       'borderTopColor'
     )
 
-    expect(rgbDistance(todayBg, neighbourBg)).toBeGreaterThanOrEqual(20)
-    expect(rgbDistance(todayBorder, neighbourBorder)).toBeGreaterThanOrEqual(40)
+    expect(rgbDistance(todayBg, neighbourBg)).toBeLessThanOrEqual(4)
+    expect(rgbDistance(todayBorder, neighbourBorder)).toBeGreaterThanOrEqual(30)
   })
 
-  test('multi-day selection is visible on intermediate cells in dark mode', async ({
+  test('Today button click runs a clearly visible CSS animation on the today cell', async ({
+    page,
+  }) => {
+    await gotoPath(page, '/bookings')
+    await switchUser(page, 'researcher@example.com')
+
+    const todayIso = todayIsoUtc()
+
+    // Move away from current month first so the Today button has a real effect.
+    await page.getByRole('button', { name: 'Previous month' }).click()
+    await page.getByRole('button', { name: 'Today' }).click()
+
+    const todayCell = getDayCell(page, todayIso)
+    // Class must appear quickly after click.
+    await expect(todayCell).toHaveClass(/calendar-today-flash/, {
+      timeout: 200,
+    })
+    await expect(todayCell).toHaveClass(/calendar-today-indicator/)
+
+    const computed = await todayCell.evaluate((element) => {
+      const style = window.getComputedStyle(element as Element)
+      return {
+        animationName: style.animationName,
+        animationDuration: style.animationDuration,
+        animationIterationCount: style.animationIterationCount,
+        animationTimingFunction: style.animationTimingFunction,
+      }
+    })
+
+    // The flash must be a real CSS animation (not `none`).
+    expect(computed.animationName).toContain('calendar-today-flash')
+    // Duration must be at least 1.4s — the previous box-shadow-only flash
+    // was too subtle to see; a longer duration with ease-in-out and ≥2
+    // iterations gives the user time to register the animation.
+    const firstDuration = computed.animationDuration.split(',')[0].trim()
+    expect(parseFloat(firstDuration)).toBeGreaterThanOrEqual(1.4)
+    expect(computed.animationTimingFunction).toContain('ease-in-out')
+    // Must iterate at least twice so the user definitely registers the flash.
+    const firstIterations = computed.animationIterationCount
+      .split(',')[0]
+      .trim()
+    expect(Number(firstIterations)).toBeGreaterThanOrEqual(2)
+
+    // After the flash finishes (animation × iterations + JS clear timeout),
+    // the temporary class must be removed but the persistent indicator stays.
+    await page.waitForTimeout(4000)
+    await expect(todayCell).not.toHaveClass(/calendar-today-flash/)
+    await expect(todayCell).toHaveClass(/calendar-today-indicator/)
+  })
+
+  test('multi-day selection paints a real background colour on intermediate cells in dark mode', async ({
     page,
   }) => {
     const dates = getCurrentMonthInteractionDates()
@@ -214,7 +249,9 @@ test.describe('calendar styling regressions (bug 260424-2)', () => {
       'backgroundColor'
     )
 
-    expect(rgbDistance(middleBg, unselectedBg)).toBeGreaterThanOrEqual(12)
+    // Stricter than round 2 (≥ 12): require an obvious background change so
+    // the test fails if only the border changes (the user's complaint).
+    expect(rgbDistance(middleBg, unselectedBg)).toBeGreaterThanOrEqual(30)
   })
 
   test('multi-day selection remains visible on intermediate cells in light mode', async ({

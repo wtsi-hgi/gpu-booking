@@ -596,7 +596,7 @@ export function CalendarView({
 
     const timeout = window.setTimeout(() => {
       setIsTodayHighlighted(false)
-    }, 1800)
+    }, 3400)
 
     return () => {
       window.clearTimeout(timeout)

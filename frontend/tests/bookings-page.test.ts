@@ -452,40 +452,50 @@ describe('bookings page - F1 calendar grid', () => {
       'calendar-today-highlight'
     )
     expect(globalsCss).toContain('.calendar-today-indicator')
-    expect(globalsCss).toContain('var(--color-calendar-today-highlight) 32%')
-    expect(globalsCss).toContain(
-      'var(--color-calendar-today-highlight-strong) 72%'
+    // Bug fix (260424-2 A round 3): today must NOT have a coloured background
+    // (the previous yellow-mix rendered as an "ugly greenish wash" over white).
+    // The indicator is border-only, using `--color-primary` so a single rule
+    // adapts to both light and dark themes (slate-950 vs slate-50).
+    const todayIndicatorRuleMatch = globalsCss.match(
+      /\.calendar-today-indicator\s*\{([^}]*)\}/
     )
-    expect(globalsCss).toContain(
-      'var(--color-calendar-today-highlight-strong) 22%'
+    expect(todayIndicatorRuleMatch).toBeTruthy()
+    const todayIndicatorRuleBody = todayIndicatorRuleMatch?.[1] ?? ''
+    expect(todayIndicatorRuleBody).not.toMatch(/background-color:/)
+    expect(todayIndicatorRuleBody).toMatch(
+      /border-color:\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*75%,\s*var\(--color-border\)\s*\)\s*!important/
+    )
+    expect(todayIndicatorRuleBody).toMatch(
+      /box-shadow:\s*inset 0 0 0 2px\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*70%,\s*transparent\)/
     )
     expect(globalsCss).toContain('.calendar-today-flash')
     expect(globalsCss).toContain('@keyframes calendar-today-flash')
 
-    // Bug fix (260424-2): the Today flash must be subtle and smooth.
-    // Require ease-in-out (not ease-out) and a duration of at least 1.6s.
+    // Bug fix (260424-2 A round 3): the Today flash must be obviously
+    // visible. A box-shadow-only animation was too subtle; the new keyframe
+    // combines a `transform: scale` pulse with an outward ring pulse, runs
+    // for ≥ 1.4s ease-in-out, and iterates at least twice so the user
+    // definitely sees it.
     const flashRuleMatch = globalsCss.match(
-      /\.calendar-today-flash\s*{\s*animation:\s*calendar-today-flash\s+([0-9.]+)s\s+(ease-in-out|ease-in|ease-out|ease|linear|cubic-bezier\([^)]+\))\s*;?\s*}/
+      /\.calendar-today-flash\s*\{\s*animation:\s*calendar-today-flash\s+([0-9.]+)s\s+(ease-in-out|ease-in|ease-out|ease|linear|cubic-bezier\([^)]+\))(?:\s+([0-9]+))?\s*;?\s*\}/
     )
     expect(flashRuleMatch).toBeTruthy()
     const flashDurationSeconds = Number(flashRuleMatch?.[1])
     const flashEasing = flashRuleMatch?.[2]
-    expect(flashDurationSeconds).toBeGreaterThanOrEqual(1.6)
+    const flashIterations = Number(flashRuleMatch?.[3] ?? '1')
+    expect(flashDurationSeconds).toBeGreaterThanOrEqual(1.4)
+    expect(flashDurationSeconds).toBeLessThanOrEqual(1.8)
     expect(flashEasing).toBe('ease-in-out')
+    expect(flashIterations).toBeGreaterThanOrEqual(2)
 
-    // The keyframe must not swap the cell background to a strong colour
-    // mid-animation (the previous harsh pulse used 92% / 68% strong mixes).
+    // Keyframe must include a transform-based scale pulse (the visual
+    // change a box-shadow-only animation lacked).
     const keyframeBlockMatch = globalsCss.match(
-      /@keyframes calendar-today-flash\s*{[\s\S]*?\n\s*}\s*}/
+      /@keyframes calendar-today-flash\s*\{[\s\S]*?\n\s*\}\s*\}/
     )
     expect(keyframeBlockMatch).toBeTruthy()
     const keyframeBlock = keyframeBlockMatch?.[0] ?? ''
-    expect(keyframeBlock).not.toMatch(
-      /var\(--color-calendar-today-highlight-strong\)\s+(?:6[8-9]|[7-9][0-9]|100)%/
-    )
-    expect(keyframeBlock).not.toMatch(
-      /var\(--color-calendar-today-highlight\)\s+(?:5[0-9]|[6-9][0-9]|100)%/
-    )
+    expect(keyframeBlock).toMatch(/transform:\s*scale\(\s*1\.0?[1-9]/)
 
     fireEvent.click(screen.getByRole('button', { name: 'Previous month' }))
     await vi.runAllTimersAsync()
@@ -505,7 +515,7 @@ describe('bookings page - F1 calendar grid', () => {
     expect(todayCell?.className).not.toContain('border-primary/25')
     expect(todayCell?.className).not.toContain('ring-primary/20')
 
-    await vi.advanceTimersByTimeAsync(1800)
+    await vi.advanceTimersByTimeAsync(3400)
 
     expect(todayCell?.getAttribute('data-today-highlighted')).toBe('false')
     expect(todayCell?.className).toContain('calendar-today-indicator')

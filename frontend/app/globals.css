@@ -143,20 +143,25 @@
 }
 
 /*
- * Calendar custom rules (bug 260424-2 A and C).
+ * Calendar custom rules (bug 260424-2 A, B and C).
  *
  * These rules are intentionally placed OUTSIDE `@layer components` so they
  * win the cascade against Tailwind utilities applied on the same DOM cell
  * (`bg-card`, `border-border`, etc.), which live in `@layer utilities` and
  * would otherwise override component-layer `background-color` /
  * `border-color` declarations regardless of selector specificity. Un-layered
- * rules out-rank any `@layer` rule, so the today indicator and the multi-day
- * selection fill are guaranteed to render.
+ * rules out-rank any `@layer` rule.
  *
  * `!important` is added on the two properties that genuinely conflict with
  * Tailwind utilities (background-color, border-color) as a belt-and-braces
- * guard. `box-shadow` does not need `!important` because no Tailwind utility
- * on these cells sets a competing box-shadow.
+ * guard. The dark-mode selection rules ALSO carry an extra
+ * `[data-day-cell="true"].calendar-...` higher-specificity selector so that
+ * even if a future rule competes through Tailwind layer ordering, the
+ * attribute+class combo (specificity 0,2,1 with the `.dark` ancestor) wins
+ * deterministically.
+ *
+ * `box-shadow` does not need `!important` because no Tailwind utility on
+ * these cells sets a competing box-shadow.
  */
 .calendar-selection-highlight {
   background-color: color-mix(
@@ -187,85 +192,84 @@
   ) !important;
 }
 
+/*
+ * Today indicator (bug 260424-2 A).
+ *
+ * NO `background-color` — the user explicitly does not want a coloured
+ * today background. The cell keeps its default `bg-card`. Today is marked
+ * exclusively by:
+ *   1. A bold border colour (`--color-primary` 75% over `--color-border`).
+ *      `--color-primary` resolves to slate-950 in light mode and slate-50
+ *      in dark mode, so a single rule produces a clearly visible border
+ *      in both themes without separate dark overrides.
+ *   2. An additional 2px inset box-shadow in the same colour, which gives
+ *      a thicker visual weight without disturbing cell layout (a real
+ *      `border-width: 2px` would shift the grid).
+ */
 .calendar-today-indicator {
-  background-color: color-mix(
-    in srgb,
-    var(--color-calendar-today-highlight) 32%,
-    var(--color-card)
-  ) !important;
   border-color: color-mix(
     in srgb,
-    var(--color-calendar-today-highlight-strong) 72%,
+    var(--color-primary) 75%,
     var(--color-border)
   ) !important;
-  box-shadow: inset 0 0 0 1px
-    color-mix(
-      in srgb,
-      var(--color-calendar-today-highlight-strong) 22%,
-      transparent
-    );
+  box-shadow: inset 0 0 0 2px
+    color-mix(in srgb, var(--color-primary) 70%, transparent);
 }
 
+/*
+ * Today click flash (bug 260424-2 A).
+ *
+ * The previous box-shadow-only flash was too subtle to register. This
+ * version combines a scale pulse and an outward ring pulse, runs for
+ * 1.6s ease-in-out, and iterates TWICE so the user definitely sees it.
+ * The cell already has `position: relative` (Tailwind `relative` class)
+ * so the transform composites cleanly without affecting siblings.
+ */
 .calendar-today-flash {
-  animation: calendar-today-flash 1.8s ease-in-out;
+  animation: calendar-today-flash 1.6s ease-in-out 2;
 }
 
 @keyframes calendar-today-flash {
-  0% {
+  0%,
+  100% {
+    transform: scale(1);
     box-shadow:
-      inset 0 0 0 1px
-        color-mix(
-          in srgb,
-          var(--color-calendar-today-highlight-strong) 22%,
-          transparent
-        ),
-      0 0 0 0
-        color-mix(
-          in srgb,
-          var(--color-calendar-today-highlight-strong) 0%,
-          transparent
-        );
+      inset 0 0 0 2px color-mix(in srgb, var(--color-primary) 70%, transparent),
+      0 0 0 0 color-mix(in srgb, var(--color-primary) 40%, transparent);
   }
 
   50% {
+    transform: scale(1.04);
     box-shadow:
-      inset 0 0 0 1px
-        color-mix(
-          in srgb,
-          var(--color-calendar-today-highlight-strong) 38%,
-          transparent
-        ),
-      0 0 0 6px
-        color-mix(
-          in srgb,
-          var(--color-calendar-today-highlight-strong) 18%,
-          transparent
-        );
-  }
-
-  100% {
-    box-shadow:
-      inset 0 0 0 1px
-        color-mix(
-          in srgb,
-          var(--color-calendar-today-highlight-strong) 22%,
-          transparent
-        ),
-      0 0 0 0
-        color-mix(
-          in srgb,
-          var(--color-calendar-today-highlight-strong) 0%,
-          transparent
-        );
+      inset 0 0 0 2px color-mix(in srgb, var(--color-primary) 95%, transparent),
+      0 0 0 8px color-mix(in srgb, var(--color-primary) 0%, transparent);
   }
 }
 
 /*
- * Dark-mode overrides. Same cascade-layer reasoning as above: kept un-layered
- * with `!important` on background-color/border-color so Tailwind's `bg-card`
- * cannot win.
+ * Dark-mode selection overrides. Same cascade-layer reasoning as above:
+ * kept un-layered with `!important`. A second rule with the
+ * `[data-day-cell="true"]` attribute selector raises specificity to
+ * (0,2,1) under `.dark` so it cannot lose to any later single-class
+ * Tailwind utility on the same cell.
  */
 .dark .calendar-selection-highlight {
+  background-color: color-mix(
+    in srgb,
+    var(--color-primary) 40%,
+    var(--color-card)
+  ) !important;
+  border-color: color-mix(
+    in srgb,
+    var(--color-primary) 78%,
+    var(--color-border)
+  ) !important;
+  box-shadow:
+    inset 0 0 0 999px color-mix(in srgb, var(--color-primary) 40%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--color-primary) 60%, transparent);
+}
+
+.dark [data-day-cell='true'].calendar-selection-highlight {
   background-color: color-mix(
     in srgb,
     var(--color-primary) 40%,
@@ -294,27 +298,38 @@
   ) !important;
 }
 
-.dark .calendar-today-indicator {
+.dark [data-day-cell='true'].calendar-selection-summary-highlight {
   background-color: color-mix(
     in srgb,
-    var(--color-calendar-today-highlight-strong) 40%,
+    var(--color-primary) 35%,
     var(--color-card)
   ) !important;
   border-color: color-mix(
     in srgb,
-    var(--color-calendar-today-highlight-strong) 80%,
+    var(--color-primary) 70%,
     var(--color-border)
   ) !important;
-  box-shadow: inset 0 0 0 1px
-    color-mix(
-      in srgb,
-      var(--color-calendar-today-highlight-strong) 35%,
-      transparent
-    );
 }
 
 @media (prefers-color-scheme: dark) {
   html:not(.light) .calendar-selection-highlight {
+    background-color: color-mix(
+      in srgb,
+      var(--color-primary) 40%,
+      var(--color-card)
+    ) !important;
+    border-color: color-mix(
+      in srgb,
+      var(--color-primary) 78%,
+      var(--color-border)
+    ) !important;
+    box-shadow:
+      inset 0 0 0 999px
+        color-mix(in srgb, var(--color-primary) 40%, transparent),
+      inset 0 0 0 1px color-mix(in srgb, var(--color-primary) 60%, transparent);
+  }
+
+  html:not(.light) [data-day-cell='true'].calendar-selection-highlight {
     background-color: color-mix(
       in srgb,
       var(--color-primary) 40%,
@@ -342,24 +357,5 @@
       var(--color-primary) 70%,
       var(--color-border)
     ) !important;
-  }
-
-  html:not(.light) .calendar-today-indicator {
-    background-color: color-mix(
-      in srgb,
-      var(--color-calendar-today-highlight-strong) 40%,
-      var(--color-card)
-    ) !important;
-    border-color: color-mix(
-      in srgb,
-      var(--color-calendar-today-highlight-strong) 80%,
-      var(--color-border)
-    ) !important;
-    box-shadow: inset 0 0 0 1px
-      color-mix(
-        in srgb,
-        var(--color-calendar-today-highlight-strong) 35%,
-        transparent
-      );
   }
 }
