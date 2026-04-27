@@ -267,7 +267,7 @@ describe('bookings page - F1 calendar grid', () => {
   })
 
   it('shows 50% solid confirmed usage for 20 of 40 confirmed GPUs', async () => {
-    mocks.getCapacityMock.mockResolvedValueOnce([
+    mocks.getCapacityMock.mockImplementation(async () => [
       buildCapacity('2026-03-10', 40, 20, 0, 1, 'H100'),
     ])
 
