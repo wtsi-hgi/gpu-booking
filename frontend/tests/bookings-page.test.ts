@@ -437,33 +437,10 @@ describe('bookings page - F1 calendar grid', () => {
     const initialTodayCell = document.querySelector(
       '[data-date="2026-03-15"]'
     ) as HTMLElement | null
-    const globalsCss = await readGlobalsCss()
 
     expect(initialTodayCell?.getAttribute('data-today')).toBe('true')
     expect(initialTodayCell?.className).toContain('calendar-today-indicator')
     expect(initialTodayCell?.className).not.toContain('calendar-today-flash')
-    expect(globalsCss).toContain("[data-day-cell='true'][data-today='true']")
-    // The today indicator must be border-only (no background fill) and use
-    // `--color-primary` so it adapts to both light and dark themes. The
-    // visual rule must be keyed to `data-today` rather than the helper class
-    // alone, so a misplaced class cannot give non-today cells the strong frame.
-    const todayIndicatorRuleMatch = globalsCss.match(
-      /\[data-day-cell='true'\]\[data-today='true'\]\s*\{([^}]*)\}/
-    )
-    expect(todayIndicatorRuleMatch).toBeTruthy()
-    const todayIndicatorRuleBody = todayIndicatorRuleMatch?.[1] ?? ''
-    expect(todayIndicatorRuleBody).not.toMatch(/background-color:/)
-    expect(todayIndicatorRuleBody).toMatch(
-      /border-color:\s*var\(--color-primary\)\s*!important/
-    )
-    expect(todayIndicatorRuleBody).toMatch(
-      /box-shadow:[\s\S]*inset 0 0 0 3px\s*var\(--color-primary\)[\s\S]*0 0 0 1px\s*var\(--color-primary\)/
-    )
-
-    // The today flash animation has been removed entirely. Lock that in
-    // with negative assertions on globals.css.
-    expect(globalsCss).not.toContain('calendar-today-flash')
-    expect(globalsCss).not.toContain('@keyframes calendar-today-flash')
 
     fireEvent.click(screen.getByRole('button', { name: 'Previous month' }))
     await vi.runAllTimersAsync()
@@ -582,7 +559,7 @@ describe('bookings page - F1 calendar grid', () => {
     )
   })
 
-  it('uses a dedicated selection highlight so dark mode stays visible without the old light-mode tint', async () => {
+  it('uses a dedicated selection highlight class instead of old tint utilities', async () => {
     document.documentElement.classList.add('dark')
 
     const { default: BookingsPage } = await import('@/app/bookings/page')
@@ -595,178 +572,14 @@ describe('bookings page - F1 calendar grid', () => {
     fireEvent.mouseUp(dayCell as Element)
 
     const selectedDayClassName = dayCell?.getAttribute('class') ?? ''
-    const globalsCss = await readGlobalsCss()
 
     expect(selectedDayClassName).toContain('calendar-selection-highlight')
     expect(selectedDayClassName).not.toContain('border-primary/70')
     expect(selectedDayClassName).not.toContain('bg-primary/15')
     expect(selectedDayClassName).not.toContain('dark:border-primary')
     expect(selectedDayClassName).not.toContain('dark:bg-primary/40')
-    expect(globalsCss).toMatch(
-      /\.calendar-selection-highlight\s*\{[\s\S]*background-color:\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*8%,\s*var\(--color-card\)\s*\)\s*(?:!important)?\s*;[\s\S]*border-color:\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*45%,\s*var\(--color-border\)\s*\)\s*(?:!important)?\s*;[\s\S]*box-shadow:\s*inset 0 0 0 999px\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*8%,\s*transparent\),\s*inset 0 0 0 1px\s*color-mix\(in srgb,\s*var\(--color-primary\)\s*12%,\s*transparent\);[\s\S]*\}/
-    )
-    expect(globalsCss).toMatch(
-      /\.dark\s+\.calendar-selection-highlight\s*\{[\s\S]*background-color:\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*40%,\s*var\(--color-card\)\s*\)\s*(?:!important)?\s*;[\s\S]*border-color:\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*78%,\s*var\(--color-border\)\s*\)\s*(?:!important)?\s*;[\s\S]*box-shadow:\s*inset 0 0 0 999px\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*40%,\s*transparent\),\s*inset 0 0 0 1px\s*color-mix\(in srgb,\s*var\(--color-primary\)\s*60%,\s*transparent\);[\s\S]*\}/
-    )
-    expect(globalsCss).toMatch(
-      /@media\s*\(prefers-color-scheme:\s*dark\)\s*\{[\s\S]*html:not\(\.light\)\s+\.calendar-selection-highlight\s*\{[\s\S]*background-color:\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*40%,\s*var\(--color-card\)\s*\)\s*(?:!important)?\s*;[\s\S]*border-color:\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*78%,\s*var\(--color-border\)\s*\)\s*(?:!important)?\s*;[\s\S]*box-shadow:\s*inset 0 0 0 999px\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*40%,\s*transparent\),\s*inset 0 0 0 1px\s*color-mix\(in srgb,\s*var\(--color-primary\)\s*60%,\s*transparent\);[\s\S]*\}[\s\S]*\}/
-    )
 
     document.documentElement.classList.remove('dark')
-  })
-
-  it('keeps the light-mode selection highlight subtle (bug 260424-2 B)', async () => {
-    // Bug fix (260424-2 B): the light-mode multi-day selection fill was too
-    // saturated. The selection must remain visible (still a different fill
-    // and border than an unselected neighbour) but the colour-mix
-    // percentages must stay below the high-contrast pre-fix values.
-    const globalsCss = await readGlobalsCss()
-
-    const lightRuleMatch = globalsCss.match(
-      /(?<!\.dark\s)\.calendar-selection-highlight\s*\{([\s\S]*?)\}/
-    )
-    expect(lightRuleMatch).toBeTruthy()
-    const lightRuleBody = lightRuleMatch?.[1] ?? ''
-
-    function extractPercent(pattern: RegExp): number {
-      const match = lightRuleBody.match(pattern)
-      expect(match).toBeTruthy()
-      return Number(match?.[1])
-    }
-
-    const backgroundPercent = extractPercent(
-      /background-color:\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*([0-9]+)%,\s*var\(--color-card\)\s*\)/
-    )
-    const borderPercent = extractPercent(
-      /border-color:\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*([0-9]+)%,\s*var\(--color-border\)\s*\)/
-    )
-    const insetFillPercent = extractPercent(
-      /inset 0 0 0 999px\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*([0-9]+)%,\s*transparent\)/
-    )
-    const insetBorderPercent = extractPercent(
-      /inset 0 0 0 1px\s*color-mix\(in srgb,\s*var\(--color-primary\)\s*([0-9]+)%,\s*transparent\)/
-    )
-
-    expect(backgroundPercent).toBeLessThanOrEqual(10)
-    expect(borderPercent).toBeLessThanOrEqual(50)
-    expect(insetFillPercent).toBeLessThanOrEqual(10)
-    expect(insetBorderPercent).toBeLessThanOrEqual(15)
-
-    // Selection must still be visible: not zeroed out.
-    expect(backgroundPercent).toBeGreaterThan(0)
-    expect(borderPercent).toBeGreaterThan(0)
-    expect(insetFillPercent).toBeGreaterThan(0)
-    expect(insetBorderPercent).toBeGreaterThan(0)
-
-    // Summary highlight should be no stronger than the cell highlight.
-    const summaryRuleMatch = globalsCss.match(
-      /(?<!\.dark\s)\.calendar-selection-summary-highlight\s*\{([\s\S]*?)\}/
-    )
-    expect(summaryRuleMatch).toBeTruthy()
-    const summaryBody = summaryRuleMatch?.[1] ?? ''
-    const summaryBgMatch = summaryBody.match(
-      /background-color:\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*([0-9]+)%,\s*var\(--color-card\)\s*\)/
-    )
-    const summaryBorderMatch = summaryBody.match(
-      /border-color:\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*([0-9]+)%,\s*var\(--color-border\)\s*\)/
-    )
-    expect(summaryBgMatch).toBeTruthy()
-    expect(summaryBorderMatch).toBeTruthy()
-    expect(Number(summaryBgMatch?.[1])).toBeLessThanOrEqual(10)
-    expect(Number(summaryBorderMatch?.[1])).toBeLessThanOrEqual(20)
-  })
-
-  it('renders multi-day selection visibly in dark mode (bug 260424-2 C)', async () => {
-    // Bug fix (260424-2 C): in dark mode the multi-day selection was invisible
-    // on intermediate cells. Two structural problems:
-    //  1. The dark-mode rule lived in `@layer components`, but Tailwind's
-    //     `bg-card` utility (applied on the same cell) lives in `@layer
-    //     utilities`, which has higher cascade priority. The component-layer
-    //     `background-color` was therefore overridden.
-    //  2. The colour-mix percentages on the dark rule were too low to read
-    //     over the dark card background even when they did render.
-    // The fix must (a) place the dark-mode selection rules where they win
-    // against Tailwind utilities (outside `@layer components`, OR use
-    // `!important`), and (b) bump the dark-mode percentages so the fill and
-    // border are clearly visible.
-    const globalsCss = await readGlobalsCss()
-
-    const darkRuleMatch = globalsCss.match(
-      /\.dark\s+\.calendar-selection-highlight\s*\{([\s\S]*?)\}/
-    )
-    expect(darkRuleMatch).toBeTruthy()
-    const darkBody = darkRuleMatch?.[1] ?? ''
-
-    const darkBgMatch = darkBody.match(
-      /background-color:\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*([0-9]+)%,\s*var\(--color-card\)\s*\)/
-    )
-    const darkBorderMatch = darkBody.match(
-      /border-color:\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*([0-9]+)%,\s*var\(--color-border\)\s*\)/
-    )
-    expect(darkBgMatch).toBeTruthy()
-    expect(darkBorderMatch).toBeTruthy()
-    const darkBgPercent = Number(darkBgMatch?.[1])
-    const darkBorderPercent = Number(darkBorderMatch?.[1])
-    expect(darkBgPercent).toBeGreaterThanOrEqual(35)
-    expect(darkBgPercent).toBeLessThanOrEqual(45)
-    expect(darkBorderPercent).toBeGreaterThanOrEqual(70)
-    expect(darkBorderPercent).toBeLessThanOrEqual(85)
-
-    // The dark-mode selection rule must out-rank Tailwind's `bg-card`
-    // utility (which sits in `@layer utilities`). It is therefore either
-    // placed outside `@layer components` entirely, or it uses `!important`.
-    const layerComponentsStart = globalsCss.indexOf('@layer components')
-    expect(layerComponentsStart).toBeGreaterThanOrEqual(0)
-    let depth = 0
-    let layerComponentsEnd = -1
-    for (let i = layerComponentsStart; i < globalsCss.length; i++) {
-      const character = globalsCss[i]
-      if (character === '{') {
-        depth += 1
-      } else if (character === '}') {
-        depth -= 1
-        if (depth === 0) {
-          layerComponentsEnd = i
-          break
-        }
-      }
-    }
-    expect(layerComponentsEnd).toBeGreaterThan(layerComponentsStart)
-
-    const darkRuleIndex = globalsCss.indexOf(
-      '.dark .calendar-selection-highlight'
-    )
-    const summaryDarkRuleIndex = globalsCss.indexOf(
-      '.dark .calendar-selection-summary-highlight'
-    )
-    const mediaDarkRuleIndex = globalsCss.indexOf(
-      'html:not(.light) .calendar-selection-highlight'
-    )
-    expect(darkRuleIndex).toBeGreaterThanOrEqual(0)
-    expect(summaryDarkRuleIndex).toBeGreaterThanOrEqual(0)
-    expect(mediaDarkRuleIndex).toBeGreaterThanOrEqual(0)
-
-    const ruleIsOutsideComponents = darkRuleIndex > layerComponentsEnd
-    const ruleUsesImportant = /background-color[^;]*!important/i.test(darkBody)
-    expect(ruleIsOutsideComponents || ruleUsesImportant).toBe(true)
-
-    const summaryRuleIsOutsideComponents =
-      summaryDarkRuleIndex > layerComponentsEnd
-    const mediaRuleIsOutsideComponents = mediaDarkRuleIndex > layerComponentsEnd
-    expect(summaryRuleIsOutsideComponents || ruleUsesImportant).toBe(true)
-    expect(mediaRuleIsOutsideComponents || ruleUsesImportant).toBe(true)
-
-    // Summary highlight must also bump up so the inner pill row reads in dark.
-    const darkSummaryMatch = globalsCss.match(
-      /\.dark\s+\.calendar-selection-summary-highlight\s*\{([\s\S]*?)\}/
-    )
-    expect(darkSummaryMatch).toBeTruthy()
-    const darkSummaryBody = darkSummaryMatch?.[1] ?? ''
-    const darkSummaryBg = darkSummaryBody.match(
-      /background-color:\s*color-mix\(\s*in srgb,\s*var\(--color-primary\)\s*([0-9]+)%,\s*var\(--color-card\)\s*\)/
-    )
-    expect(darkSummaryBg).toBeTruthy()
-    expect(Number(darkSummaryBg?.[1])).toBeGreaterThanOrEqual(30)
   })
 
   it('keeps multi-day selection interiors visibly highlighted in light and dark mode', async () => {

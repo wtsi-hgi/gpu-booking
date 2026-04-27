@@ -47,4 +47,13 @@ describe('theme handling', () => {
     expect(globalsCss).toContain('html:not(.light)')
     expect(globalsCss).toContain('color-scheme: dark')
   })
+
+  it('keeps Tailwind dark utilities aligned with next-themes class mode', async () => {
+    const globalsCssPath = path.join(process.cwd(), 'app', 'globals.css')
+    const globalsCss = await fs.readFile(globalsCssPath, 'utf8')
+
+    expect(globalsCss).toContain(
+      '@custom-variant dark (&:where(.dark, .dark *));'
+    )
+  })
 })
