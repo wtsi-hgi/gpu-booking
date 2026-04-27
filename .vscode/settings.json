@@ -2,10 +2,14 @@
   "editor.detectIndentation": false,
   "editor.insertSpaces": true,
   "editor.tabSize": 2,
+  "editor.formatOnSave": true,
+  "editor.formatOnSaveMode": "file",
   "files.eol": "\n",
   "files.insertFinalNewline": true,
+  "files.trimFinalNewlines": true,
   "files.trimTrailingWhitespace": true,
   "prettier.endOfLine": "lf",
+  "prettier.requireConfig": true,
   "[python]": {
     "editor.insertSpaces": true,
     "editor.tabSize": 4
