@@ -9,17 +9,15 @@ GPU Booking is a full-stack scheduling application for shared accelerator infras
 ## What the app does
 
 ### User workflows
-- Create a booking with GPU type, memory/GRAM options, workflow type, and dates.
+- Create a booking with GPU host type, host count, workflow type, and dates.
 - See booking status (`unconfirmed`, `confirmed`, `tentative`, `spot`, `rejected`, `cancelled`).
 - View bookings in table/calendar-oriented screens.
 - Validate requested allocations against capacity rules before submit.
 
 ### Admin workflows
 - Manage reference data:
-  - GPU types
+  - GPU host types
   - workflow types
-  - memory options
-  - GRAM options
 - Review and update bookings, including status and admin notes.
 - Inspect capacity and guardrails for over-allocation.
 

@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from httpx import AsyncClient
 
-from api import api_v1_router
+from api.v1 import api_router as api_v1_router
 from config import settings
 from db.engine import async_session_factory, init_db
 from db.seed import seed_db

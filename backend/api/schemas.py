@@ -27,36 +27,33 @@ class UserInfo(BaseModel):
     auth_mode: str
 
 
-class GpuTypeResponse(BaseModel):
-    """GPU type response payload."""
+class GpuHostTypeResponse(BaseModel):
+    """GPU host type response payload."""
 
     id: int
-    name: str
-    gram_gb: int
-    system_memory_gb: int
-    total_count: int
+    gpu_type: str
+    gpu_count: int
+    total_count: int = Field(ge=0)
     created_at: datetime
     updated_at: datetime
 
     model_config = {"from_attributes": True}
 
 
-class GpuTypeCreate(BaseModel):
-    """GPU type create payload."""
+class GpuHostTypeCreate(BaseModel):
+    """GPU host type create payload."""
 
-    name: str
-    gram_gb: int = Field(gt=0)
-    system_memory_gb: int = Field(gt=0)
-    total_count: int = Field(gt=0)
+    gpu_type: str
+    gpu_count: int = Field(gt=0)
+    total_count: int = Field(ge=0)
 
 
-class GpuTypeUpdate(BaseModel):
-    """GPU type update payload."""
+class GpuHostTypeUpdate(BaseModel):
+    """GPU host type update payload."""
 
-    name: str | None = None
-    gram_gb: int | None = Field(default=None, gt=0)
-    system_memory_gb: int | None = Field(default=None, gt=0)
-    total_count: int | None = Field(default=None, gt=0)
+    gpu_type: str | None = None
+    gpu_count: int | None = Field(default=None, gt=0)
+    total_count: int | None = Field(default=None, ge=0)
 
 
 class WorkflowTypeResponse(BaseModel):
@@ -80,60 +77,6 @@ class WorkflowTypeUpdate(BaseModel):
     name: str | None = None
 
 
-class GramOptionResponse(BaseModel):
-    """GRAM option response payload."""
-
-    id: int
-    label: str
-    value_gb: int
-    sort_order: int
-
-    model_config = {"from_attributes": True}
-
-
-class GramOptionCreate(BaseModel):
-    """GRAM option create payload."""
-
-    label: str
-    value_gb: int = Field(gt=0)
-    sort_order: int = Field(ge=0)
-
-
-class GramOptionUpdate(BaseModel):
-    """GRAM option update payload."""
-
-    label: str | None = None
-    value_gb: int | None = Field(default=None, gt=0)
-    sort_order: int | None = Field(default=None, ge=0)
-
-
-class MemoryOptionResponse(BaseModel):
-    """Memory option response payload."""
-
-    id: int
-    label: str
-    value_gb: int
-    sort_order: int
-
-    model_config = {"from_attributes": True}
-
-
-class MemoryOptionCreate(BaseModel):
-    """Memory option create payload."""
-
-    label: str
-    value_gb: int = Field(gt=0)
-    sort_order: int = Field(ge=0)
-
-
-class MemoryOptionUpdate(BaseModel):
-    """Memory option update payload."""
-
-    label: str | None = None
-    value_gb: int | None = Field(default=None, gt=0)
-    sort_order: int | None = Field(default=None, ge=0)
-
-
 class BookingStatus(StrEnum):
     """Supported lifecycle states for bookings."""
 
@@ -148,10 +91,8 @@ class BookingStatus(StrEnum):
 class BookingCreate(BaseModel):
     """Booking create payload."""
 
-    gpu_type_id: int
-    gpu_count: int = Field(gt=0)
-    gram_option_id: int
-    memory_option_id: int
+    gpu_host_type_id: int
+    host_count: int = Field(gt=0)
     workflow_type_id: int
     start_date: date
     end_date: date
@@ -169,10 +110,8 @@ class AdminBookingUpdate(BaseModel):
 
     status: BookingStatus | None = None
     admin_notes: str | None = None
-    gpu_type_id: int | None = None
-    gpu_count: int | None = Field(default=None, gt=0)
-    gram_option_id: int | None = None
-    memory_option_id: int | None = None
+    gpu_host_type_id: int | None = None
+    host_count: int | None = Field(default=None, gt=0)
     workflow_type_id: int | None = None
     start_date: date | None = None
     end_date: date | None = None
@@ -190,13 +129,10 @@ class BookingResponse(BaseModel):
 
     id: int
     user_email: str
-    gpu_type_id: int
-    gpu_type_name: str
+    gpu_host_type_id: int
+    gpu_type: str
     gpu_count: int
-    gram_option_id: int
-    gram_label: str
-    memory_option_id: int
-    memory_label: str
+    host_count: int
     workflow_type_id: int
     workflow_type_name: str
     start_date: date
@@ -218,11 +154,12 @@ class BookingResponse(BaseModel):
 
 
 class DailyCapacity(BaseModel):
-    """Daily capacity metrics for one GPU type."""
+    """Daily capacity metrics for one GPU host type."""
 
     date: date
-    gpu_type_id: int
-    gpu_type_name: str
+    gpu_host_type_id: int
+    gpu_type: str
+    gpu_count: int
     total: int
     confirmed_used: int
     pending_used: int

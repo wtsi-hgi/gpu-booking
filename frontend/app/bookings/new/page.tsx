@@ -1,9 +1,4 @@
-import {
-  getGpuTypes,
-  getGramOptions,
-  getMemoryOptions,
-  getWorkflowTypes,
-} from '@/app/actions'
+import { getGpuHostTypes, getWorkflowTypes } from '@/app/actions'
 import { BookingForm } from '@/components/booking-form'
 import { requireCurrentUser } from '@/lib/server-auth'
 
@@ -35,21 +30,16 @@ export default async function NewBookingPage({
     ? resolvedSearchParams.end
     : undefined
 
-  const user = await requireCurrentUser('/bookings/new')
-  const [gpuTypes, gramOptions, memoryOptions, workflowTypes] =
-    await Promise.all([
-      getGpuTypes(),
-      getGramOptions(user.auth_mode === 'insecure' ? user.email : undefined),
-      getMemoryOptions(user.auth_mode === 'insecure' ? user.email : undefined),
-      getWorkflowTypes(),
-    ])
+  await requireCurrentUser('/bookings/new')
+  const [gpuHostTypes, workflowTypes] = await Promise.all([
+    getGpuHostTypes(),
+    getWorkflowTypes(),
+  ])
 
   return (
     <main className="container mx-auto max-w-3xl px-4 py-10">
       <BookingForm
-        gpuTypes={gpuTypes}
-        gramOptions={gramOptions}
-        memoryOptions={memoryOptions}
+        gpuHostTypes={gpuHostTypes}
         workflowTypes={workflowTypes}
         initialStartDate={startDate}
         initialEndDate={endDate}

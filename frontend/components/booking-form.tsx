@@ -24,12 +24,8 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import type {
-  GramOption,
-  GpuType,
-  MemoryOption,
-  WorkflowType,
-} from '@/lib/admin-contracts'
+import type { GpuHostType, WorkflowType } from '@/lib/admin-contracts'
+import { formatGpuHostTypeLabel } from '@/lib/admin-contracts'
 import type { BookingValidation } from '@/lib/booking-contracts'
 import {
   buildRequiredFieldErrors,
@@ -42,9 +38,7 @@ import {
 } from '@/lib/booking-state'
 
 type BookingFormProps = {
-  gpuTypes: GpuType[]
-  gramOptions: GramOption[]
-  memoryOptions: MemoryOption[]
+  gpuHostTypes: GpuHostType[]
   workflowTypes: WorkflowType[]
   initialStartDate?: string
   initialEndDate?: string
@@ -67,9 +61,9 @@ const validationRuleFieldMap: Partial<Record<string, BookingFieldName>> = {
   advance_notice_min_14_days: 'start_date',
   duration_gt_14_days: 'end_date',
   duration_max_14_days: 'end_date',
-  capacity_hard_limit: 'gpu_count',
-  capacity_soft_limit: 'gpu_count',
-  user_capacity_40_percent: 'gpu_count',
+  capacity_hard_limit: 'host_count',
+  capacity_soft_limit: 'host_count',
+  user_capacity_40_percent: 'host_count',
 }
 
 function buildFormValues(
@@ -110,7 +104,7 @@ function validateRequiredFields(
       continue
     }
 
-    if (field === 'gpu_count') {
+    if (field === 'host_count') {
       const parsed = Number.parseInt(value, 10)
       if (!Number.isInteger(parsed) || parsed <= 0) {
         missingFields.push(field)
@@ -192,7 +186,7 @@ function getFieldForValidationRule(rule: string): BookingFieldName | null {
   }
 
   if (rule.includes('capacity')) {
-    return 'gpu_count'
+    return 'host_count'
   }
 
   if (rule.startsWith('duration_')) {
@@ -212,11 +206,11 @@ function getFieldForBlockReason(
   const normalizedReason = blockReason.toLowerCase()
 
   if (normalizedReason.includes('capacity')) {
-    return 'gpu_count'
+    return 'host_count'
   }
 
-  if (normalizedReason.includes('gpu type')) {
-    return 'gpu_type_id'
+  if (normalizedReason.includes('gpu host type')) {
+    return 'gpu_host_type_id'
   }
 
   return null
@@ -263,7 +257,7 @@ function getValidationFeedback(result: BookingValidation | null): {
   const blockMessage =
     result.block_reason ??
     blockingWarning?.message ??
-    'Requested GPUs exceed available capacity.'
+    'Requested hosts exceed available capacity.'
   const blockField =
     (blockingWarning && getFieldForValidationRule(blockingWarning.rule)) ??
     getFieldForBlockReason(blockMessage)
@@ -349,9 +343,7 @@ function hasUnsavedFormChanges(
 }
 
 export function BookingForm({
-  gpuTypes,
-  gramOptions,
-  memoryOptions,
+  gpuHostTypes,
   workflowTypes,
   initialStartDate,
   initialEndDate,
@@ -708,7 +700,7 @@ export function BookingForm({
         <div className="space-y-1.5">
           <CardTitle>Create Booking</CardTitle>
           <CardDescription>
-            Request GPU resources for your project. Capacity checks run
+            Request GPU hosts for your project. Capacity checks run
             automatically before submission.
           </CardDescription>
         </div>
@@ -732,120 +724,60 @@ export function BookingForm({
           >
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-1">
-                <label htmlFor="gpu_type_id" className="text-sm font-medium">
-                  GPU Type
-                </label>
-                <select
-                  id="gpu_type_id"
-                  name="gpu_type_id"
-                  className="border-input bg-background ring-offset-background focus-visible:ring-ring h-10 w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
-                  value={formValues.gpu_type_id}
-                  onChange={handleFieldChange('gpu_type_id')}
-                  aria-invalid={
-                    Boolean(fieldErrors.gpu_type_id) ||
-                    hasBlockingValidation('gpu_type_id')
-                  }
-                >
-                  <option value="">Select GPU type</option>
-                  {gpuTypes.map((gpuType) => (
-                    <option key={gpuType.id} value={gpuType.id}>
-                      {gpuType.name}
-                    </option>
-                  ))}
-                </select>
-                {fieldErrors.gpu_type_id && (
-                  <p className="text-destructive text-sm">
-                    {fieldErrors.gpu_type_id}
-                  </p>
-                )}
-                {renderValidationFeedback('gpu_type_id')}
-              </div>
-
-              <div className="space-y-1">
-                <label htmlFor="gpu_count" className="text-sm font-medium">
-                  GPU Count
-                </label>
-                <Input
-                  id="gpu_count"
-                  name="gpu_count"
-                  type="number"
-                  min={1}
-                  value={formValues.gpu_count}
-                  onChange={handleFieldChange('gpu_count')}
-                  aria-invalid={
-                    Boolean(fieldErrors.gpu_count) ||
-                    hasBlockingValidation('gpu_count')
-                  }
-                />
-                {fieldErrors.gpu_count && (
-                  <p className="text-destructive text-sm">
-                    {fieldErrors.gpu_count}
-                  </p>
-                )}
-                {renderValidationFeedback('gpu_count')}
-              </div>
-
-              <div className="space-y-1">
-                <label htmlFor="gram_option_id" className="text-sm font-medium">
-                  GRAM
-                </label>
-                <select
-                  id="gram_option_id"
-                  name="gram_option_id"
-                  className="border-input bg-background ring-offset-background focus-visible:ring-ring h-10 w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
-                  value={formValues.gram_option_id}
-                  onChange={handleFieldChange('gram_option_id')}
-                  aria-invalid={
-                    Boolean(fieldErrors.gram_option_id) ||
-                    hasBlockingValidation('gram_option_id')
-                  }
-                >
-                  <option value="">Select GRAM</option>
-                  {gramOptions.map((option) => (
-                    <option key={option.id} value={option.id}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-                {fieldErrors.gram_option_id && (
-                  <p className="text-destructive text-sm">
-                    {fieldErrors.gram_option_id}
-                  </p>
-                )}
-                {renderValidationFeedback('gram_option_id')}
-              </div>
-
-              <div className="space-y-1">
                 <label
-                  htmlFor="memory_option_id"
+                  htmlFor="gpu_host_type_id"
                   className="text-sm font-medium"
                 >
-                  System Memory
+                  GPU Host Type
                 </label>
                 <select
-                  id="memory_option_id"
-                  name="memory_option_id"
+                  id="gpu_host_type_id"
+                  name="gpu_host_type_id"
                   className="border-input bg-background ring-offset-background focus-visible:ring-ring h-10 w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
-                  value={formValues.memory_option_id}
-                  onChange={handleFieldChange('memory_option_id')}
+                  value={formValues.gpu_host_type_id}
+                  onChange={handleFieldChange('gpu_host_type_id')}
                   aria-invalid={
-                    Boolean(fieldErrors.memory_option_id) ||
-                    hasBlockingValidation('memory_option_id')
+                    Boolean(fieldErrors.gpu_host_type_id) ||
+                    hasBlockingValidation('gpu_host_type_id')
                   }
                 >
-                  <option value="">Select System Memory</option>
-                  {memoryOptions.map((option) => (
-                    <option key={option.id} value={option.id}>
-                      {option.label}
+                  <option value="">Select GPU host type</option>
+                  {gpuHostTypes.map((gpuHostType) => (
+                    <option key={gpuHostType.id} value={gpuHostType.id}>
+                      {formatGpuHostTypeLabel(gpuHostType)}
                     </option>
                   ))}
                 </select>
-                {fieldErrors.memory_option_id && (
+                {fieldErrors.gpu_host_type_id && (
                   <p className="text-destructive text-sm">
-                    {fieldErrors.memory_option_id}
+                    {fieldErrors.gpu_host_type_id}
                   </p>
                 )}
-                {renderValidationFeedback('memory_option_id')}
+                {renderValidationFeedback('gpu_host_type_id')}
+              </div>
+
+              <div className="space-y-1">
+                <label htmlFor="host_count" className="text-sm font-medium">
+                  Host Count
+                </label>
+                <Input
+                  id="host_count"
+                  name="host_count"
+                  type="number"
+                  min={1}
+                  value={formValues.host_count}
+                  onChange={handleFieldChange('host_count')}
+                  aria-invalid={
+                    Boolean(fieldErrors.host_count) ||
+                    hasBlockingValidation('host_count')
+                  }
+                />
+                {fieldErrors.host_count && (
+                  <p className="text-destructive text-sm">
+                    {fieldErrors.host_count}
+                  </p>
+                )}
+                {renderValidationFeedback('host_count')}
               </div>
 
               <div className="space-y-1">

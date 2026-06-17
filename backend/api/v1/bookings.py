@@ -13,9 +13,7 @@ from api.schemas import BookingCreate, BookingResponse, BookingStatus, UserInfo
 from db.engine import get_session
 from db.models import (
     Booking,
-    GpuType,
-    GramOption,
-    MemoryOption,
+    GpuHostType,
     WorkflowType,
 )
 from db.models import (
@@ -34,17 +32,10 @@ async def _build_booking_response(
 ) -> BookingResponse:
     """Build a booking response payload including labels and warnings."""
 
-    gpu_type = await session.get(GpuType, booking.gpu_type_id)
-    gram_option = await session.get(GramOption, booking.gram_option_id)
-    memory_option = await session.get(MemoryOption, booking.memory_option_id)
+    gpu_host_type = await session.get(GpuHostType, booking.gpu_host_type_id)
     workflow_type = await session.get(WorkflowType, booking.workflow_type_id)
 
-    if (
-        gpu_type is None
-        or gram_option is None
-        or memory_option is None
-        or workflow_type is None
-    ):
+    if gpu_host_type is None or workflow_type is None:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Booking reference data missing",
@@ -53,13 +44,10 @@ async def _build_booking_response(
     return BookingResponse(
         id=booking.id,
         user_email=booking.user_email,
-        gpu_type_id=booking.gpu_type_id,
-        gpu_type_name=gpu_type.name,
-        gpu_count=booking.gpu_count,
-        gram_option_id=booking.gram_option_id,
-        gram_label=gram_option.label,
-        memory_option_id=booking.memory_option_id,
-        memory_label=memory_option.label,
+        gpu_host_type_id=booking.gpu_host_type_id,
+        gpu_type=gpu_host_type.gpu_type,
+        gpu_count=gpu_host_type.gpu_count,
+        host_count=booking.host_count,
         workflow_type_id=booking.workflow_type_id,
         workflow_type_name=workflow_type.name,
         start_date=booking.start_date,
@@ -87,15 +75,15 @@ async def list_bookings(
     session: Annotated[AsyncSession, Depends(get_session)],
     start_date: date | None = None,
     end_date: date | None = None,
-    gpu_type_id: int | None = None,
+    gpu_host_type_id: int | None = None,
     status: BookingStatus | None = None,
 ) -> list[BookingResponse]:
-    """List bookings with optional date, GPU type, and status filters."""
+    """List bookings with optional date, GPU host type, and status filters."""
 
     statement = select(Booking)
 
-    if gpu_type_id is not None:
-        statement = statement.where(Booking.gpu_type_id == gpu_type_id)
+    if gpu_host_type_id is not None:
+        statement = statement.where(Booking.gpu_host_type_id == gpu_host_type_id)
     if status is not None:
         statement = statement.where(Booking.status == status.value)
 

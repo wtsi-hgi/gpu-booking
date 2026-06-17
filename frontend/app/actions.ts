@@ -5,27 +5,17 @@ import { z, type ZodSchema } from 'zod'
 
 import { backendJson } from '@/lib/backend-client'
 import {
-  gramOptionListSchema,
-  gramOptionSchema,
-  gpuTypeListSchema,
-  gpuTypeSchema,
-  memoryOptionListSchema,
-  memoryOptionSchema,
+  gpuHostTypeListSchema,
+  gpuHostTypeSchema,
   workflowTypeListSchema,
   workflowTypeSchema,
-  type GramOption,
-  type GpuType,
-  type MemoryOption,
+  type GpuHostType,
   type WorkflowType,
 } from '@/lib/admin-contracts'
 import { userInfoSchema, type UserInfo } from '@/lib/auth-contracts'
 import { healthResponseSchema, messageResponseSchema } from '@/lib/contracts'
 import { type GreetingState } from '@/lib/greeting-state'
-import {
-  buildAuthHeaders,
-  buildRequestInitWithAuth,
-  fetchCurrentUser,
-} from '@/lib/server-auth'
+import { buildRequestInitWithAuth, fetchCurrentUser } from '@/lib/server-auth'
 import {
   bookingListSchema,
   bookingResponseSchema,
@@ -45,7 +35,6 @@ import {
 import {
   type AdminBookingFormState,
   type FormState,
-  type OptionFormState,
   type WorkflowTypeFormState,
 } from '@/lib/action-form-states'
 
@@ -57,10 +46,13 @@ function parsePositiveInteger(formData: FormData, key: string): number | null {
   return value
 }
 
-function parseRequiredString(formData: FormData, key: string): string {
-  const value = (formData.get(key) ?? '').toString().trim()
-  if (!value) {
-    throw new Error(`Missing ${key}`)
+function parseNonNegativeInteger(
+  formData: FormData,
+  key: string
+): number | null {
+  const value = Number(formData.get(key))
+  if (!Number.isInteger(value) || value < 0) {
+    return null
   }
   return value
 }
@@ -71,11 +63,6 @@ function parseRequiredInteger(formData: FormData, key: string): number {
     throw new Error(`Invalid ${key}`)
   }
   return value
-}
-
-function getDevUserFromFormData(formData: FormData): string | undefined {
-  const value = (formData.get('dev_user_email') ?? '').toString().trim()
-  return value || undefined
 }
 
 function parseOptionalString(formData: FormData, key: string): string | null {
@@ -125,10 +112,8 @@ function parseErrorMessage(error: unknown, fallback: string): string {
 
 type ParsedBookingPayload = {
   payload: {
-    gpu_type_id: number
-    gpu_count: number
-    gram_option_id: number
-    memory_option_id: number
+    gpu_host_type_id: number
+    host_count: number
     workflow_type_id: number
     start_date: string
     end_date: string
@@ -145,12 +130,10 @@ type ParsedBookingPayload = {
 
 function parseBookingPayload(formData: FormData): ParsedBookingPayload {
   const requiredValues = {
-    gpu_type_id: (formData.get('gpu_type_id') ?? '').toString().trim(),
-    gpu_count: (formData.get('gpu_count') ?? '').toString().trim(),
-    gram_option_id: (formData.get('gram_option_id') ?? '').toString().trim(),
-    memory_option_id: (formData.get('memory_option_id') ?? '')
+    gpu_host_type_id: (formData.get('gpu_host_type_id') ?? '')
       .toString()
       .trim(),
+    host_count: (formData.get('host_count') ?? '').toString().trim(),
     workflow_type_id: (formData.get('workflow_type_id') ?? '')
       .toString()
       .trim(),
@@ -164,9 +147,9 @@ function parseBookingPayload(formData: FormData): ParsedBookingPayload {
     .filter(([, value]) => value.length === 0)
     .map(([field]) => field)
 
-  const gpuCount = Number.parseInt(requiredValues.gpu_count, 10)
-  if (!Number.isInteger(gpuCount) || gpuCount <= 0) {
-    missingFields.push('gpu_count')
+  const hostCount = Number.parseInt(requiredValues.host_count, 10)
+  if (!Number.isInteger(hostCount) || hostCount <= 0) {
+    missingFields.push('host_count')
   }
 
   if (missingFields.length > 0) {
@@ -178,10 +161,8 @@ function parseBookingPayload(formData: FormData): ParsedBookingPayload {
 
   return {
     payload: {
-      gpu_type_id: Number.parseInt(requiredValues.gpu_type_id, 10),
-      gpu_count: gpuCount,
-      gram_option_id: Number.parseInt(requiredValues.gram_option_id, 10),
-      memory_option_id: Number.parseInt(requiredValues.memory_option_id, 10),
+      gpu_host_type_id: Number.parseInt(requiredValues.gpu_host_type_id, 10),
+      host_count: hostCount,
       workflow_type_id: Number.parseInt(requiredValues.workflow_type_id, 10),
       start_date: requiredValues.start_date,
       end_date: requiredValues.end_date,
@@ -202,10 +183,8 @@ function parseBookingPayload(formData: FormData): ParsedBookingPayload {
 
 function extractBookingFormValues(formData: FormData): BookingFormValues {
   return createInitialBookingFormValues({
-    gpu_type_id: (formData.get('gpu_type_id') ?? '').toString(),
-    gpu_count: (formData.get('gpu_count') ?? '').toString(),
-    gram_option_id: (formData.get('gram_option_id') ?? '').toString(),
-    memory_option_id: (formData.get('memory_option_id') ?? '').toString(),
+    gpu_host_type_id: (formData.get('gpu_host_type_id') ?? '').toString(),
+    host_count: (formData.get('host_count') ?? '').toString(),
     workflow_type_id: (formData.get('workflow_type_id') ?? '').toString(),
     alt_email: (formData.get('alt_email') ?? '').toString(),
     start_date: (formData.get('start_date') ?? '').toString(),
@@ -265,22 +244,8 @@ function safeRevalidate(path: string): void {
   }
 }
 
-function buildOptionFormState<T>(
-  items: T[],
-  status: OptionFormState<T>['status'],
-  message: string | null,
-  error: string | null
-): OptionFormState<T> {
-  return {
-    status,
-    message,
-    error,
-    items,
-  }
-}
-
-export async function getGpuTypes(): Promise<GpuType[]> {
-  return backendJsonWithAuth('/api/v1/gpu-types', gpuTypeListSchema)
+export async function getGpuHostTypes(): Promise<GpuHostType[]> {
+  return backendJsonWithAuth('/api/v1/gpu-host-types', gpuHostTypeListSchema)
 }
 
 export async function getWorkflowTypes(): Promise<WorkflowType[]> {
@@ -290,15 +255,15 @@ export async function getWorkflowTypes(): Promise<WorkflowType[]> {
 export async function getCapacity(
   startDate: string,
   endDate: string,
-  gpuTypeId?: number
+  gpuHostTypeId?: number
 ): Promise<DailyCapacity[]> {
   const params = new URLSearchParams({
     start_date: startDate,
     end_date: endDate,
   })
 
-  if (gpuTypeId !== undefined) {
-    params.set('gpu_type_id', String(gpuTypeId))
+  if (gpuHostTypeId !== undefined) {
+    params.set('gpu_host_type_id', String(gpuHostTypeId))
   }
 
   return backendJsonWithAuth(
@@ -310,7 +275,7 @@ export async function getCapacity(
 export async function getBookings(
   startDate?: string,
   endDate?: string,
-  gpuTypeId?: number,
+  gpuHostTypeId?: number,
   status?: string
 ): Promise<BookingResponse[]> {
   const params = new URLSearchParams()
@@ -321,8 +286,8 @@ export async function getBookings(
   if (endDate) {
     params.set('end_date', endDate)
   }
-  if (gpuTypeId !== undefined) {
-    params.set('gpu_type_id', String(gpuTypeId))
+  if (gpuHostTypeId !== undefined) {
+    params.set('gpu_host_type_id', String(gpuHostTypeId))
   }
   if (status) {
     params.set('status', status)
@@ -412,10 +377,8 @@ export async function adminUpdateBooking(
     const payload = {
       status,
       admin_notes: parseOptionalString(formData, 'admin_notes'),
-      gpu_type_id: parseRequiredInteger(formData, 'gpu_type_id'),
-      gpu_count: parseRequiredInteger(formData, 'gpu_count'),
-      gram_option_id: parseRequiredInteger(formData, 'gram_option_id'),
-      memory_option_id: parseRequiredInteger(formData, 'memory_option_id'),
+      gpu_host_type_id: parseRequiredInteger(formData, 'gpu_host_type_id'),
+      host_count: parseRequiredInteger(formData, 'host_count'),
       workflow_type_id: parseRequiredInteger(formData, 'workflow_type_id'),
       start_date: parseRequiredDateString(formData, 'start_date'),
       end_date: parseRequiredDateString(formData, 'end_date'),
@@ -431,8 +394,8 @@ export async function adminUpdateBooking(
       event_end_date: parseOptionalDateString(formData, 'event_end_date'),
     }
 
-    if (payload.gpu_count <= 0) {
-      throw new Error('Invalid gpu_count')
+    if (payload.host_count <= 0) {
+      throw new Error('Invalid host_count')
     }
 
     const requestInit = await buildRequestInitWithAuth({
@@ -527,48 +490,20 @@ export async function createBooking(
   }
 }
 
-export async function getGramOptions(
-  devUserEmail?: string
-): Promise<GramOption[]> {
-  return backendJsonWithAuth(
-    '/api/v1/gram-options',
-    gramOptionListSchema,
-    undefined,
-    devUserEmail
-  )
-}
-
-export async function getMemoryOptions(
-  devUserEmail?: string
-): Promise<MemoryOption[]> {
-  return backendJsonWithAuth(
-    '/api/v1/memory-options',
-    memoryOptionListSchema,
-    undefined,
-    devUserEmail
-  )
-}
-
-export async function createGpuType(
+export async function createGpuHostType(
   _prev: FormState,
   formData: FormData
 ): Promise<FormState> {
-  const name = (formData.get('name') ?? '').toString().trim()
-  const gramGb = parsePositiveInteger(formData, 'gram_gb')
-  const systemMemoryGb = parsePositiveInteger(formData, 'system_memory_gb')
-  const totalCount = parsePositiveInteger(formData, 'total_count')
+  const gpuType = (formData.get('gpu_type') ?? '').toString().trim()
+  const gpuCount = parsePositiveInteger(formData, 'gpu_count')
+  const totalCount = parseNonNegativeInteger(formData, 'total_count')
 
-  if (
-    !name ||
-    gramGb === null ||
-    systemMemoryGb === null ||
-    totalCount === null
-  ) {
+  if (!gpuType || gpuCount === null || totalCount === null) {
     return {
       status: 'error',
       message: null,
-      error: 'Name and numeric fields must be provided as positive integers.',
-      gpuType: null,
+      error: 'GPU type and numeric fields must be valid.',
+      gpuHostType: null,
     }
   }
 
@@ -576,58 +511,57 @@ export async function createGpuType(
     const requestInit = await buildRequestInitWithAuth({
       method: 'POST',
       body: JSON.stringify({
-        name,
-        gram_gb: gramGb,
-        system_memory_gb: systemMemoryGb,
+        gpu_type: gpuType,
+        gpu_count: gpuCount,
         total_count: totalCount,
       }),
     })
 
-    const gpuType = await backendJson(
-      '/api/v1/admin/gpu-types',
-      gpuTypeSchema,
+    const gpuHostType = await backendJson(
+      '/api/v1/admin/gpu-host-types',
+      gpuHostTypeSchema,
       requestInit
     )
     return {
       status: 'success',
-      message: `Created GPU type ${gpuType.name}.`,
+      message: `Created GPU host type ${gpuHostType.gpu_type}.`,
       error: null,
-      gpuType,
+      gpuHostType,
     }
   } catch (error) {
     return {
       status: 'error',
       message: null,
       error:
-        error instanceof Error ? error.message : 'Failed to create GPU type.',
-      gpuType: null,
+        error instanceof Error
+          ? error.message
+          : 'Failed to create GPU host type.',
+      gpuHostType: null,
     }
   }
 }
 
-export async function updateGpuType(
+export async function updateGpuHostType(
   _prev: FormState,
   formData: FormData
 ): Promise<FormState> {
   const id = Number(formData.get('id'))
-  const name = (formData.get('name') ?? '').toString().trim()
-  const gramGb = parsePositiveInteger(formData, 'gram_gb')
-  const systemMemoryGb = parsePositiveInteger(formData, 'system_memory_gb')
-  const totalCount = parsePositiveInteger(formData, 'total_count')
+  const gpuType = (formData.get('gpu_type') ?? '').toString().trim()
+  const gpuCount = parsePositiveInteger(formData, 'gpu_count')
+  const totalCount = parseNonNegativeInteger(formData, 'total_count')
 
   if (
     !Number.isInteger(id) ||
     id <= 0 ||
-    !name ||
-    gramGb === null ||
-    systemMemoryGb === null ||
+    !gpuType ||
+    gpuCount === null ||
     totalCount === null
   ) {
     return {
       status: 'error',
       message: null,
       error: 'All fields are required and must be valid.',
-      gpuType: null,
+      gpuHostType: null,
     }
   }
 
@@ -635,31 +569,32 @@ export async function updateGpuType(
     const requestInit = await buildRequestInitWithAuth({
       method: 'PUT',
       body: JSON.stringify({
-        name,
-        gram_gb: gramGb,
-        system_memory_gb: systemMemoryGb,
+        gpu_type: gpuType,
+        gpu_count: gpuCount,
         total_count: totalCount,
       }),
     })
 
-    const gpuType = await backendJson(
-      `/api/v1/admin/gpu-types/${id}`,
-      gpuTypeSchema,
+    const gpuHostType = await backendJson(
+      `/api/v1/admin/gpu-host-types/${id}`,
+      gpuHostTypeSchema,
       requestInit
     )
     return {
       status: 'success',
-      message: `Updated GPU type ${gpuType.name}.`,
+      message: `Updated GPU host type ${gpuHostType.gpu_type}.`,
       error: null,
-      gpuType,
+      gpuHostType,
     }
   } catch (error) {
     return {
       status: 'error',
       message: null,
       error:
-        error instanceof Error ? error.message : 'Failed to update GPU type.',
-      gpuType: null,
+        error instanceof Error
+          ? error.message
+          : 'Failed to update GPU host type.',
+      gpuHostType: null,
     }
   }
 }
@@ -797,125 +732,6 @@ export async function deleteWorkflowType(
       workflowType: null,
       deletedId: null,
     }
-  }
-}
-
-export async function mutateGramOptions(
-  _prev: OptionFormState<GramOption>,
-  formData: FormData
-): Promise<OptionFormState<GramOption>> {
-  const devUserEmail = getDevUserFromFormData(formData)
-  const headers = await buildAuthHeaders(devUserEmail)
-
-  try {
-    const intent = parseRequiredString(formData, 'intent')
-    if (intent === 'add') {
-      await backendJson('/api/v1/admin/gram-options', gramOptionSchema, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          label: parseRequiredString(formData, 'label'),
-          value_gb: parseRequiredInteger(formData, 'value_gb'),
-          sort_order: parseRequiredInteger(formData, 'sort_order'),
-        }),
-      })
-    } else if (intent === 'edit') {
-      const id = parseRequiredInteger(formData, 'id')
-      await backendJson(`/api/v1/admin/gram-options/${id}`, gramOptionSchema, {
-        method: 'PUT',
-        headers,
-        body: JSON.stringify({
-          label: parseRequiredString(formData, 'label'),
-          value_gb: parseRequiredInteger(formData, 'value_gb'),
-          sort_order: parseRequiredInteger(formData, 'sort_order'),
-        }),
-      })
-    } else if (intent === 'delete') {
-      const id = parseRequiredInteger(formData, 'id')
-      await backendJson(`/api/v1/admin/gram-options/${id}`, z.any(), {
-        method: 'DELETE',
-        headers,
-      })
-    } else {
-      throw new Error(`Unsupported intent: ${intent}`)
-    }
-
-    const items = await getGramOptions(devUserEmail)
-    safeRevalidate('/admin/memory-options')
-    return buildOptionFormState(items, 'success', 'GRAM options updated.', null)
-  } catch (error) {
-    const items = await getGramOptions(devUserEmail)
-    return buildOptionFormState(
-      items,
-      'error',
-      null,
-      error instanceof Error ? error.message : 'Failed to update GRAM options.'
-    )
-  }
-}
-
-export async function mutateMemoryOptions(
-  _prev: OptionFormState<MemoryOption>,
-  formData: FormData
-): Promise<OptionFormState<MemoryOption>> {
-  const devUserEmail = getDevUserFromFormData(formData)
-  const headers = await buildAuthHeaders(devUserEmail)
-
-  try {
-    const intent = parseRequiredString(formData, 'intent')
-    if (intent === 'add') {
-      await backendJson('/api/v1/admin/memory-options', memoryOptionSchema, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          label: parseRequiredString(formData, 'label'),
-          value_gb: parseRequiredInteger(formData, 'value_gb'),
-          sort_order: parseRequiredInteger(formData, 'sort_order'),
-        }),
-      })
-    } else if (intent === 'edit') {
-      const id = parseRequiredInteger(formData, 'id')
-      await backendJson(
-        `/api/v1/admin/memory-options/${id}`,
-        memoryOptionSchema,
-        {
-          method: 'PUT',
-          headers,
-          body: JSON.stringify({
-            label: parseRequiredString(formData, 'label'),
-            value_gb: parseRequiredInteger(formData, 'value_gb'),
-            sort_order: parseRequiredInteger(formData, 'sort_order'),
-          }),
-        }
-      )
-    } else if (intent === 'delete') {
-      const id = parseRequiredInteger(formData, 'id')
-      await backendJson(`/api/v1/admin/memory-options/${id}`, z.any(), {
-        method: 'DELETE',
-        headers,
-      })
-    } else {
-      throw new Error(`Unsupported intent: ${intent}`)
-    }
-
-    const items = await getMemoryOptions(devUserEmail)
-    safeRevalidate('/admin/memory-options')
-    return buildOptionFormState(
-      items,
-      'success',
-      'System memory options updated.',
-      null
-    )
-  } catch (error) {
-    const items = await getMemoryOptions(devUserEmail)
-    return buildOptionFormState(
-      items,
-      'error',
-      null,
-      error instanceof Error
-        ? error.message
-        : 'Failed to update memory options.'
-    )
   }
 }
 

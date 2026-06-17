@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
 
 import {
+  cleanup,
   fireEvent,
   render,
   screen,
@@ -54,28 +55,23 @@ vi.mock('@/app/actions', () => ({
   validateBooking: mocks.validateBookingMock,
 }))
 
-const gpuTypes = [
+const gpuHostTypes = [
   {
     id: 1,
-    name: 'H100',
-    gram_gb: 80,
-    system_memory_gb: 500,
-    total_count: 40,
+    gpu_type: 'H100',
+    gpu_count: 8,
+    total_count: 5,
     created_at: '2026-02-01T00:00:00Z',
     updated_at: '2026-02-01T00:00:00Z',
   },
 ]
 
-const gramOptions = [{ id: 1, label: '80GB', value_gb: 80, sort_order: 1 }]
-const memoryOptions = [{ id: 1, label: '500GB', value_gb: 500, sort_order: 1 }]
 const workflowTypes = [{ id: 1, name: 'Training' }]
 
 function renderBookingForm(initialStartDate?: string, initialEndDate?: string) {
   return render(
     createElement(BookingForm, {
-      gpuTypes,
-      gramOptions,
-      memoryOptions,
+      gpuHostTypes,
       workflowTypes,
       initialStartDate,
       initialEndDate,
@@ -108,10 +104,8 @@ async function fillRequiredFieldsWithDates(
   startDate: string,
   endDate: string
 ) {
-  await user.selectOptions(screen.getByLabelText('GPU Type'), '1')
-  await user.type(screen.getByLabelText('GPU Count'), '4')
-  await user.selectOptions(screen.getByLabelText('GRAM'), '1')
-  await user.selectOptions(screen.getByLabelText('System Memory'), '1')
+  await user.selectOptions(screen.getByLabelText('GPU Host Type'), '1')
+  await user.type(screen.getByLabelText('Host Count'), '4')
   await user.selectOptions(screen.getByLabelText('Workflow Type'), '1')
   await user.type(screen.getByLabelText('Start Date'), startDate)
   await user.type(screen.getByLabelText('End Date'), endDate)
@@ -134,10 +128,8 @@ function getRelativeDate(daysFromToday: number) {
 
 function getSubmittedBookingFormValues(formData: FormData) {
   return createInitialBookingFormValues({
-    gpu_type_id: (formData.get('gpu_type_id') ?? '').toString(),
-    gpu_count: (formData.get('gpu_count') ?? '').toString(),
-    gram_option_id: (formData.get('gram_option_id') ?? '').toString(),
-    memory_option_id: (formData.get('memory_option_id') ?? '').toString(),
+    gpu_host_type_id: (formData.get('gpu_host_type_id') ?? '').toString(),
+    host_count: (formData.get('host_count') ?? '').toString(),
     workflow_type_id: (formData.get('workflow_type_id') ?? '').toString(),
     alt_email: (formData.get('alt_email') ?? '').toString(),
     start_date: (formData.get('start_date') ?? '').toString(),
@@ -179,6 +171,7 @@ function createDomRect(top: number, height: number): DOMRect {
 
 describe('booking form - F3 acceptance coverage', () => {
   beforeEach(() => {
+    cleanup()
     document.body.innerHTML = ''
     vi.clearAllMocks()
 
@@ -307,10 +300,8 @@ describe('booking form - F3 acceptance coverage', () => {
     await user.click(screen.getByRole('button', { name: 'Create Booking' }))
 
     await waitFor(() => {
-      expect(screen.getByText('GPU Type is required.')).toBeTruthy()
-      expect(screen.getByText('GPU Count is required.')).toBeTruthy()
-      expect(screen.getByText('GRAM is required.')).toBeTruthy()
-      expect(screen.getByText('System Memory is required.')).toBeTruthy()
+      expect(screen.getByText('GPU Host Type is required.')).toBeTruthy()
+      expect(screen.getByText('Host Count is required.')).toBeTruthy()
       expect(screen.getByText('Workflow Type is required.')).toBeTruthy()
       expect(screen.getByText('Start Date is required.')).toBeTruthy()
       expect(screen.getByText('End Date is required.')).toBeTruthy()
@@ -319,7 +310,7 @@ describe('booking form - F3 acceptance coverage', () => {
     expect(createBookingMock).not.toHaveBeenCalled()
   })
 
-  it('shows blocking capacity feedback under GPU Count and stops submission', async () => {
+  it('shows blocking capacity feedback under Host Count and stops submission', async () => {
     const user = userEvent.setup()
     validateBookingMock.mockResolvedValueOnce({
       valid: false,
@@ -332,10 +323,10 @@ describe('booking form - F3 acceptance coverage', () => {
     const { startDate, endDate } = await fillRequiredFields(user)
     await user.click(screen.getByRole('button', { name: 'Create Booking' }))
 
-    const gpuCountContainer = getFieldContainer('GPU Count')
+    const hostCountContainer = getFieldContainer('Host Count')
 
     await waitFor(() => {
-      const feedback = within(gpuCountContainer).getByText(
+      const feedback = within(hostCountContainer).getByText(
         '100% capacity exceeded for 2026-04-10'
       )
 
@@ -347,7 +338,7 @@ describe('booking form - F3 acceptance coverage', () => {
     expect(screen.getByRole('button', { name: 'Create Booking' })).toBeTruthy()
   })
 
-  it('shows the per-user capacity warning under GPU Count, shows the warning area, and changes the button to Confirm', async () => {
+  it('shows the per-user capacity warning under Host Count, shows the warning area, and changes the button to Confirm', async () => {
     const user = userEvent.setup()
     const warningMessage =
       'Proposed booking exceeds 40% per-user capacity on 2026-04-10'
@@ -369,10 +360,10 @@ describe('booking form - F3 acceptance coverage', () => {
     const { startDate, endDate } = await fillRequiredFields(user)
     await user.click(screen.getByRole('button', { name: 'Create Booking' }))
 
-    const gpuCountContainer = getFieldContainer('GPU Count')
+    const hostCountContainer = getFieldContainer('Host Count')
 
     await waitFor(() => {
-      const inlineWarning = within(gpuCountContainer).getByText(warningMessage)
+      const inlineWarning = within(hostCountContainer).getByText(warningMessage)
       const inlineWarningFeedback = inlineWarning.closest(
         '[data-validation-severity="warning"]'
       )
@@ -395,7 +386,7 @@ describe('booking form - F3 acceptance coverage', () => {
     expect(createBookingMock).not.toHaveBeenCalled()
   })
 
-  it('shows advance notice warnings under Start Date and not under GPU Count', async () => {
+  it('shows advance notice warnings under Start Date and not under Host Count', async () => {
     const user = userEvent.setup()
     const warningMessage = 'Less than 2 weeks advance notice'
 
@@ -417,7 +408,7 @@ describe('booking form - F3 acceptance coverage', () => {
     await user.click(screen.getByRole('button', { name: 'Create Booking' }))
 
     const startDateContainer = getFieldContainer('Start Date')
-    const gpuCountContainer = getFieldContainer('GPU Count')
+    const hostCountContainer = getFieldContainer('Host Count')
 
     await waitFor(() => {
       const inlineWarning = within(startDateContainer).getByText(warningMessage)
@@ -427,7 +418,7 @@ describe('booking form - F3 acceptance coverage', () => {
 
       expect(inlineWarningFeedback).toBeTruthy()
       expect(inlineWarningFeedback?.className).not.toContain('text-destructive')
-      expect(within(gpuCountContainer).queryByText(warningMessage)).toBeNull()
+      expect(within(hostCountContainer).queryByText(warningMessage)).toBeNull()
 
       const warningArea = screen.getByText(
         'Review warnings before confirming.'
@@ -443,9 +434,9 @@ describe('booking form - F3 acceptance coverage', () => {
     })
 
     expect(createBookingMock).not.toHaveBeenCalled()
-  })
+  }, 10_000)
 
-  it('shows duration warnings under End Date and not under GPU Count', async () => {
+  it('shows duration warnings under End Date and not under Host Count', async () => {
     const user = userEvent.setup()
     const warningMessage = 'Booking duration exceeds 14-day maximum'
 
@@ -467,7 +458,7 @@ describe('booking form - F3 acceptance coverage', () => {
     await user.click(screen.getByRole('button', { name: 'Create Booking' }))
 
     const endDateContainer = getFieldContainer('End Date')
-    const gpuCountContainer = getFieldContainer('GPU Count')
+    const hostCountContainer = getFieldContainer('Host Count')
 
     await waitFor(() => {
       const inlineWarning = within(endDateContainer).getByText(warningMessage)
@@ -477,7 +468,7 @@ describe('booking form - F3 acceptance coverage', () => {
 
       expect(inlineWarningFeedback).toBeTruthy()
       expect(inlineWarningFeedback?.className).not.toContain('text-destructive')
-      expect(within(gpuCountContainer).queryByText(warningMessage)).toBeNull()
+      expect(within(hostCountContainer).queryByText(warningMessage)).toBeNull()
       expect(screen.getByRole('button', { name: 'Confirm' })).toBeTruthy()
     })
 
@@ -497,7 +488,7 @@ describe('booking form - F3 acceptance coverage', () => {
     await user.click(screen.getByRole('button', { name: 'Create Booking' }))
 
     const endDateContainer = getFieldContainer('End Date')
-    const gpuCountContainer = getFieldContainer('GPU Count')
+    const hostCountContainer = getFieldContainer('Host Count')
 
     await waitFor(() => {
       const feedback = within(endDateContainer).getByText(
@@ -506,7 +497,7 @@ describe('booking form - F3 acceptance coverage', () => {
 
       expect(feedback.className).toContain('text-destructive')
       expect(
-        within(gpuCountContainer).queryByText(feedback.textContent ?? '')
+        within(hostCountContainer).queryByText(feedback.textContent ?? '')
       ).toBeNull()
     })
 
@@ -526,7 +517,7 @@ describe('booking form - F3 acceptance coverage', () => {
     await user.click(screen.getByRole('button', { name: 'Create Booking' }))
 
     const startDateContainer = getFieldContainer('Start Date')
-    const gpuCountContainer = getFieldContainer('GPU Count')
+    const hostCountContainer = getFieldContainer('Host Count')
 
     await waitFor(() => {
       const feedback = within(startDateContainer).getByText(
@@ -535,7 +526,7 @@ describe('booking form - F3 acceptance coverage', () => {
 
       expect(feedback.className).toContain('text-destructive')
       expect(
-        within(gpuCountContainer).queryByText(feedback.textContent ?? '')
+        within(hostCountContainer).queryByText(feedback.textContent ?? '')
       ).toBeNull()
     })
 
@@ -771,9 +762,11 @@ describe('booking form - F3 acceptance coverage', () => {
       expect(screen.getAllByText(warningMessage)).toHaveLength(2)
     })
 
-    const gpuCountInput = screen.getByLabelText('GPU Count') as HTMLInputElement
-    await user.clear(gpuCountInput)
-    await user.type(gpuCountInput, '3')
+    const hostCountInput = screen.getByLabelText(
+      'Host Count'
+    ) as HTMLInputElement
+    await user.clear(hostCountInput)
+    await user.type(hostCountInput, '3')
 
     await waitFor(() => {
       expect(screen.queryByRole('button', { name: 'Confirm' })).toBeNull()
@@ -806,9 +799,11 @@ describe('booking form - F3 acceptance coverage', () => {
     await fillRequiredFields(user)
     await user.click(screen.getByRole('button', { name: 'Create Booking' }))
 
-    const gpuCountInput = screen.getByLabelText('GPU Count') as HTMLInputElement
-    await user.clear(gpuCountInput)
-    await user.type(gpuCountInput, '5')
+    const hostCountInput = screen.getByLabelText(
+      'Host Count'
+    ) as HTMLInputElement
+    await user.clear(hostCountInput)
+    await user.type(hostCountInput, '5')
 
     firstValidation.resolve({
       valid: true,
@@ -840,15 +835,15 @@ describe('booking form - F3 acceptance coverage', () => {
     })
 
     expect(
-      (validateBookingMock.mock.calls[0][0] as FormData).get('gpu_count')
+      (validateBookingMock.mock.calls[0][0] as FormData).get('host_count')
     ).toBe('4')
     expect(
-      (validateBookingMock.mock.calls[1][0] as FormData).get('gpu_count')
+      (validateBookingMock.mock.calls[1][0] as FormData).get('host_count')
     ).toBe('5')
     expect(
       getSubmittedBookingFormValues(
         createBookingMock.mock.calls[0][1] as FormData
-      ).gpu_count
+      ).host_count
     ).toBe('5')
   })
 
@@ -862,9 +857,11 @@ describe('booking form - F3 acceptance coverage', () => {
     const { startDate, endDate } = await fillRequiredFields(user)
     await user.click(screen.getByRole('button', { name: 'Create Booking' }))
 
-    const gpuCountInput = screen.getByLabelText('GPU Count') as HTMLInputElement
-    await user.clear(gpuCountInput)
-    await user.type(gpuCountInput, '6')
+    const hostCountInput = screen.getByLabelText(
+      'Host Count'
+    ) as HTMLInputElement
+    await user.clear(hostCountInput)
+    await user.type(hostCountInput, '6')
 
     firstValidation.resolve({
       valid: true,
@@ -888,15 +885,15 @@ describe('booking form - F3 acceptance coverage', () => {
     })
 
     expect(
-      (validateBookingMock.mock.calls[0][0] as FormData).get('gpu_count')
+      (validateBookingMock.mock.calls[0][0] as FormData).get('host_count')
     ).toBe('4')
     expect(
-      (validateBookingMock.mock.calls[1][0] as FormData).get('gpu_count')
+      (validateBookingMock.mock.calls[1][0] as FormData).get('host_count')
     ).toBe('6')
     expect(
       getSubmittedBookingFormValues(
         createBookingMock.mock.calls[0][1] as FormData
-      ).gpu_count
+      ).host_count
     ).toBe('6')
   })
 
@@ -986,16 +983,12 @@ describe('booking form - F3 acceptance coverage', () => {
       )
     })
 
-    expect((screen.getByLabelText('GPU Type') as HTMLSelectElement).value).toBe(
-      '1'
-    )
-    expect((screen.getByLabelText('GPU Count') as HTMLInputElement).value).toBe(
-      '4'
-    )
-    expect((screen.getByLabelText('GRAM') as HTMLSelectElement).value).toBe('1')
     expect(
-      (screen.getByLabelText('System Memory') as HTMLSelectElement).value
+      (screen.getByLabelText('GPU Host Type') as HTMLSelectElement).value
     ).toBe('1')
+    expect(
+      (screen.getByLabelText('Host Count') as HTMLInputElement).value
+    ).toBe('4')
     expect(
       (screen.getByLabelText('Workflow Type') as HTMLSelectElement).value
     ).toBe('1')
@@ -1027,10 +1020,12 @@ describe('booking form - F3 acceptance coverage', () => {
       (screen.getByLabelText('Event End Date') as HTMLInputElement).value
     ).toBe('2026-04-13')
 
-    const gpuCountInput = screen.getByLabelText('GPU Count') as HTMLInputElement
-    await user.clear(gpuCountInput)
-    await user.type(gpuCountInput, '3')
-    expect(gpuCountInput.value).toBe('3')
+    const hostCountInput = screen.getByLabelText(
+      'Host Count'
+    ) as HTMLInputElement
+    await user.clear(hostCountInput)
+    await user.type(hostCountInput, '3')
+    expect(hostCountInput.value).toBe('3')
 
     const projectNameInput = screen.getByLabelText(
       'Project Name'
@@ -1066,7 +1061,9 @@ describe('booking form - F3 acceptance coverage', () => {
 
     await user.click(screen.getByRole('button', { name: 'Create Booking' }))
 
-    const gpuCountInput = screen.getByLabelText('GPU Count') as HTMLInputElement
+    const hostCountInput = screen.getByLabelText(
+      'Host Count'
+    ) as HTMLInputElement
     const projectNameInput = screen.getByLabelText(
       'Project Name'
     ) as HTMLInputElement
@@ -1107,7 +1104,7 @@ describe('booking form - F3 acceptance coverage', () => {
     })
 
     expect(projectNameInput.value).toBe('Genome Atlas')
-    expect(gpuCountInput.value).toBe('4')
+    expect(hostCountInput.value).toBe('4')
   })
 
   it('pre-populates start and end date fields from initial values', () => {

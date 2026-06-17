@@ -46,10 +46,8 @@ async def test_init_db_creates_all_tables(in_memory_engine) -> None:
 
     assert {
         "admins",
-        "gpu_types",
+        "gpu_host_types",
         "workflow_types",
-        "gram_options",
-        "memory_options",
         "bookings",
     }.issubset(table_names)
 

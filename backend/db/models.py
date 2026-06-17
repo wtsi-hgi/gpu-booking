@@ -5,7 +5,15 @@ from __future__ import annotations
 from datetime import date, datetime
 from enum import StrEnum
 
-from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, Integer, String
+from sqlalchemy import (
+    CheckConstraint,
+    Date,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    UniqueConstraint,
+)
 from sqlalchemy import Enum as SqlEnum
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
@@ -40,15 +48,19 @@ class Admin(Base):
     )
 
 
-class GpuType(Base):
-    """Represent GPU inventory types."""
+class GpuHostType(Base):
+    """Represent reservable GPU host types."""
 
-    __tablename__ = "gpu_types"
+    __tablename__ = "gpu_host_types"
+    __table_args__ = (
+        UniqueConstraint("gpu_type", "gpu_count", name="uq_gpu_host_types_shape"),
+        CheckConstraint("gpu_count > 0", name="ck_gpu_host_types_gpu_count_gt_0"),
+        CheckConstraint("total_count >= 0", name="ck_gpu_host_types_total_count_ge_0"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    name: Mapped[str] = mapped_column(String, unique=True, nullable=False)
-    gram_gb: Mapped[int] = mapped_column(Integer, nullable=False)
-    system_memory_gb: Mapped[int] = mapped_column(Integer, nullable=False)
+    gpu_type: Mapped[str] = mapped_column(String, nullable=False)
+    gpu_count: Mapped[int] = mapped_column(Integer, nullable=False)
     total_count: Mapped[int] = mapped_column(Integer, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=False),
@@ -62,7 +74,7 @@ class GpuType(Base):
         onupdate=func.current_timestamp(),
     )
 
-    bookings: Mapped[list[Booking]] = relationship(back_populates="gpu_type")
+    bookings: Mapped[list[Booking]] = relationship(back_populates="gpu_host_type")
 
 
 class WorkflowType(Base):
@@ -87,60 +99,20 @@ class WorkflowType(Base):
     bookings: Mapped[list[Booking]] = relationship(back_populates="workflow_type")
 
 
-class GramOption(Base):
-    """Represent selectable GRAM options."""
-
-    __tablename__ = "gram_options"
-
-    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    label: Mapped[str] = mapped_column(String, nullable=False)
-    value_gb: Mapped[int] = mapped_column(Integer, nullable=False)
-    sort_order: Mapped[int] = mapped_column(Integer, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=False),
-        nullable=False,
-        server_default=func.current_timestamp(),
-    )
-
-    bookings: Mapped[list[Booking]] = relationship(back_populates="gram_option")
-
-
-class MemoryOption(Base):
-    """Represent selectable memory options."""
-
-    __tablename__ = "memory_options"
-
-    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    label: Mapped[str] = mapped_column(String, nullable=False)
-    value_gb: Mapped[int] = mapped_column(Integer, nullable=False)
-    sort_order: Mapped[int] = mapped_column(Integer, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=False),
-        nullable=False,
-        server_default=func.current_timestamp(),
-    )
-
-    bookings: Mapped[list[Booking]] = relationship(back_populates="memory_option")
-
-
 class Booking(Base):
     """Represent booking records for GPU requests."""
 
     __tablename__ = "bookings"
     __table_args__ = (
-        CheckConstraint("gpu_count > 0", name="ck_bookings_gpu_count_gt_0"),
+        CheckConstraint("host_count > 0", name="ck_bookings_host_count_gt_0"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     user_email: Mapped[str] = mapped_column(String, nullable=False)
-    gpu_type_id: Mapped[int] = mapped_column(ForeignKey("gpu_types.id"), nullable=False)
-    gpu_count: Mapped[int] = mapped_column(Integer, nullable=False)
-    gram_option_id: Mapped[int] = mapped_column(
-        ForeignKey("gram_options.id"), nullable=False
+    gpu_host_type_id: Mapped[int] = mapped_column(
+        ForeignKey("gpu_host_types.id"), nullable=False
     )
-    memory_option_id: Mapped[int] = mapped_column(
-        ForeignKey("memory_options.id"), nullable=False
-    )
+    host_count: Mapped[int] = mapped_column(Integer, nullable=False)
     workflow_type_id: Mapped[int] = mapped_column(
         ForeignKey("workflow_types.id"), nullable=False
     )
@@ -176,7 +148,5 @@ class Booking(Base):
         onupdate=func.current_timestamp(),
     )
 
-    gpu_type: Mapped[GpuType] = relationship(back_populates="bookings")
+    gpu_host_type: Mapped[GpuHostType] = relationship(back_populates="bookings")
     workflow_type: Mapped[WorkflowType] = relationship(back_populates="bookings")
-    gram_option: Mapped[GramOption] = relationship(back_populates="bookings")
-    memory_option: Mapped[MemoryOption] = relationship(back_populates="bookings")

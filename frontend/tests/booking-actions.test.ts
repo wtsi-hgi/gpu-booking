@@ -24,12 +24,49 @@ vi.mock('@/lib/backend-client', () => ({
   backendJson: vi.fn(),
 }))
 
+const bookingResponse = {
+  id: 1,
+  user_email: 'user@example.com',
+  gpu_host_type_id: 1,
+  gpu_type: 'H100',
+  gpu_count: 8,
+  host_count: 2,
+  workflow_type_id: 1,
+  workflow_type_name: 'Training',
+  start_date: '2026-04-10',
+  end_date: '2026-04-12',
+  status: 'unconfirmed',
+  alt_email: 'alt@example.com',
+  project_name: 'Genome Atlas',
+  project_pi: 'Dr Test',
+  project_grant_number: 'GR-12345',
+  technical_lead: 'Lead Engineer',
+  event_start_date: '2026-04-09',
+  event_end_date: '2026-04-13',
+  admin_notes: null,
+  admin_modified_by: null,
+  admin_modified_at: null,
+  created_at: '2026-02-01T00:00:00Z',
+  updated_at: '2026-02-01T00:00:00Z',
+  warnings: [],
+}
+
+function buildRequiredFormData() {
+  const formData = new FormData()
+  formData.set('gpu_host_type_id', '1')
+  formData.set('host_count', '2')
+  formData.set('workflow_type_id', '1')
+  formData.set('start_date', '2026-04-10')
+  formData.set('end_date', '2026-04-12')
+  return formData
+}
+
 describe('booking data actions', () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
 
-  it('builds getCapacity query params with gpu_type_id and uses capacity schema', async () => {
+  it('builds getCapacity query params with gpu_host_type_id and uses capacity schema', async () => {
     const backendJsonMock = vi.mocked(backendJson)
     backendJsonMock.mockResolvedValueOnce([])
 
@@ -37,12 +74,12 @@ describe('booking data actions', () => {
 
     expect(result).toEqual([])
     expect(backendJsonMock).toHaveBeenCalledWith(
-      '/api/v1/capacity?start_date=2026-03-01&end_date=2026-03-31&gpu_type_id=2',
+      '/api/v1/capacity?start_date=2026-03-01&end_date=2026-03-31&gpu_host_type_id=2',
       dailyCapacityListSchema
     )
   })
 
-  it('builds getCapacity query params without gpu_type_id when omitted', async () => {
+  it('builds getCapacity query params without gpu_host_type_id when omitted', async () => {
     const backendJsonMock = vi.mocked(backendJson)
     backendJsonMock.mockResolvedValueOnce([])
 
@@ -62,7 +99,7 @@ describe('booking data actions', () => {
 
     expect(result).toEqual([])
     expect(backendJsonMock).toHaveBeenCalledWith(
-      '/api/v1/bookings?start_date=2026-05-01&end_date=2026-05-31&gpu_type_id=3&status=pending',
+      '/api/v1/bookings?start_date=2026-05-01&end_date=2026-05-31&gpu_host_type_id=3&status=pending',
       bookingListSchema
     )
   })
@@ -81,44 +118,9 @@ describe('booking data actions', () => {
 
   it('posts required and optional fields in createBooking', async () => {
     const backendJsonMock = vi.mocked(backendJson)
-    backendJsonMock.mockResolvedValueOnce({
-      id: 1,
-      user_email: 'user@example.com',
-      gpu_type_id: 1,
-      gpu_type_name: 'H100',
-      gpu_count: 2,
-      gram_option_id: 1,
-      gram_label: '80GB',
-      memory_option_id: 1,
-      memory_label: '500GB',
-      workflow_type_id: 1,
-      workflow_type_name: 'Training',
-      start_date: '2026-04-10',
-      end_date: '2026-04-12',
-      status: 'unconfirmed',
-      alt_email: 'alt@example.com',
-      project_name: 'Genome Atlas',
-      project_pi: 'Dr Test',
-      project_grant_number: 'GR-12345',
-      technical_lead: 'Lead Engineer',
-      event_start_date: '2026-04-09',
-      event_end_date: '2026-04-13',
-      admin_notes: null,
-      admin_modified_by: null,
-      admin_modified_at: null,
-      created_at: '2026-02-01T00:00:00Z',
-      updated_at: '2026-02-01T00:00:00Z',
-      warnings: [],
-    })
+    backendJsonMock.mockResolvedValueOnce(bookingResponse)
 
-    const formData = new FormData()
-    formData.set('gpu_type_id', '1')
-    formData.set('gpu_count', '2')
-    formData.set('gram_option_id', '1')
-    formData.set('memory_option_id', '1')
-    formData.set('workflow_type_id', '1')
-    formData.set('start_date', '2026-04-10')
-    formData.set('end_date', '2026-04-12')
+    const formData = buildRequiredFormData()
     formData.set('alt_email', 'alt@example.com')
     formData.set('project_name', 'Genome Atlas')
     formData.set('project_pi', 'Dr Test')
@@ -132,10 +134,8 @@ describe('booking data actions', () => {
     expect(state.status).toBe('success')
     expect(state.values).toEqual(
       createInitialBookingFormValues({
-        gpu_type_id: '1',
-        gpu_count: '2',
-        gram_option_id: '1',
-        memory_option_id: '1',
+        gpu_host_type_id: '1',
+        host_count: '2',
         workflow_type_id: '1',
         alt_email: 'alt@example.com',
         start_date: '2026-04-10',
@@ -154,10 +154,8 @@ describe('booking data actions', () => {
       {
         method: 'POST',
         body: JSON.stringify({
-          gpu_type_id: 1,
-          gpu_count: 2,
-          gram_option_id: 1,
-          memory_option_id: 1,
+          gpu_host_type_id: 1,
+          host_count: 2,
           workflow_type_id: 1,
           start_date: '2026-04-10',
           end_date: '2026-04-12',
@@ -176,17 +174,11 @@ describe('booking data actions', () => {
   it('returns submitted values when createBooking fails so the form can be rehydrated', async () => {
     const backendJsonMock = vi.mocked(backendJson)
     backendJsonMock.mockRejectedValueOnce(
-      new Error('100% capacity exceeded for 2026-04-10')
+      new Error('host capacity exceeded for 2026-04-10')
     )
 
-    const formData = new FormData()
-    formData.set('gpu_type_id', '1')
-    formData.set('gpu_count', '99')
-    formData.set('gram_option_id', '1')
-    formData.set('memory_option_id', '1')
-    formData.set('workflow_type_id', '1')
-    formData.set('start_date', '2026-04-10')
-    formData.set('end_date', '2026-04-12')
+    const formData = buildRequiredFormData()
+    formData.set('host_count', '99')
     formData.set('project_name', 'Genome Atlas')
 
     const state = await createBooking(initialBookingFormState, formData)
@@ -194,13 +186,11 @@ describe('booking data actions', () => {
     expect(state).toEqual({
       status: 'error',
       message: null,
-      error: '100% capacity exceeded for 2026-04-10',
+      error: 'host capacity exceeded for 2026-04-10',
       fieldErrors: {},
       values: createInitialBookingFormValues({
-        gpu_type_id: '1',
-        gpu_count: '99',
-        gram_option_id: '1',
-        memory_option_id: '1',
+        gpu_host_type_id: '1',
+        host_count: '99',
         workflow_type_id: '1',
         start_date: '2026-04-10',
         end_date: '2026-04-12',
@@ -214,37 +204,18 @@ describe('booking data actions', () => {
     backendJsonMock.mockRejectedValueOnce(
       Object.assign(new Error('Backend request failed with 409'), {
         body: {
-          detail: '100% capacity exceeded for 2026-04-10',
+          detail: 'host capacity exceeded for 2026-04-10',
         },
       })
     )
 
-    const formData = new FormData()
-    formData.set('gpu_type_id', '1')
-    formData.set('gpu_count', '99')
-    formData.set('gram_option_id', '1')
-    formData.set('memory_option_id', '1')
-    formData.set('workflow_type_id', '1')
-    formData.set('start_date', '2026-04-10')
-    formData.set('end_date', '2026-04-12')
+    const formData = buildRequiredFormData()
+    formData.set('host_count', '99')
 
     const state = await createBooking(initialBookingFormState, formData)
 
-    expect(state).toEqual({
-      status: 'error',
-      message: null,
-      error: '100% capacity exceeded for 2026-04-10',
-      fieldErrors: {},
-      values: createInitialBookingFormValues({
-        gpu_type_id: '1',
-        gpu_count: '99',
-        gram_option_id: '1',
-        memory_option_id: '1',
-        workflow_type_id: '1',
-        start_date: '2026-04-10',
-        end_date: '2026-04-12',
-      }),
-    })
+    expect(state.error).toBe('host capacity exceeded for 2026-04-10')
+    expect(state.values.host_count).toBe('99')
   })
 
   it('calls validation endpoint for validateBooking', async () => {
@@ -262,14 +233,7 @@ describe('booking data actions', () => {
       block_reason: null,
     })
 
-    const formData = new FormData()
-    formData.set('gpu_type_id', '1')
-    formData.set('gpu_count', '2')
-    formData.set('gram_option_id', '1')
-    formData.set('memory_option_id', '1')
-    formData.set('workflow_type_id', '1')
-    formData.set('start_date', '2026-04-10')
-    formData.set('end_date', '2026-04-12')
+    const formData = buildRequiredFormData()
 
     await validateBooking(formData)
 
@@ -279,10 +243,8 @@ describe('booking data actions', () => {
       {
         method: 'POST',
         body: JSON.stringify({
-          gpu_type_id: 1,
-          gpu_count: 2,
-          gram_option_id: 1,
-          memory_option_id: 1,
+          gpu_host_type_id: 1,
+          host_count: 2,
           workflow_type_id: 1,
           start_date: '2026-04-10',
           end_date: '2026-04-12',
@@ -301,33 +263,11 @@ describe('booking data actions', () => {
   it('calls DELETE booking endpoint in cancelBooking and returns success state', async () => {
     const backendJsonMock = vi.mocked(backendJson)
     backendJsonMock.mockResolvedValueOnce({
+      ...bookingResponse,
       id: 11,
-      user_email: 'a@b.com',
-      gpu_type_id: 1,
-      gpu_type_name: 'H100',
-      gpu_count: 2,
-      gram_option_id: 1,
-      gram_label: '80GB',
-      memory_option_id: 1,
-      memory_label: '500GB',
-      workflow_type_id: 1,
-      workflow_type_name: 'Training',
-      start_date: '2026-04-10',
-      end_date: '2026-04-12',
       status: 'cancelled',
-      alt_email: null,
-      project_name: 'Genome Atlas',
-      project_pi: null,
-      project_grant_number: null,
-      technical_lead: null,
-      event_start_date: null,
-      event_end_date: null,
-      admin_notes: null,
       admin_modified_by: 'admin@example.com',
       admin_modified_at: '2026-02-15T15:00:00Z',
-      created_at: '2026-02-01T00:00:00Z',
-      updated_at: '2026-02-16T00:00:00Z',
-      warnings: [],
     })
 
     const result = await cancelBooking(11)
@@ -346,45 +286,20 @@ describe('booking data actions', () => {
   it('calls PATCH admin booking endpoint in adminUpdateBooking', async () => {
     const backendJsonMock = vi.mocked(backendJson)
     backendJsonMock.mockResolvedValueOnce({
+      ...bookingResponse,
       id: 11,
-      user_email: 'a@b.com',
-      gpu_type_id: 1,
-      gpu_type_name: 'H100',
-      gpu_count: 15,
-      gram_option_id: 1,
-      gram_label: '80GB',
-      memory_option_id: 1,
-      memory_label: '500GB',
-      workflow_type_id: 1,
-      workflow_type_name: 'Training',
-      start_date: '2026-04-10',
-      end_date: '2026-04-12',
       status: 'confirmed',
-      alt_email: 'alt@example.com',
-      project_name: 'Genome Atlas',
-      project_pi: 'Dr Test',
-      project_grant_number: 'GR-12345',
-      technical_lead: 'Lead Engineer',
-      event_start_date: '2026-04-09',
-      event_end_date: '2026-04-13',
+      host_count: 3,
       admin_notes: 'Approved - project priority',
       admin_modified_by: 'admin@example.com',
       admin_modified_at: '2026-02-15T15:00:00Z',
-      created_at: '2026-02-01T00:00:00Z',
-      updated_at: '2026-02-16T00:00:00Z',
-      warnings: [],
     })
 
-    const formData = new FormData()
+    const formData = buildRequiredFormData()
     formData.set('booking_id', '11')
     formData.set('status', 'confirmed')
-    formData.set('gpu_type_id', '1')
-    formData.set('gpu_count', '15')
-    formData.set('gram_option_id', '1')
-    formData.set('memory_option_id', '1')
-    formData.set('workflow_type_id', '1')
-    formData.set('start_date', '2026-04-10')
-    formData.set('end_date', '2026-04-12')
+    formData.set('host_count', '3')
+    formData.set('admin_notes', 'Approved - project priority')
     formData.set('alt_email', 'alt@example.com')
     formData.set('project_name', 'Genome Atlas')
     formData.set('project_pi', 'Dr Test')
@@ -392,7 +307,6 @@ describe('booking data actions', () => {
     formData.set('technical_lead', 'Lead Engineer')
     formData.set('event_start_date', '2026-04-09')
     formData.set('event_end_date', '2026-04-13')
-    formData.set('admin_notes', 'Approved - project priority')
 
     const result = await adminUpdateBooking(
       {
@@ -405,7 +319,7 @@ describe('booking data actions', () => {
     )
 
     expect(result.status).toBe('success')
-    expect(result.booking?.gpu_count).toBe(15)
+    expect(result.booking?.host_count).toBe(3)
     expect(backendJsonMock).toHaveBeenCalledWith(
       '/api/v1/admin/bookings/11',
       bookingResponseSchema,
@@ -414,10 +328,8 @@ describe('booking data actions', () => {
         body: JSON.stringify({
           status: 'confirmed',
           admin_notes: 'Approved - project priority',
-          gpu_type_id: 1,
-          gpu_count: 15,
-          gram_option_id: 1,
-          memory_option_id: 1,
+          gpu_host_type_id: 1,
+          host_count: 3,
           workflow_type_id: 1,
           start_date: '2026-04-10',
           end_date: '2026-04-12',

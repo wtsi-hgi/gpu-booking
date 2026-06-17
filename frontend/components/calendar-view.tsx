@@ -13,7 +13,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import type { GpuType } from '@/lib/admin-contracts'
+import { formatGpuHostTypeLabel, type GpuHostType } from '@/lib/admin-contracts'
 import type { BookingResponse, DailyCapacity } from '@/lib/booking-contracts'
 import { cn } from '@/lib/utils'
 
@@ -24,7 +24,7 @@ type CalendarViewProps = {
   initialMonthIso: string
   initialCapacity: DailyCapacity[]
   initialBookings: BookingResponse[]
-  gpuTypes: GpuType[]
+  gpuHostTypes: GpuHostType[]
   currentUserEmail: string
 }
 
@@ -243,9 +243,9 @@ function formatCountLabel(
 }
 
 function formatCapacityContext(summary: DailySummary): string {
-  const usedGpuCount = summary.confirmedUsed + summary.pendingUsed
+  const usedHostCount = summary.confirmedUsed + summary.pendingUsed
 
-  return `${usedGpuCount} of ${summary.total} GPUs`
+  return `${usedHostCount} of ${summary.total} hosts`
 }
 
 function normaliseRange(startDate: string, endDate: string): [string, string] {
@@ -340,7 +340,7 @@ export function CalendarView({
   initialMonthIso,
   initialCapacity,
   initialBookings,
-  gpuTypes,
+  gpuHostTypes,
   currentUserEmail,
 }: CalendarViewProps) {
   const router = useRouter()
@@ -359,7 +359,7 @@ export function CalendarView({
     seed: initialBookings,
     data: initialBookings,
   }))
-  const [selectedGpuTypeId, setSelectedGpuTypeId] = useState<
+  const [selectedGpuHostTypeId, setSelectedGpuHostTypeId] = useState<
     number | undefined
   >(undefined)
   const [visibleMonthCount, setVisibleMonthCount] = useState(1)
@@ -465,8 +465,8 @@ export function CalendarView({
     selectionDetails === null
       ? 'Create booking for selection'
       : selectionDetails.dayCount === 1
-        ? `Create booking for selection (${selectionDetails.tightestAvailability.available} GPUs available)`
-        : `Create booking for selection (up to ${selectionDetails.tightestAvailability.available} GPUs available)`
+        ? `Create booking for selection (${selectionDetails.tightestAvailability.available} hosts available)`
+        : `Create booking for selection (up to ${selectionDetails.tightestAvailability.available} hosts available)`
   const committedSelectionEndDate =
     dragSelection === null ? selectedRange?.endDate : null
 
@@ -531,12 +531,12 @@ export function CalendarView({
         getCapacity(
           visibleRangeStartIso,
           visibleRangeEndIso,
-          selectedGpuTypeId
+          selectedGpuHostTypeId
         ),
         getBookings(
           visibleRangeStartIso,
           visibleRangeEndIso,
-          selectedGpuTypeId
+          selectedGpuHostTypeId
         ),
       ])
 
@@ -558,7 +558,7 @@ export function CalendarView({
     }
   }, [
     initialCapacity,
-    selectedGpuTypeId,
+    selectedGpuHostTypeId,
     updateBookingsState,
     visibleRangeEndIso,
     visibleRangeStartIso,
@@ -571,7 +571,7 @@ export function CalendarView({
       const nextBookings = await getBookings(
         todayIso,
         undefined,
-        selectedGpuTypeId
+        selectedGpuHostTypeId
       )
 
       if (cancelled) {
@@ -586,7 +586,7 @@ export function CalendarView({
     return () => {
       cancelled = true
     }
-  }, [selectedGpuTypeId, todayIso])
+  }, [selectedGpuHostTypeId, todayIso])
 
   useEffect(() => {
     if (!isMonthSelectorOpen) {
@@ -802,22 +802,25 @@ export function CalendarView({
         </div>
 
         <div className="flex items-center gap-2">
-          <label htmlFor="gpu-filter" className="text-muted-foreground text-sm">
-            GPU Type
+          <label
+            htmlFor="gpu-host-type-filter"
+            className="text-muted-foreground text-sm"
+          >
+            GPU Host Type
           </label>
           <select
-            id="gpu-filter"
+            id="gpu-host-type-filter"
             className="border-border bg-background rounded border px-2 py-1 text-sm"
-            value={selectedGpuTypeId ?? ''}
+            value={selectedGpuHostTypeId ?? ''}
             onChange={(event) => {
               const value = event.target.value
-              setSelectedGpuTypeId(value ? Number(value) : undefined)
+              setSelectedGpuHostTypeId(value ? Number(value) : undefined)
             }}
           >
-            <option value="">All GPU types</option>
-            {gpuTypes.map((gpuType) => (
-              <option key={gpuType.id} value={gpuType.id}>
-                {gpuType.name}
+            <option value="">All GPU host types</option>
+            {gpuHostTypes.map((gpuHostType) => (
+              <option key={gpuHostType.id} value={gpuHostType.id}>
+                {formatGpuHostTypeLabel(gpuHostType)}
               </option>
             ))}
           </select>
@@ -935,12 +938,14 @@ export function CalendarView({
                   const bookingSummary = bookingsByDate.get(day.dateIso) ?? {
                     activeCount: 0,
                   }
-                  const usedGpuCount =
+                  const usedHostCount =
                     summary.confirmedUsed + summary.pendingUsed
                   const usagePercent =
-                    summary.total > 0 ? (usedGpuCount / summary.total) * 100 : 0
+                    summary.total > 0
+                      ? (usedHostCount / summary.total) * 100
+                      : 0
                   const hasDailySummary =
-                    usedGpuCount > 0 || bookingSummary.activeCount > 0
+                    usedHostCount > 0 || bookingSummary.activeCount > 0
                   const isInDragSelection =
                     displayedSelection !== null &&
                     day.dateIso >= displayedSelection.startDate &&
@@ -954,7 +959,7 @@ export function CalendarView({
                     committedSelectionEndDate !== null &&
                     day.dateIso === committedSelectionEndDate
                   const capacityContext =
-                    usedGpuCount > 0 ? formatCapacityContext(summary) : null
+                    usedHostCount > 0 ? formatCapacityContext(summary) : null
 
                   return (
                     <div
@@ -1183,7 +1188,7 @@ export function CalendarView({
                             {selectionDetails.tightestAvailability.available}
                           </p>
                           <p className="text-muted-foreground text-xs">
-                            available GPUs
+                            available hosts
                           </p>
                         </div>
                       </div>
@@ -1252,8 +1257,8 @@ export function CalendarView({
                                 <div className="flex items-start justify-between gap-3">
                                   <div className="min-w-0 space-y-1">
                                     <p className="text-sm font-medium">
-                                      {booking.gpu_count} ×{' '}
-                                      {booking.gpu_type_name} ·{' '}
+                                      {booking.host_count} ×{' '}
+                                      {formatGpuHostTypeLabel(booking)} ·{' '}
                                       {booking.workflow_type_name}
                                     </p>
                                     <p className="text-muted-foreground text-xs">

@@ -9,15 +9,7 @@ from httpx import ASGITransport, AsyncClient
 
 from config import settings
 from db.engine import async_session_factory, engine
-from db.models import (
-    Base,
-    Booking,
-    BookingStatus,
-    GpuType,
-    GramOption,
-    MemoryOption,
-    WorkflowType,
-)
+from db.models import Base, Booking, BookingStatus, GpuHostType, WorkflowType
 from db.seed import seed_db
 from main import app
 
@@ -33,33 +25,27 @@ def _default_admin_email() -> str:
     return configured[0] if configured else "dev@example.com"
 
 
-async def _get_reference_ids() -> tuple[int, int, int, int]:
+async def _get_reference_ids() -> tuple[int, int]:
     """Return seeded reference IDs required for booking records."""
 
     async with async_session_factory() as session:
-        gpu_type = await session.get(GpuType, 1)
-        gram_option = await session.get(GramOption, 1)
-        memory_option = await session.get(MemoryOption, 1)
+        host_type = await session.get(GpuHostType, 1)
         workflow_type = await session.get(WorkflowType, 1)
 
-        assert gpu_type is not None
-        assert gram_option is not None
-        assert memory_option is not None
+        assert host_type is not None
         assert workflow_type is not None
 
-        return gpu_type.id, gram_option.id, memory_option.id, workflow_type.id
+        return host_type.id, workflow_type.id
 
 
 async def _insert_booking(
     *,
     user_email: str,
-    gpu_type_id: int,
-    gram_option_id: int,
-    memory_option_id: int,
+    gpu_host_type_id: int,
     workflow_type_id: int,
     start_date: date,
     end_date: date,
-    gpu_count: int = 1,
+    host_count: int = 1,
     status: BookingStatus = BookingStatus.unconfirmed,
     admin_notes: str | None = None,
 ) -> Booking:
@@ -68,10 +54,8 @@ async def _insert_booking(
     async with async_session_factory() as session:
         booking = Booking(
             user_email=user_email,
-            gpu_type_id=gpu_type_id,
-            gpu_count=gpu_count,
-            gram_option_id=gram_option_id,
-            memory_option_id=memory_option_id,
+            gpu_host_type_id=gpu_host_type_id,
+            host_count=host_count,
             workflow_type_id=workflow_type_id,
             start_date=start_date,
             end_date=end_date,
@@ -85,21 +69,20 @@ async def _insert_booking(
 
 
 @pytest.mark.anyio
-async def test_get_gpu_types_returns_seeded_data_for_any_user() -> None:
-    """Return all seeded GPU types on the public endpoint."""
+async def test_get_gpu_host_types_returns_seeded_data_for_any_user() -> None:
+    """Return all seeded GPU host types on the public endpoint."""
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://testserver") as client:
-        response = await client.get("/api/v1/gpu-types")
+        response = await client.get("/api/v1/gpu-host-types")
 
     assert response.status_code == 200
     payload = response.json()
     assert len(payload) == 4
     assert {
         "id",
-        "name",
-        "gram_gb",
-        "system_memory_gb",
+        "gpu_type",
+        "gpu_count",
         "total_count",
         "created_at",
         "updated_at",
@@ -107,55 +90,54 @@ async def test_get_gpu_types_returns_seeded_data_for_any_user() -> None:
 
 
 @pytest.mark.anyio
-async def test_post_admin_gpu_types_creates_record_for_admin() -> None:
-    """Create a GPU type for admin-authenticated users."""
+async def test_post_admin_gpu_host_types_creates_record_for_admin() -> None:
+    """Create a GPU host type for admin-authenticated users."""
 
-    new_gpu = {
-        "name": "H200-phase3-admin-test",
-        "gram_gb": 141,
-        "system_memory_gb": 1000,
-        "total_count": 60,
+    new_host_type = {
+        "gpu_type": "L40S-phase3-admin-test",
+        "gpu_count": 4,
+        "total_count": 3,
     }
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://testserver") as client:
-        response = await client.post("/api/v1/admin/gpu-types", json=new_gpu)
+        response = await client.post("/api/v1/admin/gpu-host-types", json=new_host_type)
 
     assert response.status_code == 201
     payload = response.json()
     assert payload["id"] > 0
-    assert payload["name"] == new_gpu["name"]
+    assert payload["gpu_type"] == new_host_type["gpu_type"]
+    assert payload["gpu_count"] == 4
 
 
 @pytest.mark.anyio
-async def test_put_admin_gpu_types_updates_total_count() -> None:
-    """Update GPU type fields for admin-authenticated users."""
+async def test_put_admin_gpu_host_types_updates_total_count() -> None:
+    """Update GPU host type fields for admin-authenticated users."""
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://testserver") as client:
         response = await client.put(
-            "/api/v1/admin/gpu-types/1", json={"total_count": 50}
+            "/api/v1/admin/gpu-host-types/1", json={"total_count": 5}
         )
 
     assert response.status_code == 200
-    assert response.json()["total_count"] == 50
+    assert response.json()["total_count"] == 5
 
 
 @pytest.mark.anyio
-async def test_post_admin_gpu_types_forbidden_for_non_admin() -> None:
+async def test_post_admin_gpu_host_types_forbidden_for_non_admin() -> None:
     """Reject create requests from non-admin users."""
 
     payload = {
-        "name": "L40S-phase3-forbidden",
-        "gram_gb": 48,
-        "system_memory_gb": 256,
-        "total_count": 4,
+        "gpu_type": "L40S-phase3-forbidden",
+        "gpu_count": 4,
+        "total_count": 2,
     }
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://testserver") as client:
         response = await client.post(
-            "/api/v1/admin/gpu-types",
+            "/api/v1/admin/gpu-host-types",
             json=payload,
             headers={"X-Dev-User": "non-admin-phase3@example.com"},
         )
@@ -164,19 +146,18 @@ async def test_post_admin_gpu_types_forbidden_for_non_admin() -> None:
 
 
 @pytest.mark.anyio
-async def test_post_admin_gpu_types_duplicate_name_returns_conflict() -> None:
-    """Return 409 when GPU type name already exists."""
+async def test_post_admin_gpu_host_types_duplicate_shape_returns_conflict() -> None:
+    """Return 409 when a GPU host type shape already exists."""
 
     payload = {
-        "name": "H100",
-        "gram_gb": 80,
-        "system_memory_gb": 500,
-        "total_count": 42,
+        "gpu_type": "H100",
+        "gpu_count": 8,
+        "total_count": 4,
     }
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://testserver") as client:
-        response = await client.post("/api/v1/admin/gpu-types", json=payload)
+        response = await client.post("/api/v1/admin/gpu-host-types", json=payload)
 
     assert response.status_code == 409
 
@@ -242,150 +223,20 @@ async def test_admin_workflow_delete_returns_no_content_when_not_in_use() -> Non
 async def test_admin_workflow_delete_returns_conflict_when_in_use() -> None:
     """Reject workflow deletion when a booking references it."""
 
-    async with async_session_factory() as session:
-        result = await session.get(WorkflowType, 1)
-        workflow_id = 1 if result is not None else None
-        if workflow_id is None:
-            workflow = WorkflowType(name="In-use-phase3-workflow")
-            session.add(workflow)
-            await session.commit()
-            await session.refresh(workflow)
-            workflow_id = workflow.id
-
-        booking = Booking(
-            user_email="workflow-in-use@example.com",
-            gpu_type_id=1,
-            gpu_count=1,
-            gram_option_id=1,
-            memory_option_id=1,
-            workflow_type_id=workflow_id,
-            start_date=date(2026, 3, 1),
-            end_date=date(2026, 3, 2),
-        )
-        session.add(booking)
-        await session.commit()
+    host_type_id, workflow_type_id = await _get_reference_ids()
+    await _insert_booking(
+        user_email="workflow-in-use@example.com",
+        gpu_host_type_id=host_type_id,
+        workflow_type_id=workflow_type_id,
+        start_date=date(2026, 3, 1),
+        end_date=date(2026, 3, 2),
+    )
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://testserver") as client:
-        response = await client.delete(f"/api/v1/admin/workflow-types/{workflow_id}")
-
-    assert response.status_code == 409
-
-
-@pytest.mark.anyio
-async def test_gram_options_public_ordering_and_admin_create_delete_behaviour() -> None:
-    """Enforce ordering and in-use deletion conflict for GRAM options."""
-
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
-        list_response = await client.get("/api/v1/gram-options")
-        assert list_response.status_code == 200
-        listed = list_response.json()
-        assert len(listed) == 4
-        sort_orders = [item["sort_order"] for item in listed]
-        assert sort_orders == sorted(sort_orders)
-
-        create_response = await client.post(
-            "/api/v1/admin/gram-options",
-            json={"label": "160GB-phase3", "value_gb": 160, "sort_order": 0},
+        response = await client.delete(
+            f"/api/v1/admin/workflow-types/{workflow_type_id}"
         )
-        assert create_response.status_code == 201
-        created_id = create_response.json()["id"]
-
-        delete_response = await client.delete(
-            f"/api/v1/admin/gram-options/{created_id}"
-        )
-        assert delete_response.status_code == 204
-
-
-@pytest.mark.anyio
-async def test_gram_option_delete_returns_conflict_when_in_use() -> None:
-    """Reject GRAM option deletion when in use by bookings."""
-
-    async with async_session_factory() as session:
-        booking = Booking(
-            user_email="gram-in-use@example.com",
-            gpu_type_id=1,
-            gpu_count=1,
-            gram_option_id=1,
-            memory_option_id=1,
-            workflow_type_id=1,
-            start_date=date(2026, 3, 3),
-            end_date=date(2026, 3, 4),
-        )
-        session.add(booking)
-        await session.commit()
-
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
-        response = await client.delete("/api/v1/admin/gram-options/1")
-
-    assert response.status_code == 409
-
-
-@pytest.mark.anyio
-async def test_memory_options_public_ordering_and_admin_create_delete_behaviour() -> (
-    None
-):
-    """Enforce ordering and deletion behaviour for memory options."""
-
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
-        list_response = await client.get("/api/v1/memory-options")
-        assert list_response.status_code == 200
-        listed = list_response.json()
-        assert len(listed) == 7
-        sort_orders = [item["sort_order"] for item in listed]
-        assert sort_orders == sorted(sort_orders)
-
-        create_response = await client.post(
-            "/api/v1/admin/memory-options",
-            json={"label": "1TB-phase3", "value_gb": 1000, "sort_order": 0},
-        )
-        assert create_response.status_code == 201
-        created_id = create_response.json()["id"]
-
-        delete_response = await client.delete(
-            f"/api/v1/admin/memory-options/{created_id}"
-        )
-        assert delete_response.status_code == 204
-
-
-@pytest.mark.anyio
-async def test_memory_option_delete_returns_conflict_when_in_use() -> None:
-    """Reject memory option deletion when in use by bookings."""
-
-    async with async_session_factory() as session:
-        if await session.get(MemoryOption, 1) is None:
-            memory_option = MemoryOption(label="500GB", value_gb=500, sort_order=1)
-            session.add(memory_option)
-        if await session.get(GpuType, 1) is None:
-            session.add(
-                GpuType(
-                    name="H100-phase3-memory",
-                    gram_gb=80,
-                    system_memory_gb=500,
-                    total_count=8,
-                )
-            )
-        await session.commit()
-
-        booking = Booking(
-            user_email="memory-in-use@example.com",
-            gpu_type_id=1,
-            gpu_count=1,
-            gram_option_id=1,
-            memory_option_id=1,
-            workflow_type_id=1,
-            start_date=date(2026, 3, 5),
-            end_date=date(2026, 3, 6),
-        )
-        session.add(booking)
-        await session.commit()
-
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
-        response = await client.delete("/api/v1/admin/memory-options/1")
 
     assert response.status_code == 409
 
@@ -394,17 +245,10 @@ async def test_memory_option_delete_returns_conflict_when_in_use() -> None:
 async def test_patch_admin_booking_sets_confirmed_and_admin_modified_fields() -> None:
     """Confirm an unconfirmed booking and stamp admin metadata."""
 
-    (
-        gpu_type_id,
-        gram_option_id,
-        memory_option_id,
-        workflow_type_id,
-    ) = await _get_reference_ids()
+    host_type_id, workflow_type_id = await _get_reference_ids()
     booking = await _insert_booking(
         user_email="owner@example.com",
-        gpu_type_id=gpu_type_id,
-        gram_option_id=gram_option_id,
-        memory_option_id=memory_option_id,
+        gpu_host_type_id=host_type_id,
         workflow_type_id=workflow_type_id,
         start_date=date.today() + timedelta(days=30),
         end_date=date.today() + timedelta(days=32),
@@ -429,17 +273,10 @@ async def test_patch_admin_booking_sets_confirmed_and_admin_modified_fields() ->
 async def test_patch_admin_booking_updates_notes_and_admin_metadata() -> None:
     """Update admin_notes and stamp admin metadata."""
 
-    (
-        gpu_type_id,
-        gram_option_id,
-        memory_option_id,
-        workflow_type_id,
-    ) = await _get_reference_ids()
+    host_type_id, workflow_type_id = await _get_reference_ids()
     booking = await _insert_booking(
         user_email="owner@example.com",
-        gpu_type_id=gpu_type_id,
-        gram_option_id=gram_option_id,
-        memory_option_id=memory_option_id,
+        gpu_host_type_id=host_type_id,
         workflow_type_id=workflow_type_id,
         start_date=date.today() + timedelta(days=35),
         end_date=date.today() + timedelta(days=37),
@@ -466,40 +303,31 @@ async def test_patch_admin_booking_allows_rejected_status_even_if_capacity_full(
 ):
     """Allow rejected status updates regardless of capacity."""
 
-    (
-        gpu_type_id,
-        gram_option_id,
-        memory_option_id,
-        workflow_type_id,
-    ) = await _get_reference_ids()
+    host_type_id, workflow_type_id = await _get_reference_ids()
     async with async_session_factory() as session:
-        gpu_type = await session.get(GpuType, gpu_type_id)
-        assert gpu_type is not None
-        gpu_type.total_count = 1
+        host_type = await session.get(GpuHostType, host_type_id)
+        assert host_type is not None
+        host_type.total_count = 1
         await session.commit()
 
     start_date = date.today() + timedelta(days=40)
     end_date = date.today() + timedelta(days=41)
     await _insert_booking(
         user_email="confirmed@example.com",
-        gpu_type_id=gpu_type_id,
-        gram_option_id=gram_option_id,
-        memory_option_id=memory_option_id,
+        gpu_host_type_id=host_type_id,
         workflow_type_id=workflow_type_id,
         start_date=start_date,
         end_date=end_date,
-        gpu_count=1,
+        host_count=1,
         status=BookingStatus.confirmed,
     )
     target = await _insert_booking(
         user_email="target@example.com",
-        gpu_type_id=gpu_type_id,
-        gram_option_id=gram_option_id,
-        memory_option_id=memory_option_id,
+        gpu_host_type_id=host_type_id,
         workflow_type_id=workflow_type_id,
         start_date=start_date,
         end_date=end_date,
-        gpu_count=1,
+        host_count=1,
         status=BookingStatus.unconfirmed,
     )
 
@@ -520,40 +348,31 @@ async def test_patch_admin_booking_returns_conflict_when_confirm_exceeds_capacit
 ):
     """Return 409 when a consuming status update exceeds capacity."""
 
-    (
-        gpu_type_id,
-        gram_option_id,
-        memory_option_id,
-        workflow_type_id,
-    ) = await _get_reference_ids()
+    host_type_id, workflow_type_id = await _get_reference_ids()
     async with async_session_factory() as session:
-        gpu_type = await session.get(GpuType, gpu_type_id)
-        assert gpu_type is not None
-        gpu_type.total_count = 4
+        host_type = await session.get(GpuHostType, host_type_id)
+        assert host_type is not None
+        host_type.total_count = 2
         await session.commit()
 
     start_date = date.today() + timedelta(days=45)
     end_date = date.today() + timedelta(days=45)
     await _insert_booking(
         user_email="full@example.com",
-        gpu_type_id=gpu_type_id,
-        gram_option_id=gram_option_id,
-        memory_option_id=memory_option_id,
+        gpu_host_type_id=host_type_id,
         workflow_type_id=workflow_type_id,
         start_date=start_date,
         end_date=end_date,
-        gpu_count=4,
+        host_count=2,
         status=BookingStatus.confirmed,
     )
     target = await _insert_booking(
         user_email="target@example.com",
-        gpu_type_id=gpu_type_id,
-        gram_option_id=gram_option_id,
-        memory_option_id=memory_option_id,
+        gpu_host_type_id=host_type_id,
         workflow_type_id=workflow_type_id,
         start_date=start_date,
         end_date=end_date,
-        gpu_count=1,
+        host_count=1,
         status=BookingStatus.unconfirmed,
     )
 
@@ -571,21 +390,14 @@ async def test_patch_admin_booking_returns_conflict_when_confirm_exceeds_capacit
 async def test_patch_admin_booking_updates_booking_fields() -> None:
     """Update mutable booking fields from AdminBookingUpdate payload."""
 
-    (
-        gpu_type_id,
-        gram_option_id,
-        memory_option_id,
-        workflow_type_id,
-    ) = await _get_reference_ids()
+    host_type_id, workflow_type_id = await _get_reference_ids()
     booking = await _insert_booking(
         user_email="owner@example.com",
-        gpu_type_id=gpu_type_id,
-        gram_option_id=gram_option_id,
-        memory_option_id=memory_option_id,
+        gpu_host_type_id=host_type_id,
         workflow_type_id=workflow_type_id,
         start_date=date.today() + timedelta(days=50),
         end_date=date.today() + timedelta(days=52),
-        gpu_count=2,
+        host_count=1,
         status=BookingStatus.unconfirmed,
     )
 
@@ -596,7 +408,7 @@ async def test_patch_admin_booking_updates_booking_fields() -> None:
         response = await client.patch(
             f"/api/v1/admin/bookings/{booking.id}",
             json={
-                "gpu_count": 10,
+                "host_count": 2,
                 "start_date": new_start.isoformat(),
                 "end_date": new_end.isoformat(),
             },
@@ -604,7 +416,7 @@ async def test_patch_admin_booking_updates_booking_fields() -> None:
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["gpu_count"] == 10
+    assert payload["host_count"] == 2
     assert payload["start_date"] == new_start.isoformat()
 
 
@@ -612,17 +424,10 @@ async def test_patch_admin_booking_updates_booking_fields() -> None:
 async def test_patch_admin_booking_rejects_invalid_date_range() -> None:
     """Return 400 when admin update sets start_date after end_date."""
 
-    (
-        gpu_type_id,
-        gram_option_id,
-        memory_option_id,
-        workflow_type_id,
-    ) = await _get_reference_ids()
+    host_type_id, workflow_type_id = await _get_reference_ids()
     booking = await _insert_booking(
         user_email="owner@example.com",
-        gpu_type_id=gpu_type_id,
-        gram_option_id=gram_option_id,
-        memory_option_id=memory_option_id,
+        gpu_host_type_id=host_type_id,
         workflow_type_id=workflow_type_id,
         start_date=date.today() + timedelta(days=75),
         end_date=date.today() + timedelta(days=77),
@@ -650,17 +455,10 @@ async def test_patch_admin_booking_rejects_invalid_date_range() -> None:
 async def test_patch_admin_booking_forbidden_for_non_admin_user() -> None:
     """Reject booking updates from non-admin users."""
 
-    (
-        gpu_type_id,
-        gram_option_id,
-        memory_option_id,
-        workflow_type_id,
-    ) = await _get_reference_ids()
+    host_type_id, workflow_type_id = await _get_reference_ids()
     booking = await _insert_booking(
         user_email="owner@example.com",
-        gpu_type_id=gpu_type_id,
-        gram_option_id=gram_option_id,
-        memory_option_id=memory_option_id,
+        gpu_host_type_id=host_type_id,
         workflow_type_id=workflow_type_id,
         start_date=date.today() + timedelta(days=65),
         end_date=date.today() + timedelta(days=67),
@@ -696,17 +494,10 @@ async def test_patch_admin_booking_returns_not_found_for_missing_booking() -> No
 async def test_patch_admin_booking_can_reactivate_cancelled_booking() -> None:
     """Allow admins to change cancelled bookings back to confirmed."""
 
-    (
-        gpu_type_id,
-        gram_option_id,
-        memory_option_id,
-        workflow_type_id,
-    ) = await _get_reference_ids()
+    host_type_id, workflow_type_id = await _get_reference_ids()
     booking = await _insert_booking(
         user_email="owner@example.com",
-        gpu_type_id=gpu_type_id,
-        gram_option_id=gram_option_id,
-        memory_option_id=memory_option_id,
+        gpu_host_type_id=host_type_id,
         workflow_type_id=workflow_type_id,
         start_date=date.today() + timedelta(days=70),
         end_date=date.today() + timedelta(days=72),

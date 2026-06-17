@@ -22,7 +22,7 @@ async def get_capacity(
     session: Annotated[AsyncSession, Depends(get_session)],
     start_date: date,
     end_date: date,
-    gpu_type_id: int | None = None,
+    gpu_host_type_id: int | None = None,
 ) -> list[DailyCapacity]:
     """Get daily capacity for a date range."""
 
@@ -30,7 +30,7 @@ async def get_capacity(
         session,
         start_date=start_date,
         end_date=end_date,
-        gpu_type_id=gpu_type_id,
+        gpu_host_type_id=gpu_host_type_id,
         user_email=user.email,
     )
 
@@ -46,8 +46,8 @@ async def validate_booking_request(
     return await validate_booking(
         session,
         user_email=user.email,
-        gpu_type_id=booking.gpu_type_id,
-        gpu_count=booking.gpu_count,
+        gpu_host_type_id=booking.gpu_host_type_id,
+        host_count=booking.host_count,
         start_date=booking.start_date,
         end_date=booking.end_date,
     )

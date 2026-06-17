@@ -8,7 +8,7 @@ import {
 } from '@/components/ui/card'
 import { backendJson } from '@/lib/backend-client'
 import { bookingListSchema } from '@/lib/booking-contracts'
-import { gpuTypeListSchema } from '@/lib/admin-contracts'
+import { gpuHostTypeListSchema } from '@/lib/admin-contracts'
 
 const adminSections = [
   {
@@ -17,19 +17,14 @@ const adminSections = [
     href: '/admin/bookings',
   },
   {
-    title: 'GPU Types',
-    description: 'Configure GPU inventory and capacity.',
-    href: '/admin/gpu-types',
+    title: 'GPU Host Types',
+    description: 'Configure host shapes and availability.',
+    href: '/admin/gpu-host-types',
   },
   {
     title: 'Workflow Types',
     description: 'Maintain available workflow categories.',
     href: '/admin/workflow-types',
-  },
-  {
-    title: 'Memory Options',
-    description: 'Manage GRAM and system memory options.',
-    href: '/admin/memory-options',
   },
 ]
 
@@ -52,14 +47,17 @@ function getCurrentMonthBounds() {
 
 async function loadSummaryStats() {
   const monthBounds = getCurrentMonthBounds()
-  const [pendingBookingsRequest, confirmedBookingsRequest, gpuTypesRequest] =
-    await Promise.all([
-      buildRequestInitWithAuth(),
-      buildRequestInitWithAuth(),
-      buildRequestInitWithAuth(),
-    ])
+  const [
+    pendingBookingsRequest,
+    confirmedBookingsRequest,
+    gpuHostTypesRequest,
+  ] = await Promise.all([
+    buildRequestInitWithAuth(),
+    buildRequestInitWithAuth(),
+    buildRequestInitWithAuth(),
+  ])
 
-  const [pendingBookings, confirmedBookings, gpuTypes] = await Promise.all([
+  const [pendingBookings, confirmedBookings, gpuHostTypes] = await Promise.all([
     backendJson(
       '/api/v1/bookings?status=unconfirmed',
       bookingListSchema,
@@ -70,13 +68,17 @@ async function loadSummaryStats() {
       bookingListSchema,
       confirmedBookingsRequest
     ),
-    backendJson('/api/v1/gpu-types', gpuTypeListSchema, gpuTypesRequest),
+    backendJson(
+      '/api/v1/gpu-host-types',
+      gpuHostTypeListSchema,
+      gpuHostTypesRequest
+    ),
   ])
 
   return {
     pendingBookings: pendingBookings.length,
     confirmedBookingsThisMonth: confirmedBookings.length,
-    gpuTypesConfigured: gpuTypes.length,
+    gpuHostTypesConfigured: gpuHostTypes.length,
   }
 }
 
@@ -107,7 +109,7 @@ export default async function AdminDashboardPage() {
         </p>
       </section>
 
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {adminSections.map((section) => (
           <a key={section.href} href={section.href} className="block">
             <Card className="hover:bg-accent/40 h-full transition-colors">
@@ -151,14 +153,14 @@ export default async function AdminDashboardPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">GPU Types Configured</CardTitle>
+            <CardTitle className="text-lg">GPU Host Types Configured</CardTitle>
             <CardDescription>
-              Number of GPU types available in the catalog.
+              Number of GPU host types available in the catalog.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-semibold">
-              {stats.gpuTypesConfigured} GPU types configured
+              {stats.gpuHostTypesConfigured} GPU host types configured
             </p>
           </CardContent>
         </Card>

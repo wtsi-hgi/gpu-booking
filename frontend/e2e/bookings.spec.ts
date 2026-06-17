@@ -8,7 +8,7 @@ import {
   getDayCell,
   getFutureSubmissionDates,
   getIsoDateOffset,
-  getTotalGpuCapacity,
+  getTotalHostCapacity,
   gotoPath,
   switchUser,
 } from './helpers'
@@ -19,7 +19,7 @@ test.describe('bookings flows', () => {
     request,
   }) => {
     const dates = getCurrentMonthInteractionDates()
-    const totalGpuCapacity = await getTotalGpuCapacity(
+    const totalHostCapacity = await getTotalHostCapacity(
       request,
       'researcher@example.com'
     )
@@ -28,8 +28,8 @@ test.describe('bookings flows', () => {
       endDate: dates.focusPlusOne,
       eventEndDate: dates.focusPlusOne,
       eventStartDate: dates.focus,
-      gpuCount: 4,
-      gpuTypeName: 'H100',
+      gpuType: 'H100',
+      hostCount: 1,
       projectName: 'PW E2E Own Booking',
       projectPi: 'Prof Playwright',
       startDate: dates.focus,
@@ -37,8 +37,8 @@ test.describe('bookings flows', () => {
     })
     const otherBooking = await createBooking(request, 'other@example.com', {
       endDate: dates.focus,
-      gpuCount: 3,
-      gpuTypeName: 'H200',
+      gpuType: 'H200',
+      hostCount: 1,
       projectName: 'PW E2E Other Booking',
       startDate: dates.focus,
       workflowName: 'Interactive workloads',
@@ -52,13 +52,17 @@ test.describe('bookings flows', () => {
     await expect(page.getByRole('heading', { name: 'Bookings' })).toBeVisible()
     await expect(dayCell).toBeVisible()
     await expect(
-      dayCell.getByText(`7 of ${totalGpuCapacity} GPUs`)
+      dayCell.getByText(`2 of ${totalHostCapacity} hosts`)
     ).toBeVisible()
 
-    await page.locator('#gpu-filter').selectOption({ label: 'H100' })
-    await expect(dayCell.getByText('4 of 16 GPUs')).toBeVisible()
+    await page
+      .locator('#gpu-host-type-filter')
+      .selectOption({ label: '8 GPU H100' })
+    await expect(dayCell.getByText('1 of 2 hosts')).toBeVisible()
 
-    await page.locator('#gpu-filter').selectOption({ label: 'All GPU types' })
+    await page
+      .locator('#gpu-host-type-filter')
+      .selectOption({ label: 'All GPU host types' })
 
     await page.getByRole('tab', { name: 'Table' }).click()
 
@@ -100,15 +104,7 @@ test.describe('bookings flows', () => {
     page,
     request,
   }) => {
-    const totalGpuCapacity = await getTotalGpuCapacity(
-      request,
-      'researcher@example.com'
-    )
-    const proposedGpuCount = 2
-    const warningSeedGpuCount = Math.max(
-      1,
-      Math.floor(totalGpuCapacity * 0.4) - proposedGpuCount + 1
-    )
+    const proposedHostCount = 1
     const warningDates = {
       start: getIsoDateOffset(25),
       end: getIsoDateOffset(27),
@@ -120,14 +116,16 @@ test.describe('bookings flows', () => {
       (warningStart.getUTCMonth() - today.getUTCMonth())
     const projectName = `PW E2E Warning ${warningDates.start}`
 
-    await createBooking(request, 'researcher@example.com', {
-      endDate: warningDates.end,
-      gpuCount: warningSeedGpuCount,
-      gpuTypeName: 'H200',
-      projectName: 'PW E2E Existing Capacity Share',
-      startDate: warningDates.start,
-      workflowName: 'Interactive workloads',
-    })
+    for (let index = 0; index < 4; index += 1) {
+      await createBooking(request, 'researcher@example.com', {
+        endDate: warningDates.end,
+        gpuType: 'H200',
+        hostCount: 3,
+        projectName: `PW E2E Existing Capacity Share ${index}`,
+        startDate: warningDates.start,
+        workflowName: 'Interactive workloads',
+      })
+    }
 
     await gotoPath(
       page,
@@ -135,10 +133,8 @@ test.describe('bookings flows', () => {
     )
     await switchUser(page, 'researcher@example.com')
 
-    await page.getByLabel('GPU Type').selectOption({ label: 'H100' })
-    await page.getByLabel('GPU Count').fill(String(proposedGpuCount))
-    await page.getByLabel('GRAM').selectOption({ label: '80GB' })
-    await page.getByLabel('System Memory').selectOption({ label: '500GB' })
+    await page.getByLabel('GPU Host Type').selectOption({ label: '8 GPU H100' })
+    await page.getByLabel('Host Count').fill(String(proposedHostCount))
     await page
       .getByLabel('Workflow Type')
       .selectOption({ label: 'Inference workloads' })
@@ -155,7 +151,7 @@ test.describe('bookings flows', () => {
     await expect(
       page
         .getByRole('status')
-        .getByText(/Proposed booking exceeds 40% per-user capacity/i)
+        .getByText(/Proposed booking exceeds 40% per-user host capacity/i)
     ).toBeVisible()
 
     await page.getByRole('button', { name: 'Confirm' }).click()
@@ -244,10 +240,8 @@ test.describe('bookings flows', () => {
       page.getByLabel('Event End Date', { exact: true })
     ).toHaveValue(futureDates.end)
 
-    await page.getByLabel('GPU Type').selectOption({ label: 'H100' })
-    await page.getByLabel('GPU Count').fill('2')
-    await page.getByLabel('GRAM').selectOption({ label: '80GB' })
-    await page.getByLabel('System Memory').selectOption({ label: '500GB' })
+    await page.getByLabel('GPU Host Type').selectOption({ label: '8 GPU H100' })
+    await page.getByLabel('Host Count').fill('1')
     await page
       .getByLabel('Workflow Type')
       .selectOption({ label: 'Inference workloads' })
