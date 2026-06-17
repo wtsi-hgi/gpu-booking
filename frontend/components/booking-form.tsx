@@ -1053,16 +1053,25 @@ export function BookingForm({
               </div>
 
               <div className="space-y-1">
-                <label htmlFor="alt_email" className="text-sm font-medium">
-                  Alternate Email
+                <label
+                  htmlFor="project_grant_number"
+                  className="text-sm font-medium"
+                >
+                  Cost Code
                 </label>
                 <Input
-                  id="alt_email"
-                  name="alt_email"
-                  type="email"
-                  value={formValues.alt_email}
-                  onChange={handleFieldChange('alt_email')}
+                  id="project_grant_number"
+                  name="project_grant_number"
+                  type="text"
+                  value={formValues.project_grant_number}
+                  onChange={handleFieldChange('project_grant_number')}
+                  aria-invalid={Boolean(fieldErrors.project_grant_number)}
                 />
+                {fieldErrors.project_grant_number && (
+                  <p className="text-destructive text-sm">
+                    {fieldErrors.project_grant_number}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-1">
@@ -1138,25 +1147,16 @@ export function BookingForm({
               </div>
 
               <div className="space-y-1">
-                <label
-                  htmlFor="project_grant_number"
-                  className="text-sm font-medium"
-                >
-                  Cost Code
+                <label htmlFor="alt_email" className="text-sm font-medium">
+                  Alternate Email
                 </label>
                 <Input
-                  id="project_grant_number"
-                  name="project_grant_number"
-                  type="text"
-                  value={formValues.project_grant_number}
-                  onChange={handleFieldChange('project_grant_number')}
-                  aria-invalid={Boolean(fieldErrors.project_grant_number)}
+                  id="alt_email"
+                  name="alt_email"
+                  type="email"
+                  value={formValues.alt_email}
+                  onChange={handleFieldChange('alt_email')}
                 />
-                {fieldErrors.project_grant_number && (
-                  <p className="text-destructive text-sm">
-                    {fieldErrors.project_grant_number}
-                  </p>
-                )}
               </div>
 
               <div className="space-y-1">

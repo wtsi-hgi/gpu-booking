@@ -265,6 +265,29 @@ describe('booking form - F3 acceptance coverage', () => {
     ).toBeNull()
   })
 
+  it('groups required booking fields at the top of the form', () => {
+    const { container } = renderBookingForm()
+
+    const labelOrder = Array.from(container.querySelectorAll('form label')).map(
+      (label) => label.textContent?.replace(/\s+/g, ' ').trim() ?? ''
+    )
+
+    expect(labelOrder).toEqual([
+      'GPU Host Type',
+      'Host Count',
+      'Workflow Type',
+      'Cost Code',
+      'Start Date',
+      'End Date',
+      'Project Name',
+      'PI/Lead',
+      'Alternate Email',
+      'Technical Lead',
+      'Event Start Date',
+      'Event End Date',
+    ])
+  })
+
   it('omits GPU host types with zero configured hosts from the selector', () => {
     renderBookingForm(undefined, undefined, [
       ...gpuHostTypes,
