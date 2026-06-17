@@ -110,6 +110,7 @@ function buildBookingWithOverrides(
     host_count: number
     workflow_type_name: string
     user_email: string
+    reservation_name: string | null
   }> = {}
 ) {
   return {
@@ -120,6 +121,7 @@ function buildBookingWithOverrides(
     host_count: overrides.host_count ?? 2,
     workflow_type_name: overrides.workflow_type_name ?? 'Training',
     user_email: overrides.user_email ?? 'user@example.com',
+    reservation_name: overrides.reservation_name ?? null,
   }
 }
 
@@ -566,6 +568,37 @@ describe('bookings page - F1 calendar grid', () => {
 
     expect(mocks.routerPushMock).toHaveBeenCalledWith(
       '/bookings/new?start=2026-03-10&end=2026-03-10'
+    )
+  })
+
+  it('shows reservation names on overlapping bookings in the selection panel', async () => {
+    mocks.getBookingsMock.mockResolvedValueOnce([
+      buildBookingWithOverrides(1, {
+        reservation_name: 'NCCS Overlap Reservation 260617',
+      }),
+    ])
+
+    const { default: BookingsPage } = await import('@/app/bookings/page')
+    render(await BookingsPage())
+
+    const dayCell = document.querySelector('[data-date="2026-03-10"]')
+    expect(dayCell).toBeTruthy()
+
+    fireEvent.mouseDown(dayCell as Element)
+    fireEvent.mouseUp(dayCell as Element)
+
+    const selectionPanel = document.querySelector(
+      '[data-selection-panel="true"]'
+    )
+    expect(selectionPanel).toBeTruthy()
+
+    const overlappingBooking = selectionPanel?.querySelector(
+      '[data-overlapping-booking="true"]'
+    )
+
+    expect(overlappingBooking).toBeTruthy()
+    expect(overlappingBooking?.textContent).toContain(
+      'NCCS Overlap Reservation 260617'
     )
   })
 

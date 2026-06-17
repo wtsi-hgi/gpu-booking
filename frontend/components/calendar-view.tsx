@@ -1252,35 +1252,45 @@ export function CalendarView({
                       ) : (
                         <ul className="space-y-2">
                           {selectionDetails.overlappingBookings.map(
-                            (booking) => (
-                              <li
-                                key={booking.id}
-                                className="border-border/70 bg-background/60 rounded-lg border p-3"
-                                data-overlapping-booking="true"
-                              >
-                                <div className="flex items-start justify-between gap-3">
-                                  <div className="min-w-0 space-y-1">
-                                    <p className="text-sm font-medium">
-                                      {booking.host_count} ×{' '}
-                                      {formatGpuHostTypeLabel(booking)} ·{' '}
-                                      {booking.workflow_type_name}
-                                    </p>
-                                    <p className="text-muted-foreground text-xs">
-                                      {formatDisplayRange(
-                                        booking.start_date,
-                                        booking.end_date
-                                      )}
-                                    </p>
-                                    <p className="text-muted-foreground truncate text-xs">
-                                      {booking.user_email}
-                                    </p>
+                            (booking) => {
+                              const reservationName =
+                                booking.reservation_name?.trim()
+
+                              return (
+                                <li
+                                  key={booking.id}
+                                  className="border-border/70 bg-background/60 rounded-lg border p-3"
+                                  data-overlapping-booking="true"
+                                >
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div className="min-w-0 space-y-1">
+                                      <p className="text-sm font-medium">
+                                        {booking.host_count} ×{' '}
+                                        {formatGpuHostTypeLabel(booking)} ·{' '}
+                                        {booking.workflow_type_name}
+                                      </p>
+                                      {reservationName ? (
+                                        <p className="truncate text-xs font-medium">
+                                          {reservationName}
+                                        </p>
+                                      ) : null}
+                                      <p className="text-muted-foreground text-xs">
+                                        {formatDisplayRange(
+                                          booking.start_date,
+                                          booking.end_date
+                                        )}
+                                      </p>
+                                      <p className="text-muted-foreground truncate text-xs">
+                                        {booking.user_email}
+                                      </p>
+                                    </div>
+                                    <span className="border-border text-muted-foreground rounded-full border px-2 py-0.5 text-[11px] font-medium capitalize">
+                                      {booking.status}
+                                    </span>
                                   </div>
-                                  <span className="border-border text-muted-foreground rounded-full border px-2 py-0.5 text-[11px] font-medium capitalize">
-                                    {booking.status}
-                                  </span>
-                                </div>
-                              </li>
-                            )
+                                </li>
+                              )
+                            }
                           )}
                         </ul>
                       )}
