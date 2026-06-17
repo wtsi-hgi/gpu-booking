@@ -13,6 +13,7 @@ import { createElement } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { BookingForm } from '@/components/booking-form'
+import type { GpuHostType, WorkflowType } from '@/lib/admin-contracts'
 import type { BookingValidation } from '@/lib/booking-contracts'
 import {
   createInitialBookingFormValues,
@@ -55,7 +56,7 @@ vi.mock('@/app/actions', () => ({
   validateBooking: mocks.validateBookingMock,
 }))
 
-const gpuHostTypes = [
+const gpuHostTypes: GpuHostType[] = [
   {
     id: 1,
     gpu_type: 'H100',
@@ -66,12 +67,16 @@ const gpuHostTypes = [
   },
 ]
 
-const workflowTypes = [{ id: 1, name: 'Training' }]
+const workflowTypes: WorkflowType[] = [{ id: 1, name: 'Training' }]
 
-function renderBookingForm(initialStartDate?: string, initialEndDate?: string) {
+function renderBookingForm(
+  initialStartDate?: string,
+  initialEndDate?: string,
+  nextGpuHostTypes: GpuHostType[] = gpuHostTypes
+) {
   return render(
     createElement(BookingForm, {
-      gpuHostTypes,
+      gpuHostTypes: nextGpuHostTypes,
       workflowTypes,
       initialStartDate,
       initialEndDate,
@@ -215,6 +220,34 @@ describe('booking form - F3 acceptance coverage', () => {
     renderBookingForm()
 
     expect(screen.queryByRole('button', { name: 'Validate' })).toBeNull()
+  })
+
+  it('omits GPU host types with zero configured hosts from the selector', () => {
+    renderBookingForm(undefined, undefined, [
+      ...gpuHostTypes,
+      {
+        id: 2,
+        gpu_type: 'A100',
+        gpu_count: 8,
+        total_count: 0,
+        created_at: '2026-02-01T00:00:00Z',
+        updated_at: '2026-02-01T00:00:00Z',
+      },
+    ])
+
+    const gpuHostTypeSelect = screen.getByLabelText('GPU Host Type')
+
+    expect(
+      within(gpuHostTypeSelect).getByRole('option', {
+        name: 'Select GPU host type',
+      })
+    ).toBeTruthy()
+    expect(
+      within(gpuHostTypeSelect).getByRole('option', { name: '8 GPU H100' })
+    ).toBeTruthy()
+    expect(
+      within(gpuHostTypeSelect).queryByRole('option', { name: '8 GPU A100' })
+    ).toBeNull()
   })
 
   it('provides a close icon action that returns to the bookings page without submitting', async () => {

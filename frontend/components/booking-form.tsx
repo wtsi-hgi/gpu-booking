@@ -693,6 +693,9 @@ export function BookingForm({
       : awaitingConfirmation
         ? 'Confirm'
         : 'Create Booking'
+  const selectableGpuHostTypes = gpuHostTypes.filter(
+    (gpuHostType) => gpuHostType.total_count > 0
+  )
 
   return (
     <Card className="shadow-lg">
@@ -742,7 +745,7 @@ export function BookingForm({
                   }
                 >
                   <option value="">Select GPU host type</option>
-                  {gpuHostTypes.map((gpuHostType) => (
+                  {selectableGpuHostTypes.map((gpuHostType) => (
                     <option key={gpuHostType.id} value={gpuHostType.id}>
                       {formatGpuHostTypeLabel(gpuHostType)}
                     </option>

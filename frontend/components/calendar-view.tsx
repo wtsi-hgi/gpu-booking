@@ -394,6 +394,10 @@ export function CalendarView({
   const monthEnd = endOfMonthUtc(currentMonth)
   const monthStartIso = formatDateParam(monthStart)
   const monthEndIso = formatDateParam(monthEnd)
+  const selectableGpuHostTypes = useMemo(
+    () => gpuHostTypes.filter((gpuHostType) => gpuHostType.total_count > 0),
+    [gpuHostTypes]
+  )
 
   const dayCells = useMemo(
     () => buildVisibleDayCells(monthStart, visibleMonthCount),
@@ -818,7 +822,7 @@ export function CalendarView({
             }}
           >
             <option value="">All GPU host types</option>
-            {gpuHostTypes.map((gpuHostType) => (
+            {selectableGpuHostTypes.map((gpuHostType) => (
               <option key={gpuHostType.id} value={gpuHostType.id}>
                 {formatGpuHostTypeLabel(gpuHostType)}
               </option>

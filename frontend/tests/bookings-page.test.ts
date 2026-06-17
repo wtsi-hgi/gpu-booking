@@ -435,6 +435,65 @@ describe('bookings page - F1 calendar grid', () => {
     )
   })
 
+  it('omits zero-count host types from the calendar filter while All still shows their bookings', async () => {
+    const zeroCountBooking = {
+      ...buildBookingWithOverrides(2, {
+        start_date: '2026-03-20',
+        end_date: '2026-03-22',
+        gpu_type: 'A100',
+        user_email: 'retired-type@example.com',
+      }),
+      gpu_host_type_id: 2,
+    }
+
+    mocks.getGpuHostTypesMock.mockResolvedValueOnce([
+      {
+        id: 1,
+        gpu_type: 'H100',
+        gpu_count: 8,
+        total_count: 40,
+        created_at: '2026-02-01T00:00:00Z',
+        updated_at: '2026-02-01T00:00:00Z',
+      },
+      {
+        id: 2,
+        gpu_type: 'A100',
+        gpu_count: 8,
+        total_count: 0,
+        created_at: '2026-02-01T00:00:00Z',
+        updated_at: '2026-02-01T00:00:00Z',
+      },
+    ])
+    mocks.getBookingsMock.mockResolvedValueOnce([zeroCountBooking])
+
+    const { default: BookingsPage } = await import('@/app/bookings/page')
+    render(await BookingsPage())
+
+    const gpuHostTypeFilter = screen.getByLabelText('GPU Host Type')
+
+    expect(
+      within(gpuHostTypeFilter).getByRole('option', {
+        name: 'All GPU host types',
+      })
+    ).toBeTruthy()
+    expect(
+      within(gpuHostTypeFilter).getByRole('option', { name: '8 GPU H100' })
+    ).toBeTruthy()
+    expect(
+      within(gpuHostTypeFilter).queryByRole('option', { name: '8 GPU A100' })
+    ).toBeNull()
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Table' }))
+
+    const bookingRow = document.querySelector('[data-booking-id="2"]')
+
+    expect(bookingRow).toBeTruthy()
+    expect(screen.getByText('retired-type@example.com')).toBeTruthy()
+    expect(
+      within(bookingRow as HTMLElement).getByText('8 GPU A100')
+    ).toBeTruthy()
+  })
+
   it('renders empty 0% capacity bars for all current-month day cells with no bookings', async () => {
     mocks.getCapacityMock.mockResolvedValueOnce([])
     mocks.getBookingsMock.mockResolvedValueOnce([])
