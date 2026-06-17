@@ -1,81 +1,61 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-  gpuTypeListSchema,
-  gpuTypeSchema,
-  gramOptionSchema,
-  memoryOptionSchema,
+  formatGpuHostTypeLabel,
+  gpuHostTypeListSchema,
+  gpuHostTypeSchema,
   workflowTypeSchema,
 } from '@/lib/admin-contracts'
 
 describe('admin contracts', () => {
-  it('parses a valid GPU type payload', () => {
+  it('parses a valid GPU host type payload', () => {
     const payload = {
       id: 1,
-      name: 'H100',
-      gram_gb: 80,
-      system_memory_gb: 500,
-      total_count: 16,
+      gpu_type: 'H100',
+      gpu_count: 8,
+      total_count: 2,
       created_at: '2026-01-01T00:00:00',
       updated_at: '2026-01-02T00:00:00',
     }
 
-    expect(gpuTypeSchema.parse(payload)).toEqual(payload)
+    expect(gpuHostTypeSchema.parse(payload)).toEqual(payload)
   })
 
-  it('rejects invalid GPU type payloads missing name', () => {
+  it('rejects invalid GPU host type payloads missing gpu_count', () => {
     const payload = {
       id: 1,
-      gram_gb: 80,
-      system_memory_gb: 500,
-      total_count: 16,
+      gpu_type: 'H100',
+      total_count: 2,
       created_at: '2026-01-01T00:00:00',
       updated_at: '2026-01-02T00:00:00',
     }
 
-    expect(gpuTypeSchema.safeParse(payload).success).toBe(false)
+    expect(gpuHostTypeSchema.safeParse(payload).success).toBe(false)
   })
 
-  it('parses GPU type list payloads', () => {
+  it('parses GPU host type list payloads', () => {
     const payload = [
       {
         id: 1,
-        name: 'H100',
-        gram_gb: 80,
-        system_memory_gb: 500,
-        total_count: 16,
+        gpu_type: 'H100',
+        gpu_count: 8,
+        total_count: 2,
         created_at: '2026-01-01T00:00:00',
         updated_at: '2026-01-02T00:00:00',
       },
     ]
 
-    expect(gpuTypeListSchema.parse(payload)).toEqual(payload)
+    expect(gpuHostTypeListSchema.parse(payload)).toEqual(payload)
+  })
+
+  it('formats the selectable GPU host type label from presentation data', () => {
+    expect(formatGpuHostTypeLabel({ gpu_type: 'H100', gpu_count: 8 })).toBe(
+      '8 GPU H100'
+    )
   })
 
   it('parses workflow type payloads', () => {
     const payload = { id: 1, name: 'Inference workloads' }
     expect(workflowTypeSchema.parse(payload)).toEqual(payload)
-  })
-
-  it('parses GRAM option payloads', () => {
-    const payload = {
-      id: 1,
-      label: '80GB',
-      value_gb: 80,
-      sort_order: 1,
-    }
-
-    expect(gramOptionSchema.parse(payload)).toEqual(payload)
-  })
-
-  it('parses memory option payloads', () => {
-    const payload = {
-      id: 1,
-      label: '500GB',
-      value_gb: 500,
-      sort_order: 1,
-    }
-
-    expect(memoryOptionSchema.parse(payload)).toEqual(payload)
   })
 })

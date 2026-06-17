@@ -1,4 +1,4 @@
-import { getBookings, getCapacity, getGpuTypes } from '@/app/actions'
+import { getBookings, getCapacity, getGpuHostTypes } from '@/app/actions'
 import { CalendarView } from '@/components/calendar-view'
 import { requireCurrentUser } from '@/lib/server-auth'
 
@@ -46,8 +46,8 @@ function getCurrentCalendarMonth() {
 export default async function BookingsPage() {
   const month = getCurrentCalendarMonth()
   const currentUser = await requireCurrentUser('/bookings')
-  const [gpuTypes, capacity, bookings] = await Promise.all([
-    getGpuTypes(),
+  const [gpuHostTypes, capacity, bookings] = await Promise.all([
+    getGpuHostTypes(),
     getCapacity(month.dataStart, month.dataEnd),
     getBookings(month.dataStart, month.dataEnd),
   ])
@@ -57,7 +57,7 @@ export default async function BookingsPage() {
       <header className="mb-6 space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight">Bookings</h1>
         <p className="text-muted-foreground">
-          View GPU utilisation by month and inspect booking records.
+          View host utilisation by month and inspect booking records.
         </p>
       </header>
 
@@ -65,7 +65,7 @@ export default async function BookingsPage() {
         initialMonthIso={month.initialMonthIso}
         initialCapacity={capacity}
         initialBookings={bookings}
-        gpuTypes={gpuTypes}
+        gpuHostTypes={gpuHostTypes}
         currentUserEmail={currentUser.email}
       />
     </main>

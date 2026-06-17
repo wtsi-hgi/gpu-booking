@@ -1,4 +1,4 @@
-"""Tests for database seeding logic (A3)."""
+"""Tests for database seeding logic."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import (
 from sqlalchemy.pool import StaticPool
 
 from config import settings
-from db.models import Admin, Base, GpuType, GramOption, MemoryOption, WorkflowType
+from db.models import Admin, Base, GpuHostType, WorkflowType
 from db.seed import seed_db
 
 
@@ -36,22 +36,22 @@ async def db_session() -> AsyncSession:
 
 
 @pytest.mark.anyio
-async def test_seed_db_populates_gpu_types_with_expected_values(
+async def test_seed_db_populates_gpu_host_types_with_expected_values(
     db_session: AsyncSession,
 ) -> None:
     await seed_db(db_session)
 
-    result = await db_session.execute(select(GpuType).order_by(GpuType.name))
+    result = await db_session.execute(
+        select(GpuHostType).order_by(GpuHostType.gpu_type)
+    )
     rows = result.scalars().all()
 
     assert len(rows) == 4
-    assert [
-        (row.name, row.gram_gb, row.system_memory_gb, row.total_count) for row in rows
-    ] == [
-        ("A100", 80, 500, 0),
-        ("H100", 80, 500, 16),
-        ("H200", 141, 1000, 24),
-        ("V100", 32, 192, 0),
+    assert [(row.gpu_type, row.gpu_count, row.total_count) for row in rows] == [
+        ("A100", 8, 0),
+        ("H100", 8, 2),
+        ("H200", 8, 3),
+        ("V100", 8, 0),
     ]
 
 
@@ -70,42 +70,6 @@ async def test_seed_db_populates_workflow_types_with_expected_values(
         "Interactive workloads",
         "HPC training, one server per task/job",
         "At scale training, span multiple GPU servers (> 8 GPUs)",
-    ]
-
-
-@pytest.mark.anyio
-async def test_seed_db_populates_gram_and_memory_options(
-    db_session: AsyncSession,
-) -> None:
-    await seed_db(db_session)
-
-    gram_result = await db_session.execute(
-        select(GramOption).order_by(GramOption.sort_order)
-    )
-    gram_rows = gram_result.scalars().all()
-
-    memory_result = await db_session.execute(
-        select(MemoryOption).order_by(MemoryOption.sort_order)
-    )
-    memory_rows = memory_result.scalars().all()
-
-    assert len(gram_rows) == 4
-    assert [(row.label, row.value_gb, row.sort_order) for row in gram_rows] == [
-        ("80GB", 80, 1),
-        ("60GB", 60, 2),
-        ("40GB", 40, 3),
-        ("<=20GB", 20, 4),
-    ]
-
-    assert len(memory_rows) == 7
-    assert [(row.label, row.value_gb, row.sort_order) for row in memory_rows] == [
-        ("500GB", 500, 1),
-        ("100GB", 100, 2),
-        ("56GB", 56, 3),
-        ("50GB", 50, 4),
-        ("25GB", 25, 5),
-        ("10GB", 10, 6),
-        ("<10GB", 5, 7),
     ]
 
 
@@ -130,13 +94,13 @@ async def test_seed_db_populates_admins_from_env_var(
 
 
 @pytest.mark.anyio
-async def test_seed_db_is_idempotent_when_gpu_types_already_exist(
+async def test_seed_db_is_idempotent_when_gpu_host_types_already_exist(
     db_session: AsyncSession,
 ) -> None:
     await seed_db(db_session)
     await seed_db(db_session)
 
-    result = await db_session.execute(select(GpuType))
+    result = await db_session.execute(select(GpuHostType))
     rows = result.scalars().all()
 
     assert len(rows) == 4

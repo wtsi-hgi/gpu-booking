@@ -12,18 +12,16 @@ export const bookingStatusSchema = z.enum([
 export const bookingResponseSchema = z.object({
   id: z.number(),
   user_email: z.string(),
-  gpu_type_id: z.number(),
-  gpu_type_name: z.string(),
+  gpu_host_type_id: z.number(),
+  gpu_type: z.string(),
   gpu_count: z.number(),
-  gram_option_id: z.number(),
-  gram_label: z.string(),
-  memory_option_id: z.number(),
-  memory_label: z.string(),
+  host_count: z.number(),
   workflow_type_id: z.number(),
   workflow_type_name: z.string(),
   start_date: z.string(),
   end_date: z.string(),
   status: bookingStatusSchema,
+  reservation_name: z.string().nullable(),
   alt_email: z.string().nullable(),
   project_name: z.string().nullable(),
   project_pi: z.string().nullable(),
@@ -45,8 +43,9 @@ export const bookingListSchema = z.array(bookingResponseSchema)
 
 export const dailyCapacitySchema = z.object({
   date: z.string(),
-  gpu_type_id: z.number(),
-  gpu_type_name: z.string(),
+  gpu_host_type_id: z.number(),
+  gpu_type: z.string(),
+  gpu_count: z.number(),
   total: z.number(),
   confirmed_used: z.number(),
   pending_used: z.number(),
@@ -59,6 +58,20 @@ export const dailyCapacitySchema = z.object({
 export type DailyCapacity = z.infer<typeof dailyCapacitySchema>
 
 export const dailyCapacityListSchema = z.array(dailyCapacitySchema)
+
+export const hostTypeAvailabilitySchema = z.object({
+  gpu_host_type_id: z.number(),
+  gpu_type: z.string(),
+  gpu_count: z.number(),
+  total: z.number(),
+  currently_bookable: z.number(),
+})
+
+export type HostTypeAvailability = z.infer<typeof hostTypeAvailabilitySchema>
+
+export const hostTypeAvailabilityListSchema = z.array(
+  hostTypeAvailabilitySchema
+)
 
 export const capacityWarningSchema = z.object({
   rule: z.string(),

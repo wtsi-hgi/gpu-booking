@@ -9,17 +9,15 @@ GPU Booking is a full-stack scheduling application for shared accelerator infras
 ## What the app does
 
 ### User workflows
-- Create a booking with GPU type, memory/GRAM options, workflow type, and dates.
+- Create a booking with GPU host type, host count, workflow type, and dates.
 - See booking status (`unconfirmed`, `confirmed`, `tentative`, `spot`, `rejected`, `cancelled`).
 - View bookings in table/calendar-oriented screens.
 - Validate requested allocations against capacity rules before submit.
 
 ### Admin workflows
 - Manage reference data:
-  - GPU types
+  - GPU host types
   - workflow types
-  - memory options
-  - GRAM options
 - Review and update bookings, including status and admin notes.
 - Inspect capacity and guardrails for over-allocation.
 
@@ -116,6 +114,12 @@ Historical unprefixed names such as `FRONTEND_PORT`, `BACKEND_PORT`, `BACKEND_UR
 `AUTH_MODE`, and `DATABASE_URL` are still accepted as compatibility aliases, but
 new configuration should use the `GPU_BOOKING_` names.
 
+`GPU_BOOKING_DATABASE_URL` defaults to `sqlite+aiosqlite:///./gpu_booking.db`.
+With `make run`, the backend process starts in `backend/`, so the local SQLite
+file is generated as `backend/gpu_booking.db`. That file and its SQLite sidecars
+are ignored by git; delete them to reset local state, or set
+`GPU_BOOKING_DATABASE_URL` to another SQLite or service database URL.
+
 ### Authentication mode (important)
 
 Backend auth mode is controlled by `GPU_BOOKING_AUTH_MODE`.
@@ -180,7 +184,8 @@ Backend (`backend/`):
 
 Notes:
 - Frontend tests are Vitest-based and include route/component/action contract coverage.
-- Frontend Playwright E2E coverage starts the repo locally via `run-dev.sh` against an isolated SQLite database and uses the preinstalled Chromium/browser path from the environment.
+- Backend pytest config uses an isolated SQLite database under `.tmp/agent/backend-tests/` so tests do not mutate the local development database.
+- Frontend Playwright E2E coverage starts FastAPI and Next.js from `frontend/playwright.config.ts` against an isolated SQLite database and uses the preinstalled Chromium/browser path from the environment.
 - A server-action export contract test now guards against invalid `use server` exports.
 - A homepage smoke test verifies the root page renders with successful backend responses.
 

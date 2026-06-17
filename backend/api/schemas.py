@@ -3,7 +3,7 @@
 from datetime import date, datetime
 from enum import StrEnum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class MessageResponse(BaseModel):
@@ -27,36 +27,33 @@ class UserInfo(BaseModel):
     auth_mode: str
 
 
-class GpuTypeResponse(BaseModel):
-    """GPU type response payload."""
+class GpuHostTypeResponse(BaseModel):
+    """GPU host type response payload."""
 
     id: int
-    name: str
-    gram_gb: int
-    system_memory_gb: int
-    total_count: int
+    gpu_type: str
+    gpu_count: int
+    total_count: int = Field(ge=0)
     created_at: datetime
     updated_at: datetime
 
     model_config = {"from_attributes": True}
 
 
-class GpuTypeCreate(BaseModel):
-    """GPU type create payload."""
+class GpuHostTypeCreate(BaseModel):
+    """GPU host type create payload."""
 
-    name: str
-    gram_gb: int = Field(gt=0)
-    system_memory_gb: int = Field(gt=0)
-    total_count: int = Field(gt=0)
+    gpu_type: str
+    gpu_count: int = Field(gt=0)
+    total_count: int = Field(ge=0)
 
 
-class GpuTypeUpdate(BaseModel):
-    """GPU type update payload."""
+class GpuHostTypeUpdate(BaseModel):
+    """GPU host type update payload."""
 
-    name: str | None = None
-    gram_gb: int | None = Field(default=None, gt=0)
-    system_memory_gb: int | None = Field(default=None, gt=0)
-    total_count: int | None = Field(default=None, gt=0)
+    gpu_type: str | None = None
+    gpu_count: int | None = Field(default=None, gt=0)
+    total_count: int | None = Field(default=None, ge=0)
 
 
 class WorkflowTypeResponse(BaseModel):
@@ -80,60 +77,6 @@ class WorkflowTypeUpdate(BaseModel):
     name: str | None = None
 
 
-class GramOptionResponse(BaseModel):
-    """GRAM option response payload."""
-
-    id: int
-    label: str
-    value_gb: int
-    sort_order: int
-
-    model_config = {"from_attributes": True}
-
-
-class GramOptionCreate(BaseModel):
-    """GRAM option create payload."""
-
-    label: str
-    value_gb: int = Field(gt=0)
-    sort_order: int = Field(ge=0)
-
-
-class GramOptionUpdate(BaseModel):
-    """GRAM option update payload."""
-
-    label: str | None = None
-    value_gb: int | None = Field(default=None, gt=0)
-    sort_order: int | None = Field(default=None, ge=0)
-
-
-class MemoryOptionResponse(BaseModel):
-    """Memory option response payload."""
-
-    id: int
-    label: str
-    value_gb: int
-    sort_order: int
-
-    model_config = {"from_attributes": True}
-
-
-class MemoryOptionCreate(BaseModel):
-    """Memory option create payload."""
-
-    label: str
-    value_gb: int = Field(gt=0)
-    sort_order: int = Field(ge=0)
-
-
-class MemoryOptionUpdate(BaseModel):
-    """Memory option update payload."""
-
-    label: str | None = None
-    value_gb: int | None = Field(default=None, gt=0)
-    sort_order: int | None = Field(default=None, ge=0)
-
-
 class BookingStatus(StrEnum):
     """Supported lifecycle states for bookings."""
 
@@ -148,31 +91,38 @@ class BookingStatus(StrEnum):
 class BookingCreate(BaseModel):
     """Booking create payload."""
 
-    gpu_type_id: int
-    gpu_count: int = Field(gt=0)
-    gram_option_id: int
-    memory_option_id: int
+    gpu_host_type_id: int
+    host_count: int = Field(gt=0)
     workflow_type_id: int
     start_date: date
     end_date: date
     alt_email: str | None = None
     project_name: str | None = None
     project_pi: str | None = None
-    project_grant_number: str | None = None
+    project_grant_number: str
     technical_lead: str | None = None
     event_start_date: date | None = None
     event_end_date: date | None = None
+
+    @field_validator("project_grant_number")
+    @classmethod
+    def validate_project_grant_number(cls, value: str) -> str:
+        """Require a nonblank project charge code."""
+
+        stripped_value = value.strip()
+        if not stripped_value:
+            raise ValueError("Cost Code is required.")
+        return stripped_value
 
 
 class AdminBookingUpdate(BaseModel):
     """Admin booking update payload."""
 
     status: BookingStatus | None = None
+    reservation_name: str | None = None
     admin_notes: str | None = None
-    gpu_type_id: int | None = None
-    gpu_count: int | None = Field(default=None, gt=0)
-    gram_option_id: int | None = None
-    memory_option_id: int | None = None
+    gpu_host_type_id: int | None = None
+    host_count: int | None = Field(default=None, gt=0)
     workflow_type_id: int | None = None
     start_date: date | None = None
     end_date: date | None = None
@@ -184,24 +134,32 @@ class AdminBookingUpdate(BaseModel):
     event_start_date: date | None = None
     event_end_date: date | None = None
 
+    @field_validator("reservation_name")
+    @classmethod
+    def validate_reservation_name(cls, value: str | None) -> str | None:
+        """Normalize optional reservation names."""
+
+        if value is None:
+            return None
+        stripped_value = value.strip()
+        return stripped_value if stripped_value else None
+
 
 class BookingResponse(BaseModel):
     """Booking response payload."""
 
     id: int
     user_email: str
-    gpu_type_id: int
-    gpu_type_name: str
+    gpu_host_type_id: int
+    gpu_type: str
     gpu_count: int
-    gram_option_id: int
-    gram_label: str
-    memory_option_id: int
-    memory_label: str
+    host_count: int
     workflow_type_id: int
     workflow_type_name: str
     start_date: date
     end_date: date
     status: BookingStatus
+    reservation_name: str | None
     alt_email: str | None
     project_name: str | None
     project_pi: str | None
@@ -218,11 +176,12 @@ class BookingResponse(BaseModel):
 
 
 class DailyCapacity(BaseModel):
-    """Daily capacity metrics for one GPU type."""
+    """Daily capacity metrics for one GPU host type."""
 
     date: date
-    gpu_type_id: int
-    gpu_type_name: str
+    gpu_host_type_id: int
+    gpu_type: str
+    gpu_count: int
     total: int
     confirmed_used: int
     pending_used: int
@@ -230,6 +189,16 @@ class DailyCapacity(BaseModel):
     user_used: int
     user_percent: float
     warnings: list[str]
+
+
+class HostTypeAvailability(BaseModel):
+    """Range-level bookable host count for one GPU host type."""
+
+    gpu_host_type_id: int
+    gpu_type: str
+    gpu_count: int
+    total: int
+    currently_bookable: int = Field(ge=0)
 
 
 class CapacityWarning(BaseModel):

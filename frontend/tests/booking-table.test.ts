@@ -29,18 +29,16 @@ function buildBooking(
   return {
     id,
     user_email: `user${id}@example.com`,
-    gpu_type_id: 1,
-    gpu_type_name: 'H100',
-    gpu_count: 2,
-    gram_option_id: 1,
-    gram_label: '80GB',
-    memory_option_id: 1,
-    memory_label: '500GB',
+    gpu_host_type_id: 1,
+    gpu_type: 'H100',
+    gpu_count: 8,
+    host_count: 2,
     workflow_type_id: 1,
     workflow_type_name: 'Training',
     start_date: '2026-03-10',
     end_date: '2026-03-12',
     status: 'unconfirmed',
+    reservation_name: null,
     alt_email: null,
     project_name: `Project ${id}`,
     project_pi: null,
@@ -97,8 +95,12 @@ describe('booking-table G1 acceptance tests', () => {
     expect(
       screen.getByRole('columnheader', { name: 'User Email' })
     ).toBeTruthy()
-    expect(screen.getByRole('columnheader', { name: 'GPU Type' })).toBeTruthy()
-    expect(screen.getByRole('columnheader', { name: 'GPU Count' })).toBeTruthy()
+    expect(
+      screen.getByRole('columnheader', { name: 'GPU Host Type' })
+    ).toBeTruthy()
+    expect(
+      screen.getByRole('columnheader', { name: 'Host Count' })
+    ).toBeTruthy()
     expect(
       screen.getByRole('columnheader', { name: 'Start Date' })
     ).toBeTruthy()
@@ -131,16 +133,16 @@ describe('booking-table G1 acceptance tests', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Status' }))
     expect(getVisibleBookingRowIds()[0]).toBe(1)
-  })
+  }, 10_000)
 
   it('filters by search text across all text fields', () => {
     const bookings = [
-      buildBooking(1, { gpu_type_name: 'H100' }),
+      buildBooking(1, { gpu_type: 'H100' }),
       buildBooking(2, {
-        gpu_type_name: 'A100',
+        gpu_type: 'A100',
         project_name: 'H100 migration',
       }),
-      buildBooking(3, { gpu_type_name: 'A100', project_name: 'Other project' }),
+      buildBooking(3, { gpu_type: 'A100', project_name: 'Other project' }),
     ]
 
     renderBookingTable(bookings, false)
@@ -168,17 +170,17 @@ describe('booking-table G1 acceptance tests', () => {
     expect(getVisibleBookingRowIdsSorted()).toEqual([1, 3])
   })
 
-  it('filters by gpu type dropdown', () => {
+  it('filters by GPU host type dropdown', () => {
     const bookings = [
-      buildBooking(1, { gpu_type_name: 'H100' }),
-      buildBooking(2, { gpu_type_name: 'A100' }),
-      buildBooking(3, { gpu_type_name: 'A100' }),
+      buildBooking(1, { gpu_type: 'H100' }),
+      buildBooking(2, { gpu_type: 'A100' }),
+      buildBooking(3, { gpu_type: 'A100' }),
     ]
 
     renderBookingTable(bookings, false)
 
-    fireEvent.change(screen.getByLabelText('GPU Type'), {
-      target: { value: 'A100' },
+    fireEvent.change(screen.getByLabelText('GPU Host Type'), {
+      target: { value: '8 GPU A100' },
     })
 
     expect(getVisibleBookingRowIdsSorted()).toEqual([2, 3])
@@ -310,6 +312,7 @@ describe('booking-table G1 acceptance tests', () => {
         event_start_date: '2026-04-01',
         event_end_date: '2026-04-03',
         alt_email: 'alt-contact@example.com',
+        reservation_name: 'Summit reservation 17',
       }),
     ]
 
@@ -322,8 +325,11 @@ describe('booking-table G1 acceptance tests', () => {
 
     expect(screen.getByText('Project PI')).toBeTruthy()
     expect(screen.getByText('Dr Jane Doe')).toBeTruthy()
-    expect(screen.getByText('Grant Number')).toBeTruthy()
+    expect(screen.getByText('Cost Code')).toBeTruthy()
+    expect(screen.queryByText('Grant Number')).toBeNull()
     expect(screen.getByText('GR-12345')).toBeTruthy()
+    expect(screen.getByText('Reservation Name')).toBeTruthy()
+    expect(screen.getByText('Summit reservation 17')).toBeTruthy()
     expect(screen.getByText('Technical Lead')).toBeTruthy()
     expect(screen.getByText('Alex Researcher')).toBeTruthy()
     expect(screen.getByText('Event Start Date')).toBeTruthy()

@@ -4,6 +4,7 @@ import { Fragment, useEffect, useMemo, useState } from 'react'
 
 import { cancelBooking } from '@/app/actions'
 import { Input } from '@/components/ui/input'
+import { formatGpuHostTypeLabel } from '@/lib/admin-contracts'
 import type { BookingResponse } from '@/lib/booking-contracts'
 import { cn } from '@/lib/utils'
 
@@ -24,8 +25,8 @@ type SortDirection = 'asc' | 'desc'
 type SortKey =
   | 'status'
   | 'user_email'
-  | 'gpu_type_name'
-  | 'gpu_count'
+  | 'gpu_host_type'
+  | 'host_count'
   | 'start_date'
   | 'end_date'
   | 'workflow_type_name'
@@ -149,11 +150,12 @@ function buildSearchBlob(booking: BookingResponse): string {
   return [
     booking.status,
     booking.user_email,
-    booking.gpu_type_name,
-    String(booking.gpu_count),
+    formatGpuHostTypeLabel(booking),
+    String(booking.host_count),
     booking.start_date,
     booking.end_date,
     booking.workflow_type_name,
+    booking.reservation_name ?? '',
     booking.project_name ?? '',
     booking.created_at,
     booking.admin_notes ?? '',
@@ -184,8 +186,12 @@ function getComparableValue(
   booking: BookingResponse,
   key: SortKey
 ): string | number {
-  if (key === 'gpu_count') {
-    return booking.gpu_count
+  if (key === 'gpu_host_type') {
+    return formatGpuHostTypeLabel(booking)
+  }
+
+  if (key === 'host_count') {
+    return booking.host_count
   }
 
   if (key === 'project_name') {
@@ -239,7 +245,7 @@ export function BookingTable({
   )
   const [searchText, setSearchText] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
-  const [gpuTypeFilter, setGpuTypeFilter] = useState<string>('all')
+  const [gpuHostTypeFilter, setGpuHostTypeFilter] = useState<string>('all')
   const [rangeStart, setRangeStart] = useState('')
   const [rangeEnd, setRangeEnd] = useState('')
   const [sortKey, setSortKey] = useState<SortKey>('created_at')
@@ -270,10 +276,12 @@ export function BookingTable({
     [showCancelledBookings]
   )
 
-  const gpuTypes = useMemo(
+  const gpuHostTypeLabels = useMemo(
     () =>
       Array.from(
-        new Set(visibleBookings.map((booking) => booking.gpu_type_name))
+        new Set(
+          visibleBookings.map((booking) => formatGpuHostTypeLabel(booking))
+        )
       ).sort(),
     [visibleBookings]
   )
@@ -286,7 +294,10 @@ export function BookingTable({
         return false
       }
 
-      if (gpuTypeFilter !== 'all' && booking.gpu_type_name !== gpuTypeFilter) {
+      if (
+        gpuHostTypeFilter !== 'all' &&
+        formatGpuHostTypeLabel(booking) !== gpuHostTypeFilter
+      ) {
         return false
       }
 
@@ -308,7 +319,7 @@ export function BookingTable({
     })
   }, [
     visibleBookings,
-    gpuTypeFilter,
+    gpuHostTypeFilter,
     rangeEnd,
     rangeStart,
     searchText,
@@ -454,24 +465,24 @@ export function BookingTable({
 
         <div>
           <label
-            htmlFor="gpu-type-filter"
+            htmlFor="gpu-host-type-filter"
             className="mb-1 block text-sm font-medium"
           >
-            GPU Type
+            GPU Host Type
           </label>
           <select
-            id="gpu-type-filter"
+            id="gpu-host-type-filter"
             className="border-input bg-background h-10 w-full rounded-md border px-3 text-sm"
-            value={gpuTypeFilter}
+            value={gpuHostTypeFilter}
             onChange={(event) => {
-              setGpuTypeFilter(event.target.value)
+              setGpuHostTypeFilter(event.target.value)
               setCurrentPage(1)
             }}
           >
-            <option value="all">All GPU types</option>
-            {gpuTypes.map((gpuType) => (
-              <option key={gpuType} value={gpuType}>
-                {gpuType}
+            <option value="all">All GPU host types</option>
+            {gpuHostTypeLabels.map((gpuHostTypeLabel) => (
+              <option key={gpuHostTypeLabel} value={gpuHostTypeLabel}>
+                {gpuHostTypeLabel}
               </option>
             ))}
           </select>
@@ -541,18 +552,18 @@ export function BookingTable({
                 <button
                   type="button"
                   className="inline-flex items-center gap-1 font-medium"
-                  onClick={() => updateSort('gpu_type_name')}
+                  onClick={() => updateSort('gpu_host_type')}
                 >
-                  GPU Type
+                  GPU Host Type
                 </button>
               </th>
               <th className="px-3 py-2 text-left">
                 <button
                   type="button"
                   className="inline-flex items-center gap-1 font-medium"
-                  onClick={() => updateSort('gpu_count')}
+                  onClick={() => updateSort('host_count')}
                 >
-                  GPU Count
+                  Host Count
                 </button>
               </th>
               <th className="px-3 py-2 text-left">
@@ -658,8 +669,10 @@ export function BookingTable({
                         </span>
                       </td>
                       <td className="px-3 py-2">{booking.user_email}</td>
-                      <td className="px-3 py-2">{booking.gpu_type_name}</td>
-                      <td className="px-3 py-2">{booking.gpu_count}</td>
+                      <td className="px-3 py-2">
+                        {formatGpuHostTypeLabel(booking)}
+                      </td>
+                      <td className="px-3 py-2">{booking.host_count}</td>
                       <td className="px-3 py-2">
                         {toDisplayDate(booking.start_date)}
                       </td>
@@ -724,9 +737,15 @@ export function BookingTable({
                             </div>
                             <div>
                               <dt className="text-muted-foreground">
-                                Grant Number
+                                Cost Code
                               </dt>
                               <dd>{booking.project_grant_number ?? '—'}</dd>
+                            </div>
+                            <div>
+                              <dt className="text-muted-foreground">
+                                Reservation Name
+                              </dt>
+                              <dd>{booking.reservation_name ?? '—'}</dd>
                             </div>
                             <div>
                               <dt className="text-muted-foreground">
@@ -755,14 +774,6 @@ export function BookingTable({
                                 Alternate Email
                               </dt>
                               <dd>{booking.alt_email ?? '—'}</dd>
-                            </div>
-                            <div>
-                              <dt className="text-muted-foreground">GRAM</dt>
-                              <dd>{booking.gram_label}</dd>
-                            </div>
-                            <div>
-                              <dt className="text-muted-foreground">Memory</dt>
-                              <dd>{booking.memory_label}</dd>
                             </div>
                             <div>
                               <dt className="text-muted-foreground">

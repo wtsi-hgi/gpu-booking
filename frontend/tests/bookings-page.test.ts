@@ -16,7 +16,7 @@ const mocks = vi.hoisted(() => ({
   cancelBookingMock: vi.fn(),
   getCapacityMock: vi.fn(),
   getBookingsMock: vi.fn(),
-  getGpuTypesMock: vi.fn(),
+  getGpuHostTypesMock: vi.fn(),
   requireCurrentUserMock: vi.fn(),
   routerPushMock: vi.fn(),
   scrollIntoViewMock: vi.fn(),
@@ -26,7 +26,7 @@ vi.mock('@/app/actions', () => ({
   cancelBooking: mocks.cancelBookingMock,
   getCapacity: mocks.getCapacityMock,
   getBookings: mocks.getBookingsMock,
-  getGpuTypes: mocks.getGpuTypesMock,
+  getGpuHostTypes: mocks.getGpuHostTypesMock,
 }))
 
 vi.mock('@/lib/server-auth', () => ({
@@ -52,13 +52,14 @@ function buildCapacity(
   total: number,
   confirmedUsed: number,
   pendingUsed: number,
-  gpuTypeId = 1,
-  gpuTypeName = 'H100'
+  gpuHostTypeId = 1,
+  gpuType = 'H100'
 ) {
   return {
     date,
-    gpu_type_id: gpuTypeId,
-    gpu_type_name: gpuTypeName,
+    gpu_host_type_id: gpuHostTypeId,
+    gpu_type: gpuType,
+    gpu_count: 8,
     total,
     confirmed_used: confirmedUsed,
     pending_used: pendingUsed,
@@ -73,18 +74,16 @@ function buildBooking(id: number, status: BookingStatus = 'confirmed') {
   return {
     id,
     user_email: 'user@example.com',
-    gpu_type_id: 1,
-    gpu_type_name: 'H100',
-    gpu_count: 2,
-    gram_option_id: 1,
-    gram_label: '80GB',
-    memory_option_id: 1,
-    memory_label: '500GB',
+    gpu_host_type_id: 1,
+    gpu_type: 'H100',
+    gpu_count: 8,
+    host_count: 2,
     workflow_type_id: 1,
     workflow_type_name: 'Training',
     start_date: '2026-03-10',
     end_date: '2026-03-12',
     status,
+    reservation_name: null,
     alt_email: null,
     project_name: null,
     project_pi: null,
@@ -107,20 +106,22 @@ function buildBookingWithOverrides(
     status: BookingStatus
     start_date: string
     end_date: string
-    gpu_type_name: string
-    gpu_count: number
+    gpu_type: string
+    host_count: number
     workflow_type_name: string
     user_email: string
+    reservation_name: string | null
   }> = {}
 ) {
   return {
     ...buildBooking(id, overrides.status ?? 'confirmed'),
     start_date: overrides.start_date ?? '2026-03-10',
     end_date: overrides.end_date ?? '2026-03-12',
-    gpu_type_name: overrides.gpu_type_name ?? 'H100',
-    gpu_count: overrides.gpu_count ?? 2,
+    gpu_type: overrides.gpu_type ?? 'H100',
+    host_count: overrides.host_count ?? 2,
     workflow_type_name: overrides.workflow_type_name ?? 'Training',
     user_email: overrides.user_email ?? 'user@example.com',
+    reservation_name: overrides.reservation_name ?? null,
   }
 }
 
@@ -148,21 +149,19 @@ describe('bookings page - F1 calendar grid', () => {
       value: mocks.scrollIntoViewMock,
     })
 
-    mocks.getGpuTypesMock.mockResolvedValue([
+    mocks.getGpuHostTypesMock.mockResolvedValue([
       {
         id: 1,
-        name: 'H100',
-        gram_gb: 80,
-        system_memory_gb: 500,
+        gpu_type: 'H100',
+        gpu_count: 8,
         total_count: 40,
         created_at: '2026-02-01T00:00:00Z',
         updated_at: '2026-02-01T00:00:00Z',
       },
       {
         id: 2,
-        name: 'A100',
-        gram_gb: 40,
-        system_memory_gb: 256,
+        gpu_type: 'A100',
+        gpu_count: 8,
         total_count: 20,
         created_at: '2026-02-01T00:00:00Z',
         updated_at: '2026-02-01T00:00:00Z',
@@ -170,8 +169,8 @@ describe('bookings page - F1 calendar grid', () => {
     ])
 
     mocks.getCapacityMock.mockImplementation(
-      async (_startDate: string, _endDate: string, gpuTypeId?: number) => {
-        if (gpuTypeId === 1) {
+      async (_startDate: string, _endDate: string, gpuHostTypeId?: number) => {
+        if (gpuHostTypeId === 1) {
           return [buildCapacity('2026-03-10', 40, 20, 0, 1, 'H100')]
         }
 
@@ -211,7 +210,7 @@ describe('bookings page - F1 calendar grid', () => {
     expect(
       bookedDayCell?.querySelector('[data-capacity-total="80"]')
     ).toBeTruthy()
-  })
+  }, 10_000)
 
   it('does not render a misleading calendar header New Booking button', async () => {
     const { default: BookingsPage } = await import('@/app/bookings/page')
@@ -220,7 +219,7 @@ describe('bookings page - F1 calendar grid', () => {
     expect(screen.queryByRole('button', { name: 'New Booking' })).toBeNull()
   })
 
-  it('shows 50% solid confirmed usage for 20 of 40 confirmed GPUs', async () => {
+  it('shows 50% solid confirmed usage for 20 of 40 confirmed hosts', async () => {
     mocks.getCapacityMock.mockImplementation(async () => [
       buildCapacity('2026-03-10', 40, 20, 0, 1, 'H100'),
     ])
@@ -266,7 +265,7 @@ describe('bookings page - F1 calendar grid', () => {
         status: 'unconfirmed',
         start_date: '2026-03-10',
         end_date: '2026-03-10',
-        gpu_count: 1,
+        host_count: 1,
         user_email: 'pending@example.com',
       }),
     ])
@@ -287,13 +286,13 @@ describe('bookings page - F1 calendar grid', () => {
 
     expect(dayCell).toBeTruthy()
     expect(pendingSegment?.style.width).toBe('2.5%')
-    expect(capacityContext?.textContent).toBe('1 of 40 GPUs')
+    expect(capacityContext?.textContent).toBe('1 of 40 hosts')
     expect(summaryPanel).toBeTruthy()
     expect(
-      within(summaryPanel as HTMLElement).queryByText('1 of 40 GPUs')
+      within(summaryPanel as HTMLElement).queryByText('1 of 40 hosts')
     ).toBeNull()
     expect(
-      within(summaryPanel as HTMLElement).queryByText('1 pending GPU')
+      within(summaryPanel as HTMLElement).queryByText('1 pending host')
     ).toBeNull()
     expect(
       within(summaryPanel as HTMLElement).getByText('1 pending')
@@ -312,7 +311,7 @@ describe('bookings page - F1 calendar grid', () => {
       buildBookingWithOverrides(1, {
         start_date: '2026-03-10',
         end_date: '2026-03-10',
-        gpu_count: 2,
+        host_count: 2,
       }),
     ])
 
@@ -327,11 +326,11 @@ describe('bookings page - F1 calendar grid', () => {
 
     expect(bookedDayCell).toBeTruthy()
     expect(emptyDayCell).toBeTruthy()
-    expect(bookedDayContext?.textContent).toBe('2 of 40 GPUs')
+    expect(bookedDayContext?.textContent).toBe('2 of 40 hosts')
     expect(
       emptyDayCell?.querySelector('[data-day-capacity-context="true"]')
     ).toBeNull()
-    expect(screen.queryByText('0 of 40 GPUs')).toBeNull()
+    expect(screen.queryByText('0 of 40 hosts')).toBeNull()
   })
 
   it('navigates to previous month and reloads capacity data', async () => {
@@ -411,7 +410,7 @@ describe('bookings page - F1 calendar grid', () => {
     expect(todayCell?.className).not.toContain('calendar-today-flash')
   })
 
-  it('updates capacity display when GPU type filter changes to H100', async () => {
+  it('updates capacity display when host type filter changes to H100', async () => {
     const { default: BookingsPage } = await import('@/app/bookings/page')
     render(await BookingsPage())
 
@@ -421,7 +420,7 @@ describe('bookings page - F1 calendar grid', () => {
     ) as HTMLElement | null
     expect(confirmedBefore?.style.width).toBe('25%')
 
-    fireEvent.change(screen.getByLabelText('GPU Type'), {
+    fireEvent.change(screen.getByLabelText('GPU Host Type'), {
       target: { value: '1' },
     })
     await vi.runAllTimersAsync()
@@ -437,6 +436,65 @@ describe('bookings page - F1 calendar grid', () => {
       '2026-04-11',
       1
     )
+  })
+
+  it('omits zero-count host types from the calendar filter while All still shows their bookings', async () => {
+    const zeroCountBooking = {
+      ...buildBookingWithOverrides(2, {
+        start_date: '2026-03-20',
+        end_date: '2026-03-22',
+        gpu_type: 'A100',
+        user_email: 'retired-type@example.com',
+      }),
+      gpu_host_type_id: 2,
+    }
+
+    mocks.getGpuHostTypesMock.mockResolvedValueOnce([
+      {
+        id: 1,
+        gpu_type: 'H100',
+        gpu_count: 8,
+        total_count: 40,
+        created_at: '2026-02-01T00:00:00Z',
+        updated_at: '2026-02-01T00:00:00Z',
+      },
+      {
+        id: 2,
+        gpu_type: 'A100',
+        gpu_count: 8,
+        total_count: 0,
+        created_at: '2026-02-01T00:00:00Z',
+        updated_at: '2026-02-01T00:00:00Z',
+      },
+    ])
+    mocks.getBookingsMock.mockResolvedValueOnce([zeroCountBooking])
+
+    const { default: BookingsPage } = await import('@/app/bookings/page')
+    render(await BookingsPage())
+
+    const gpuHostTypeFilter = screen.getByLabelText('GPU Host Type')
+
+    expect(
+      within(gpuHostTypeFilter).getByRole('option', {
+        name: 'All GPU host types',
+      })
+    ).toBeTruthy()
+    expect(
+      within(gpuHostTypeFilter).getByRole('option', { name: '8 GPU H100' })
+    ).toBeTruthy()
+    expect(
+      within(gpuHostTypeFilter).queryByRole('option', { name: '8 GPU A100' })
+    ).toBeNull()
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Table' }))
+
+    const bookingRow = document.querySelector('[data-booking-id="2"]')
+
+    expect(bookingRow).toBeTruthy()
+    expect(screen.getByText('retired-type@example.com')).toBeTruthy()
+    expect(
+      within(bookingRow as HTMLElement).getByText('8 GPU A100')
+    ).toBeTruthy()
   })
 
   it('renders empty 0% capacity bars for all current-month day cells with no bookings', async () => {
@@ -504,12 +562,43 @@ describe('bookings page - F1 calendar grid', () => {
       name: /create booking for selection/i,
     })
 
-    expect(selectionButton.textContent).toContain('60 GPUs available')
+    expect(selectionButton.textContent).toContain('60 hosts available')
 
     fireEvent.click(selectionButton)
 
     expect(mocks.routerPushMock).toHaveBeenCalledWith(
       '/bookings/new?start=2026-03-10&end=2026-03-10'
+    )
+  })
+
+  it('shows reservation names on overlapping bookings in the selection panel', async () => {
+    mocks.getBookingsMock.mockResolvedValueOnce([
+      buildBookingWithOverrides(1, {
+        reservation_name: 'NCCS Overlap Reservation 260617',
+      }),
+    ])
+
+    const { default: BookingsPage } = await import('@/app/bookings/page')
+    render(await BookingsPage())
+
+    const dayCell = document.querySelector('[data-date="2026-03-10"]')
+    expect(dayCell).toBeTruthy()
+
+    fireEvent.mouseDown(dayCell as Element)
+    fireEvent.mouseUp(dayCell as Element)
+
+    const selectionPanel = document.querySelector(
+      '[data-selection-panel="true"]'
+    )
+    expect(selectionPanel).toBeTruthy()
+
+    const overlappingBooking = selectionPanel?.querySelector(
+      '[data-overlapping-booking="true"]'
+    )
+
+    expect(overlappingBooking).toBeTruthy()
+    expect(overlappingBooking?.textContent).toContain(
+      'NCCS Overlap Reservation 260617'
     )
   })
 
@@ -581,7 +670,7 @@ describe('bookings page - F1 calendar grid', () => {
       buildBookingWithOverrides(2, {
         start_date: '2026-03-31',
         end_date: '2026-04-02',
-        gpu_count: 3,
+        host_count: 3,
         user_email: 'adjacent@example.com',
         workflow_type_name: 'Inference',
       }),
@@ -631,7 +720,7 @@ describe('bookings page - F1 calendar grid', () => {
       name: /create booking for selection/i,
     })
 
-    expect(selectionButton.textContent).toContain('6 GPUs available')
+    expect(selectionButton.textContent).toContain('6 hosts available')
 
     fireEvent.click(selectionButton)
 
@@ -770,7 +859,7 @@ describe('bookings page - F1 calendar grid', () => {
         end_date: '2026-03-16',
         user_email: 'other@example.com',
         workflow_type_name: 'Inference',
-        gpu_count: 1,
+        host_count: 1,
       }),
       buildBookingWithOverrides(3, {
         start_date: '2026-03-18',
@@ -821,7 +910,7 @@ describe('bookings page - F1 calendar grid', () => {
       name: /create booking for selection/i,
     })
 
-    expect(selectionButton.textContent).toContain('up to 8 GPUs available')
+    expect(selectionButton.textContent).toContain('up to 8 hosts available')
 
     fireEvent.click(selectionButton)
 

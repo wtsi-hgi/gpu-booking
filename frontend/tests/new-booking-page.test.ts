@@ -6,12 +6,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createInitialBookingFormValues } from '@/lib/booking-state'
 
 const mocks = vi.hoisted(() => ({
-  getGpuTypesMock: vi.fn(),
-  getGramOptionsMock: vi.fn(),
-  getMemoryOptionsMock: vi.fn(),
+  getGpuHostTypesMock: vi.fn(),
   requireCurrentUserMock: vi.fn(),
   getWorkflowTypesMock: vi.fn(),
   createBookingMock: vi.fn(),
+  getHostTypeAvailabilityMock: vi.fn(),
   validateBookingMock: vi.fn(),
 }))
 
@@ -29,11 +28,10 @@ vi.mock('sonner', () => ({
 }))
 
 vi.mock('@/app/actions', () => ({
-  getGpuTypes: mocks.getGpuTypesMock,
-  getGramOptions: mocks.getGramOptionsMock,
-  getMemoryOptions: mocks.getMemoryOptionsMock,
+  getGpuHostTypes: mocks.getGpuHostTypesMock,
   getWorkflowTypes: mocks.getWorkflowTypesMock,
   createBooking: mocks.createBookingMock,
+  getHostTypeAvailability: mocks.getHostTypeAvailabilityMock,
   validateBooking: mocks.validateBookingMock,
 }))
 
@@ -52,22 +50,15 @@ beforeEach(() => {
     is_admin: false,
     auth_mode: 'insecure',
   })
-  mocks.getGpuTypesMock.mockResolvedValue([
+  mocks.getGpuHostTypesMock.mockResolvedValue([
     {
       id: 1,
-      name: 'H100',
-      gram_gb: 80,
-      system_memory_gb: 500,
-      total_count: 16,
+      gpu_type: 'H100',
+      gpu_count: 8,
+      total_count: 2,
       created_at: '2026-01-01T00:00:00Z',
       updated_at: '2026-01-01T00:00:00Z',
     },
-  ])
-  mocks.getGramOptionsMock.mockResolvedValue([
-    { id: 1, label: '80GB', value_gb: 80, sort_order: 1 },
-  ])
-  mocks.getMemoryOptionsMock.mockResolvedValue([
-    { id: 1, label: '500GB', value_gb: 500, sort_order: 1 },
   ])
   mocks.getWorkflowTypesMock.mockResolvedValue([{ id: 1, name: 'Training' }])
 
@@ -84,6 +75,15 @@ beforeEach(() => {
     blocked: false,
     block_reason: null,
   })
+  mocks.getHostTypeAvailabilityMock.mockResolvedValue([
+    {
+      gpu_host_type_id: 1,
+      gpu_type: 'H100',
+      gpu_count: 8,
+      total: 2,
+      currently_bookable: 2,
+    },
+  ])
 })
 
 describe('new booking page - F2 query prefill', () => {
@@ -95,17 +95,14 @@ describe('new booking page - F2 query prefill', () => {
     expect(
       screen.queryByText('Start a booking request by choosing a date range.')
     ).toBeNull()
-    expect(screen.getByLabelText('GPU Type')).toBeTruthy()
-    expect(screen.getByLabelText('GRAM')).toBeTruthy()
-    expect(screen.getByLabelText('System Memory')).toBeTruthy()
+    expect(screen.getByLabelText('GPU Host Type')).toBeTruthy()
+    expect(screen.getByLabelText('Host Count')).toBeTruthy()
     expect(screen.getByLabelText('Workflow Type')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Create Booking' })).toBeTruthy()
 
     expect(mocks.requireCurrentUserMock).toHaveBeenCalledWith('/bookings/new')
-    expect(mocks.getGpuTypesMock).toHaveBeenCalledTimes(1)
+    expect(mocks.getGpuHostTypesMock).toHaveBeenCalledTimes(1)
     expect(mocks.getWorkflowTypesMock).toHaveBeenCalledTimes(1)
-    expect(mocks.getGramOptionsMock).toHaveBeenCalledWith('dev@example.com')
-    expect(mocks.getMemoryOptionsMock).toHaveBeenCalledWith('dev@example.com')
   })
 
   it('pre-populates start_date and end_date in the rendered BookingForm from query params', async () => {

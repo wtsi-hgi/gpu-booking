@@ -10,6 +10,11 @@
 logs/
 .tmp/
 
+# ── Local app state ─────────────────────────────────────────────────
+backend/gpu_booking.db
+backend/gpu_booking.db-shm
+backend/gpu_booking.db-wal
+
 # ── Node / pnpm ─────────────────────────────────────────────────────
 node_modules/
 .pnp

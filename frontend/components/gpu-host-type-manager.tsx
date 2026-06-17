@@ -2,20 +2,23 @@
 
 import { useActionState, useState } from 'react'
 
-import { createGpuType, updateGpuType } from '@/app/actions'
-import { initialFormState, type FormState } from '@/lib/action-form-states'
-import { type GpuType } from '@/lib/admin-contracts'
+import { createGpuHostType, updateGpuHostType } from '@/app/actions'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { initialFormState, type FormState } from '@/lib/action-form-states'
+import { formatGpuHostTypeLabel, type GpuHostType } from '@/lib/admin-contracts'
 
-export function upsertGpuType(list: GpuType[], gpuType: GpuType): GpuType[] {
-  const existingIndex = list.findIndex((item) => item.id === gpuType.id)
+export function upsertGpuHostType(
+  list: GpuHostType[],
+  gpuHostType: GpuHostType
+): GpuHostType[] {
+  const existingIndex = list.findIndex((item) => item.id === gpuHostType.id)
   if (existingIndex === -1) {
-    return [...list, gpuType]
+    return [...list, gpuHostType]
   }
 
-  return list.map((item) => (item.id === gpuType.id ? gpuType : item))
+  return list.map((item) => (item.id === gpuHostType.id ? gpuHostType : item))
 }
 
 function FormMessage({ state }: { state: FormState }) {
@@ -28,52 +31,66 @@ function FormMessage({ state }: { state: FormState }) {
   return null
 }
 
-type GpuTypeManagerProps = {
-  initialGpuTypes: GpuType[]
+type GpuHostTypeManagerProps = {
+  initialGpuHostTypes: GpuHostType[]
 }
 
-export function GpuTypeManager({ initialGpuTypes }: GpuTypeManagerProps) {
-  const [gpuTypes, setGpuTypes] = useState(initialGpuTypes)
+export function GpuHostTypeManager({
+  initialGpuHostTypes,
+}: GpuHostTypeManagerProps) {
+  const [gpuHostTypes, setGpuHostTypes] = useState(initialGpuHostTypes)
   const [showAddForm, setShowAddForm] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
 
-  const createGpuTypeAction = async (prev: FormState, formData: FormData) => {
-    const nextState = await createGpuType(prev, formData)
-    if (nextState.status === 'success' && nextState.gpuType) {
-      setGpuTypes((current) => upsertGpuType(current, nextState.gpuType))
+  const createGpuHostTypeAction = async (
+    prev: FormState,
+    formData: FormData
+  ) => {
+    const nextState = await createGpuHostType(prev, formData)
+    const createdGpuHostType = nextState.gpuHostType
+    if (nextState.status === 'success' && createdGpuHostType) {
+      setGpuHostTypes((current) =>
+        upsertGpuHostType(current, createdGpuHostType)
+      )
       setShowAddForm(false)
     }
     return nextState
   }
 
-  const updateGpuTypeAction = async (prev: FormState, formData: FormData) => {
-    const nextState = await updateGpuType(prev, formData)
-    if (nextState.status === 'success' && nextState.gpuType) {
-      setGpuTypes((current) => upsertGpuType(current, nextState.gpuType))
+  const updateGpuHostTypeAction = async (
+    prev: FormState,
+    formData: FormData
+  ) => {
+    const nextState = await updateGpuHostType(prev, formData)
+    const updatedGpuHostType = nextState.gpuHostType
+    if (nextState.status === 'success' && updatedGpuHostType) {
+      setGpuHostTypes((current) =>
+        upsertGpuHostType(current, updatedGpuHostType)
+      )
       setEditingId(null)
     }
     return nextState
   }
 
   const [createState, createAction, createPending] = useActionState(
-    createGpuTypeAction,
+    createGpuHostTypeAction,
     initialFormState
   )
   const [updateState, updateAction, updatePending] = useActionState(
-    updateGpuTypeAction,
+    updateGpuHostTypeAction,
     initialFormState
   )
 
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between gap-4">
-        <CardTitle>GPU Types</CardTitle>
+        <CardTitle>GPU Host Types</CardTitle>
         <Button
           type="button"
           variant={showAddForm ? 'outline' : 'default'}
           onClick={() => setShowAddForm((current) => !current)}
         >
-          {showAddForm ? 'Cancel' : 'Add GPU Type'}
+          {showAddForm ? 'Cancel' : 'Add GPU Host Type'}
         </Button>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -82,41 +99,33 @@ export function GpuTypeManager({ initialGpuTypes }: GpuTypeManagerProps) {
             action={createAction}
             className="space-y-3 rounded-lg border p-4"
           >
-            <div className="grid gap-3 md:grid-cols-4">
+            <div className="grid gap-3 md:grid-cols-3">
               <Input
-                name="name"
+                name="gpu_type"
                 required
-                placeholder="Name"
+                placeholder="GPU type"
                 disabled={createPending}
               />
               <Input
-                name="gram_gb"
+                name="gpu_count"
                 required
                 type="number"
                 min={1}
-                placeholder="GRAM"
-                disabled={createPending}
-              />
-              <Input
-                name="system_memory_gb"
-                required
-                type="number"
-                min={1}
-                placeholder="System Memory"
+                placeholder="GPUs per host"
                 disabled={createPending}
               />
               <Input
                 name="total_count"
                 required
                 type="number"
-                min={1}
-                placeholder="Total Count"
+                min={0}
+                placeholder="Available hosts"
                 disabled={createPending}
               />
             </div>
             <div className="flex items-center gap-3">
               <Button type="submit" disabled={createPending}>
-                {createPending ? 'Saving…' : 'Save'}
+                {createPending ? 'Saving...' : 'Save'}
               </Button>
               <FormMessage state={createState} />
             </div>
@@ -127,61 +136,57 @@ export function GpuTypeManager({ initialGpuTypes }: GpuTypeManagerProps) {
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="border-b text-xs tracking-wide uppercase">
-                <th className="py-3 pr-4 font-medium">Name</th>
-                <th className="py-3 pr-4 font-medium">GRAM</th>
-                <th className="py-3 pr-4 font-medium">System Memory</th>
-                <th className="py-3 pr-4 font-medium">Total Count</th>
+                <th className="py-3 pr-4 font-medium">GPU Host Type</th>
+                <th className="py-3 pr-4 font-medium">GPU Type</th>
+                <th className="py-3 pr-4 font-medium">GPUs per Host</th>
+                <th className="py-3 pr-4 font-medium">Available Hosts</th>
                 <th className="py-3 pr-4 font-medium">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {gpuTypes.map((gpuType) => {
-                const isEditing = editingId === gpuType.id
+              {gpuHostTypes.map((gpuHostType) => {
+                const isEditing = editingId === gpuHostType.id
                 return (
                   <tr
-                    key={gpuType.id}
+                    key={gpuHostType.id}
                     className="border-b align-top"
-                    data-gpu-row="true"
+                    data-gpu-host-row="true"
                   >
                     {isEditing ? (
                       <td className="py-3 pr-4" colSpan={5}>
                         <form action={updateAction} className="space-y-3">
-                          <input type="hidden" name="id" value={gpuType.id} />
-                          <div className="grid gap-3 md:grid-cols-4">
+                          <input
+                            type="hidden"
+                            name="id"
+                            value={gpuHostType.id}
+                          />
+                          <div className="grid gap-3 md:grid-cols-3">
                             <Input
-                              name="name"
+                              name="gpu_type"
                               required
-                              defaultValue={gpuType.name}
+                              defaultValue={gpuHostType.gpu_type}
                               disabled={updatePending}
                             />
                             <Input
-                              name="gram_gb"
+                              name="gpu_count"
                               required
                               type="number"
                               min={1}
-                              defaultValue={gpuType.gram_gb}
-                              disabled={updatePending}
-                            />
-                            <Input
-                              name="system_memory_gb"
-                              required
-                              type="number"
-                              min={1}
-                              defaultValue={gpuType.system_memory_gb}
+                              defaultValue={gpuHostType.gpu_count}
                               disabled={updatePending}
                             />
                             <Input
                               name="total_count"
                               required
                               type="number"
-                              min={1}
-                              defaultValue={gpuType.total_count}
+                              min={0}
+                              defaultValue={gpuHostType.total_count}
                               disabled={updatePending}
                             />
                           </div>
                           <div className="flex items-center gap-3">
                             <Button type="submit" disabled={updatePending}>
-                              {updatePending ? 'Saving…' : 'Save'}
+                              {updatePending ? 'Saving...' : 'Save'}
                             </Button>
                             <Button
                               type="button"
@@ -197,17 +202,17 @@ export function GpuTypeManager({ initialGpuTypes }: GpuTypeManagerProps) {
                       </td>
                     ) : (
                       <>
-                        <td className="py-3 pr-4">{gpuType.name}</td>
-                        <td className="py-3 pr-4">{gpuType.gram_gb} GB</td>
-                        <td className="py-3 pr-4">
-                          {gpuType.system_memory_gb} GB
+                        <td className="py-3 pr-4 font-medium">
+                          {formatGpuHostTypeLabel(gpuHostType)}
                         </td>
-                        <td className="py-3 pr-4">{gpuType.total_count}</td>
+                        <td className="py-3 pr-4">{gpuHostType.gpu_type}</td>
+                        <td className="py-3 pr-4">{gpuHostType.gpu_count}</td>
+                        <td className="py-3 pr-4">{gpuHostType.total_count}</td>
                         <td className="py-3 pr-4">
                           <Button
                             type="button"
                             variant="outline"
-                            onClick={() => setEditingId(gpuType.id)}
+                            onClick={() => setEditingId(gpuHostType.id)}
                           >
                             Edit
                           </Button>

@@ -6,23 +6,22 @@ import {
   bookingValidationSchema,
   capacityWarningSchema,
   dailyCapacitySchema,
+  hostTypeAvailabilitySchema,
 } from '@/lib/booking-contracts'
 
 const fullBookingPayload = {
   id: 1,
   user_email: 'user@example.com',
-  gpu_type_id: 1,
-  gpu_type_name: 'H100',
-  gpu_count: 2,
-  gram_option_id: 1,
-  gram_label: '80GB',
-  memory_option_id: 1,
-  memory_label: '500GB',
+  gpu_host_type_id: 1,
+  gpu_type: 'H100',
+  gpu_count: 8,
+  host_count: 2,
   workflow_type_id: 1,
   workflow_type_name: 'Inference workloads',
   start_date: '2026-03-01',
   end_date: '2026-03-05',
   status: 'confirmed',
+  reservation_name: 'Summit reservation 17',
   alt_email: null,
   project_name: null,
   project_pi: null,
@@ -50,9 +49,9 @@ describe('booking contracts', () => {
     expect(bookingResponseSchema.safeParse(payload).success).toBe(false)
   })
 
-  it('rejects payloads missing required gpu_count', () => {
-    const { gpu_count, ...payload } = fullBookingPayload
-    expect(gpu_count).toBe(2)
+  it('rejects payloads missing required host_count', () => {
+    const { host_count, ...payload } = fullBookingPayload
+    expect(host_count).toBe(2)
     expect(bookingResponseSchema.safeParse(payload).success).toBe(false)
   })
 
@@ -63,6 +62,7 @@ describe('booking contracts', () => {
       project_name: null,
       project_pi: null,
       project_grant_number: null,
+      reservation_name: null,
       technical_lead: null,
       event_start_date: null,
       event_end_date: null,
@@ -86,13 +86,14 @@ describe('booking contracts', () => {
   it('parses valid daily capacity payloads', () => {
     const payload = {
       date: '2026-03-01',
-      gpu_type_id: 1,
-      gpu_type_name: 'H100',
-      total: 40,
-      confirmed_used: 10,
+      gpu_host_type_id: 1,
+      gpu_type: 'H100',
+      gpu_count: 8,
+      total: 5,
+      confirmed_used: 1,
       pending_used: 2,
-      available: 30,
-      user_used: 12,
+      available: 4,
+      user_used: 3,
       user_percent: 15,
       warnings: [],
     }
@@ -100,15 +101,28 @@ describe('booking contracts', () => {
     expect(dailyCapacitySchema.parse(payload)).toEqual(payload)
   })
 
+  it('parses valid host type availability payloads', () => {
+    const payload = {
+      gpu_host_type_id: 2,
+      gpu_type: 'H100',
+      gpu_count: 8,
+      total: 2,
+      currently_bookable: 0,
+    }
+
+    expect(hostTypeAvailabilitySchema.parse(payload)).toEqual(payload)
+  })
+
   it('rejects daily capacity payloads missing total', () => {
     const payload = {
       date: '2026-03-01',
-      gpu_type_id: 1,
-      gpu_type_name: 'H100',
-      confirmed_used: 10,
+      gpu_host_type_id: 1,
+      gpu_type: 'H100',
+      gpu_count: 8,
+      confirmed_used: 1,
       pending_used: 2,
-      available: 30,
-      user_used: 12,
+      available: 4,
+      user_used: 3,
       user_percent: 15,
       warnings: [],
     }
@@ -122,7 +136,7 @@ describe('booking contracts', () => {
       warnings: [
         {
           rule: 'capacity_soft_limit',
-          message: 'Requested GPUs exceed soft capacity threshold.',
+          message: 'Requested hosts exceed soft capacity threshold.',
           severity: 'warning',
         },
       ],
@@ -136,7 +150,7 @@ describe('booking contracts', () => {
   it("parses capacity warning payloads with severity 'warning'", () => {
     const payload = {
       rule: 'capacity_soft_limit',
-      message: 'Requested GPUs exceed soft capacity threshold.',
+      message: 'Requested hosts exceed soft capacity threshold.',
       severity: 'warning',
     }
 

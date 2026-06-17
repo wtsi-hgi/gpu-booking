@@ -6,7 +6,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import settings
-from db.models import Admin, GpuType, GramOption, MemoryOption, WorkflowType
+from db.models import Admin, GpuHostType, WorkflowType
 
 
 async def _is_table_empty(session: AsyncSession, model: type) -> bool:
@@ -30,18 +30,13 @@ async def seed_db(session: AsyncSession) -> None:
     across restarts.
     """
 
-    if await _is_table_empty(session, GpuType):
+    if await _is_table_empty(session, GpuHostType):
         session.add_all(
             [
-                GpuType(
-                    name="H200",
-                    gram_gb=141,
-                    system_memory_gb=1000,
-                    total_count=24,
-                ),
-                GpuType(name="H100", gram_gb=80, system_memory_gb=500, total_count=16),
-                GpuType(name="A100", gram_gb=80, system_memory_gb=500, total_count=0),
-                GpuType(name="V100", gram_gb=32, system_memory_gb=192, total_count=0),
+                GpuHostType(gpu_type="H200", gpu_count=8, total_count=3),
+                GpuHostType(gpu_type="H100", gpu_count=8, total_count=2),
+                GpuHostType(gpu_type="A100", gpu_count=8, total_count=0),
+                GpuHostType(gpu_type="V100", gpu_count=8, total_count=0),
             ]
         )
 
@@ -54,29 +49,6 @@ async def seed_db(session: AsyncSession) -> None:
                 WorkflowType(
                     name="At scale training, span multiple GPU servers (> 8 GPUs)"
                 ),
-            ]
-        )
-
-    if await _is_table_empty(session, GramOption):
-        session.add_all(
-            [
-                GramOption(label="80GB", value_gb=80, sort_order=1),
-                GramOption(label="60GB", value_gb=60, sort_order=2),
-                GramOption(label="40GB", value_gb=40, sort_order=3),
-                GramOption(label="<=20GB", value_gb=20, sort_order=4),
-            ]
-        )
-
-    if await _is_table_empty(session, MemoryOption):
-        session.add_all(
-            [
-                MemoryOption(label="500GB", value_gb=500, sort_order=1),
-                MemoryOption(label="100GB", value_gb=100, sort_order=2),
-                MemoryOption(label="56GB", value_gb=56, sort_order=3),
-                MemoryOption(label="50GB", value_gb=50, sort_order=4),
-                MemoryOption(label="25GB", value_gb=25, sort_order=5),
-                MemoryOption(label="10GB", value_gb=10, sort_order=6),
-                MemoryOption(label="<10GB", value_gb=5, sort_order=7),
             ]
         )
 

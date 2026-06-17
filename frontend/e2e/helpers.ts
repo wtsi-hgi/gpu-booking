@@ -7,30 +7,30 @@ import {
 
 type ApiHeaders = Record<string, string>
 
-type ReferenceItem = {
+type GpuHostTypeReference = {
   id: number
-  name?: string
-  label?: string
-  total_count?: number
+  gpu_type: string
+  gpu_count: number
+  total_count: number
+}
+
+type WorkflowReference = {
+  id: number
+  name: string
 }
 
 type Catalog = {
-  gpuTypes: ReferenceItem[]
-  workflowTypes: ReferenceItem[]
-  gramOptions: ReferenceItem[]
-  memoryOptions: ReferenceItem[]
+  gpuHostTypes: GpuHostTypeReference[]
+  workflowTypes: WorkflowReference[]
 }
 
 export type BookingRecord = {
   id: number
   user_email: string
-  gpu_type_id: number
-  gpu_type_name: string
+  gpu_host_type_id: number
+  gpu_type: string
   gpu_count: number
-  gram_option_id: number
-  gram_label: string
-  memory_option_id: number
-  memory_label: string
+  host_count: number
   workflow_type_id: number
   workflow_type_name: string
   start_date: string
@@ -42,6 +42,7 @@ export type BookingRecord = {
     | 'spot'
     | 'rejected'
     | 'cancelled'
+  reservation_name: string | null
   alt_email: string | null
   project_name: string | null
   project_pi: string | null
@@ -62,10 +63,10 @@ type CreateBookingOverrides = {
   endDate?: string
   eventEndDate?: string | null
   eventStartDate?: string | null
-  gpuCount?: number
-  gpuTypeName?: string
-  memoryLabel?: string
-  gramLabel?: string
+  gpuHostTypeLabel?: string
+  gpuType?: string
+  gpusPerHost?: number
+  hostCount?: number
   projectGrantNumber?: string | null
   projectName?: string | null
   projectPi?: string | null
@@ -80,13 +81,12 @@ type AdminUpdateOverrides = {
   end_date?: string
   event_end_date?: string | null
   event_start_date?: string | null
-  gpu_count?: number
-  gpu_type_id?: number
-  gram_option_id?: number
-  memory_option_id?: number
+  gpu_host_type_id?: number
+  host_count?: number
   project_grant_number?: string | null
   project_name?: string | null
   project_pi?: string | null
+  reservation_name?: string | null
   start_date?: string
   status?: BookingRecord['status']
   technical_lead?: string | null
@@ -245,55 +245,72 @@ async function getCatalog(
   email: string
 ): Promise<Catalog> {
   const headers = authHeaders(email)
-  const [
-    gpuTypesResponse,
-    workflowTypesResponse,
-    gramOptionsResponse,
-    memoryOptionsResponse,
-  ] = await Promise.all([
-    request.get(`${backendBaseUrl}/api/v1/gpu-types`, { headers }),
+  const [gpuHostTypesResponse, workflowTypesResponse] = await Promise.all([
+    request.get(`${backendBaseUrl}/api/v1/gpu-host-types`, { headers }),
     request.get(`${backendBaseUrl}/api/v1/workflow-types`, { headers }),
-    request.get(`${backendBaseUrl}/api/v1/gram-options`, { headers }),
-    request.get(`${backendBaseUrl}/api/v1/memory-options`, { headers }),
   ])
 
-  const [gpuTypes, workflowTypes, gramOptions, memoryOptions] =
-    await Promise.all([
-      readJson<ReferenceItem[]>(gpuTypesResponse),
-      readJson<ReferenceItem[]>(workflowTypesResponse),
-      readJson<ReferenceItem[]>(gramOptionsResponse),
-      readJson<ReferenceItem[]>(memoryOptionsResponse),
-    ])
+  const [gpuHostTypes, workflowTypes] = await Promise.all([
+    readJson<GpuHostTypeReference[]>(gpuHostTypesResponse),
+    readJson<WorkflowReference[]>(workflowTypesResponse),
+  ])
 
   return {
-    gpuTypes,
+    gpuHostTypes,
     workflowTypes,
-    gramOptions,
-    memoryOptions,
   }
 }
 
-export async function getTotalGpuCapacity(
+export async function getTotalHostCapacity(
   request: APIRequestContext,
   email: string
 ): Promise<number> {
   const catalog = await getCatalog(request, email)
 
-  return catalog.gpuTypes.reduce(
-    (total, gpuType) => total + (gpuType.total_count ?? 0),
+  return catalog.gpuHostTypes.reduce(
+    (total, gpuHostType) => total + gpuHostType.total_count,
     0
   )
 }
 
 function requireNamedItem(
-  items: ReferenceItem[],
-  key: 'name' | 'label',
+  items: WorkflowReference[],
+  key: 'name',
   value: string
-): ReferenceItem {
+): WorkflowReference {
   const item = items.find((entry) => entry[key] === value)
   if (!item) {
     throw new Error(`Missing ${key}=${value} in reference data`)
   }
+  return item
+}
+
+export function formatGpuHostTypeLabel(hostType: {
+  gpu_type: string
+  gpu_count: number
+}) {
+  return `${hostType.gpu_count} GPU ${hostType.gpu_type}`
+}
+
+function requireGpuHostType(
+  catalog: Catalog,
+  overrides: CreateBookingOverrides
+): GpuHostTypeReference {
+  const item = catalog.gpuHostTypes.find((entry) => {
+    if (overrides.gpuHostTypeLabel) {
+      return formatGpuHostTypeLabel(entry) === overrides.gpuHostTypeLabel
+    }
+
+    return (
+      entry.gpu_type === (overrides.gpuType ?? 'H100') &&
+      entry.gpu_count === (overrides.gpusPerHost ?? 8)
+    )
+  })
+
+  if (!item) {
+    throw new Error('Missing GPU host type in reference data')
+  }
+
   return item
 }
 
@@ -304,39 +321,23 @@ export async function createBooking(
 ): Promise<BookingRecord> {
   await waitForBackend(request)
   const catalog = await getCatalog(request, email)
-  const gpuType = requireNamedItem(
-    catalog.gpuTypes,
-    'name',
-    overrides.gpuTypeName ?? 'H100'
-  )
+  const gpuHostType = requireGpuHostType(catalog, overrides)
   const workflowType = requireNamedItem(
     catalog.workflowTypes,
     'name',
     overrides.workflowName ?? 'Inference workloads'
   )
-  const gramOption = requireNamedItem(
-    catalog.gramOptions,
-    'label',
-    overrides.gramLabel ?? '80GB'
-  )
-  const memoryOption = requireNamedItem(
-    catalog.memoryOptions,
-    'label',
-    overrides.memoryLabel ?? '500GB'
-  )
 
   const payload = {
-    gpu_type_id: gpuType.id,
-    gpu_count: overrides.gpuCount ?? 1,
-    gram_option_id: gramOption.id,
-    memory_option_id: memoryOption.id,
+    gpu_host_type_id: gpuHostType.id,
+    host_count: overrides.hostCount ?? 1,
     workflow_type_id: workflowType.id,
     start_date: overrides.startDate ?? getIsoDateOffset(5),
     end_date: overrides.endDate ?? getIsoDateOffset(6),
     alt_email: overrides.altEmail ?? null,
     project_name: overrides.projectName ?? null,
     project_pi: overrides.projectPi ?? null,
-    project_grant_number: overrides.projectGrantNumber ?? null,
+    project_grant_number: overrides.projectGrantNumber ?? 'CC-12345',
     technical_lead: overrides.technicalLead ?? null,
     event_start_date: overrides.eventStartDate ?? null,
     event_end_date: overrides.eventEndDate ?? null,
@@ -354,13 +355,21 @@ function buildAdminPayload(
   booking: BookingRecord,
   overrides: AdminUpdateOverrides = {}
 ) {
+  const nextStatus = overrides.status ?? booking.status
+  const reservationName = Object.prototype.hasOwnProperty.call(
+    overrides,
+    'reservation_name'
+  )
+    ? (overrides.reservation_name ?? null)
+    : (booking.reservation_name ??
+      (nextStatus === 'confirmed' ? `Reservation ${booking.id}` : null))
+
   return {
-    status: overrides.status ?? booking.status,
+    status: nextStatus,
+    reservation_name: reservationName,
     admin_notes: overrides.admin_notes ?? booking.admin_notes,
-    gpu_type_id: overrides.gpu_type_id ?? booking.gpu_type_id,
-    gpu_count: overrides.gpu_count ?? booking.gpu_count,
-    gram_option_id: overrides.gram_option_id ?? booking.gram_option_id,
-    memory_option_id: overrides.memory_option_id ?? booking.memory_option_id,
+    gpu_host_type_id: overrides.gpu_host_type_id ?? booking.gpu_host_type_id,
+    host_count: overrides.host_count ?? booking.host_count,
     workflow_type_id: overrides.workflow_type_id ?? booking.workflow_type_id,
     start_date: overrides.start_date ?? booking.start_date,
     end_date: overrides.end_date ?? booking.end_date,

@@ -14,22 +14,16 @@ from api.schemas import (
     AdminBookingUpdate,
     BookingResponse,
     BookingStatus,
-    GpuTypeCreate,
-    GpuTypeResponse,
-    GpuTypeUpdate,
-    GramOptionCreate,
-    GramOptionResponse,
-    GramOptionUpdate,
-    MemoryOptionCreate,
-    MemoryOptionResponse,
-    MemoryOptionUpdate,
+    GpuHostTypeCreate,
+    GpuHostTypeResponse,
+    GpuHostTypeUpdate,
     UserInfo,
     WorkflowTypeCreate,
     WorkflowTypeResponse,
     WorkflowTypeUpdate,
 )
 from db.engine import get_session
-from db.models import Booking, GpuType, GramOption, MemoryOption, WorkflowType
+from db.models import Booking, GpuHostType, WorkflowType
 from db.models import BookingStatus as DbBookingStatus
 from middleware.auth import require_admin
 from services.capacity_service import validate_booking
@@ -41,32 +35,26 @@ _CAPACITY_CONSUMING_STATUSES: set[BookingStatus] = {
     BookingStatus.tentative,
     BookingStatus.spot,
 }
+_CAPACITY_CONSUMING_STATUS_VALUES = {
+    booking_status.value for booking_status in _CAPACITY_CONSUMING_STATUSES
+}
+_RESERVATION_NAME_REQUIRED_DETAIL = (
+    "Reservation name is required when confirming a booking."
+)
 
 
 async def _ensure_booking_reference_data_exists(
     session: AsyncSession,
     *,
-    gpu_type_id: int,
-    gram_option_id: int,
-    memory_option_id: int,
+    gpu_host_type_id: int,
     workflow_type_id: int,
 ) -> None:
     """Validate that all booking reference records exist."""
 
-    if await session.get(GpuType, gpu_type_id) is None:
+    if await session.get(GpuHostType, gpu_host_type_id) is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="GPU type not found",
-        )
-    if await session.get(GramOption, gram_option_id) is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="GRAM option not found",
-        )
-    if await session.get(MemoryOption, memory_option_id) is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Memory option not found",
+            detail="GPU host type not found",
         )
     if await session.get(WorkflowType, workflow_type_id) is None:
         raise HTTPException(
@@ -98,43 +86,55 @@ async def admin_update_booking(
     next_status = update_data.get("status", booking.status)
     if isinstance(next_status, str):
         next_status = BookingStatus(next_status)
+    next_status_value = next_status.value
 
-    gpu_type_id = update_data.get("gpu_type_id", booking.gpu_type_id)
-    gpu_count = update_data.get("gpu_count", booking.gpu_count)
+    gpu_host_type_id = update_data.get("gpu_host_type_id", booking.gpu_host_type_id)
+    host_count = update_data.get("host_count", booking.host_count)
     start_date = update_data.get("start_date", booking.start_date)
     end_date = update_data.get("end_date", booking.end_date)
-    gram_option_id = update_data.get("gram_option_id", booking.gram_option_id)
-    memory_option_id = update_data.get("memory_option_id", booking.memory_option_id)
     workflow_type_id = update_data.get("workflow_type_id", booking.workflow_type_id)
+    reservation_name = update_data.get("reservation_name", booking.reservation_name)
 
     if start_date > end_date:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Start date must be before end date",
         )
+    if next_status_value == BookingStatus.confirmed.value and not reservation_name:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=_RESERVATION_NAME_REQUIRED_DETAIL,
+        )
 
     await _ensure_booking_reference_data_exists(
         session,
-        gpu_type_id=gpu_type_id,
-        gram_option_id=gram_option_id,
-        memory_option_id=memory_option_id,
+        gpu_host_type_id=gpu_host_type_id,
         workflow_type_id=workflow_type_id,
     )
 
     validation = await validate_booking(
         session,
         user_email=booking.user_email,
-        gpu_type_id=gpu_type_id,
-        gpu_count=gpu_count,
+        gpu_host_type_id=gpu_host_type_id,
+        host_count=host_count,
         start_date=start_date,
         end_date=end_date,
         exclude_booking_id=booking.id,
     )
 
-    status_changed = "status" in update_data
+    capacity_relevant_changed = any(
+        field in update_data
+        for field in {
+            "status",
+            "gpu_host_type_id",
+            "host_count",
+            "start_date",
+            "end_date",
+        }
+    )
     if (
-        status_changed
-        and next_status in _CAPACITY_CONSUMING_STATUSES
+        capacity_relevant_changed
+        and next_status_value in _CAPACITY_CONSUMING_STATUS_VALUES
         and validation.blocked
     ):
         raise HTTPException(
@@ -171,19 +171,19 @@ def _is_unique_violation(error: IntegrityError) -> bool:
 
 
 @router.post(
-    "/gpu-types",
-    response_model=GpuTypeResponse,
+    "/gpu-host-types",
+    response_model=GpuHostTypeResponse,
     status_code=status.HTTP_201_CREATED,
 )
-async def create_gpu_type(
-    payload: GpuTypeCreate,
+async def create_gpu_host_type(
+    payload: GpuHostTypeCreate,
     session: Annotated[AsyncSession, Depends(get_session)],
     _admin: Annotated[UserInfo, Depends(require_admin)],
-) -> GpuTypeResponse:
-    """Create a new GPU type."""
+) -> GpuHostTypeResponse:
+    """Create a new GPU host type."""
 
-    gpu_type = GpuType(**payload.model_dump())
-    session.add(gpu_type)
+    gpu_host_type = GpuHostType(**payload.model_dump())
+    session.add(gpu_host_type)
 
     try:
         await session.commit()
@@ -192,30 +192,32 @@ async def create_gpu_type(
         if _is_unique_violation(error):
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail="GPU type with this name already exists",
+                detail="GPU host type already exists",
             ) from error
         raise
 
-    await session.refresh(gpu_type)
-    return GpuTypeResponse.model_validate(gpu_type)
+    await session.refresh(gpu_host_type)
+    return GpuHostTypeResponse.model_validate(gpu_host_type)
 
 
-@router.put("/gpu-types/{gpu_type_id}", response_model=GpuTypeResponse)
-async def update_gpu_type(
-    gpu_type_id: int,
-    payload: GpuTypeUpdate,
+@router.put("/gpu-host-types/{gpu_host_type_id}", response_model=GpuHostTypeResponse)
+async def update_gpu_host_type(
+    gpu_host_type_id: int,
+    payload: GpuHostTypeUpdate,
     session: Annotated[AsyncSession, Depends(get_session)],
     _admin: Annotated[UserInfo, Depends(require_admin)],
-) -> GpuTypeResponse:
-    """Update an existing GPU type."""
+) -> GpuHostTypeResponse:
+    """Update an existing GPU host type."""
 
-    result = await session.execute(select(GpuType).where(GpuType.id == gpu_type_id))
-    gpu_type = result.scalar_one_or_none()
-    if gpu_type is None:
+    result = await session.execute(
+        select(GpuHostType).where(GpuHostType.id == gpu_host_type_id)
+    )
+    gpu_host_type = result.scalar_one_or_none()
+    if gpu_host_type is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
 
     for field, value in payload.model_dump(exclude_unset=True).items():
-        setattr(gpu_type, field, value)
+        setattr(gpu_host_type, field, value)
 
     try:
         await session.commit()
@@ -224,12 +226,12 @@ async def update_gpu_type(
         if _is_unique_violation(error):
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail="GPU type with this name already exists",
+                detail="GPU host type already exists",
             ) from error
         raise
 
-    await session.refresh(gpu_type)
-    return GpuTypeResponse.model_validate(gpu_type)
+    await session.refresh(gpu_host_type)
+    return GpuHostTypeResponse.model_validate(gpu_host_type)
 
 
 @router.post(
@@ -323,151 +325,5 @@ async def delete_workflow_type(
         )
 
     await session.delete(workflow_type)
-    await session.commit()
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
-
-
-@router.post(
-    "/gram-options",
-    response_model=GramOptionResponse,
-    status_code=status.HTTP_201_CREATED,
-)
-async def create_gram_option(
-    payload: GramOptionCreate,
-    session: Annotated[AsyncSession, Depends(get_session)],
-    _admin: Annotated[UserInfo, Depends(require_admin)],
-) -> GramOptionResponse:
-    """Create a new GRAM option."""
-
-    gram_option = GramOption(**payload.model_dump())
-    session.add(gram_option)
-    await session.commit()
-    await session.refresh(gram_option)
-    return GramOptionResponse.model_validate(gram_option)
-
-
-@router.put("/gram-options/{gram_option_id}", response_model=GramOptionResponse)
-async def update_gram_option(
-    gram_option_id: int,
-    payload: GramOptionUpdate,
-    session: Annotated[AsyncSession, Depends(get_session)],
-    _admin: Annotated[UserInfo, Depends(require_admin)],
-) -> GramOptionResponse:
-    """Update an existing GRAM option."""
-
-    result = await session.execute(
-        select(GramOption).where(GramOption.id == gram_option_id)
-    )
-    gram_option = result.scalar_one_or_none()
-    if gram_option is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
-
-    for field, value in payload.model_dump(exclude_unset=True).items():
-        setattr(gram_option, field, value)
-
-    await session.commit()
-    await session.refresh(gram_option)
-    return GramOptionResponse.model_validate(gram_option)
-
-
-@router.delete("/gram-options/{gram_option_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_gram_option(
-    gram_option_id: int,
-    session: Annotated[AsyncSession, Depends(get_session)],
-    _admin: Annotated[UserInfo, Depends(require_admin)],
-) -> Response:
-    """Delete a GRAM option when it is not referenced by bookings."""
-
-    result = await session.execute(
-        select(GramOption).where(GramOption.id == gram_option_id)
-    )
-    gram_option = result.scalar_one_or_none()
-    if gram_option is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
-
-    in_use_result = await session.execute(
-        select(Booking.id).where(Booking.gram_option_id == gram_option_id).limit(1)
-    )
-    if in_use_result.scalar_one_or_none() is not None:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="GRAM option is in use by existing bookings",
-        )
-
-    await session.delete(gram_option)
-    await session.commit()
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
-
-
-@router.post(
-    "/memory-options",
-    response_model=MemoryOptionResponse,
-    status_code=status.HTTP_201_CREATED,
-)
-async def create_memory_option(
-    payload: MemoryOptionCreate,
-    session: Annotated[AsyncSession, Depends(get_session)],
-    _admin: Annotated[UserInfo, Depends(require_admin)],
-) -> MemoryOptionResponse:
-    """Create a new memory option."""
-
-    memory_option = MemoryOption(**payload.model_dump())
-    session.add(memory_option)
-    await session.commit()
-    await session.refresh(memory_option)
-    return MemoryOptionResponse.model_validate(memory_option)
-
-
-@router.put("/memory-options/{memory_option_id}", response_model=MemoryOptionResponse)
-async def update_memory_option(
-    memory_option_id: int,
-    payload: MemoryOptionUpdate,
-    session: Annotated[AsyncSession, Depends(get_session)],
-    _admin: Annotated[UserInfo, Depends(require_admin)],
-) -> MemoryOptionResponse:
-    """Update an existing memory option."""
-
-    result = await session.execute(
-        select(MemoryOption).where(MemoryOption.id == memory_option_id)
-    )
-    memory_option = result.scalar_one_or_none()
-    if memory_option is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
-
-    for field, value in payload.model_dump(exclude_unset=True).items():
-        setattr(memory_option, field, value)
-
-    await session.commit()
-    await session.refresh(memory_option)
-    return MemoryOptionResponse.model_validate(memory_option)
-
-
-@router.delete(
-    "/memory-options/{memory_option_id}", status_code=status.HTTP_204_NO_CONTENT
-)
-async def delete_memory_option(
-    memory_option_id: int,
-    session: Annotated[AsyncSession, Depends(get_session)],
-    _admin: Annotated[UserInfo, Depends(require_admin)],
-) -> Response:
-    """Delete a memory option when it is not referenced by bookings."""
-
-    result = await session.execute(
-        select(MemoryOption).where(MemoryOption.id == memory_option_id)
-    )
-    memory_option = result.scalar_one_or_none()
-    if memory_option is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
-
-    in_use_result = await session.execute(
-        select(Booking.id).where(Booking.memory_option_id == memory_option_id).limit(1)
-    )
-    if in_use_result.scalar_one_or_none() is not None:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Memory option is in use by existing bookings",
-        )
-
-    await session.delete(memory_option)
     await session.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)

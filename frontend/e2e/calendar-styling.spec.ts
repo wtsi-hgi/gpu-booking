@@ -279,11 +279,25 @@ function todayIsoUtc(): string {
 
 async function findNonTodayCurrentMonthCell(page: Page): Promise<string> {
   const iso = await page.evaluate(() => {
-    const cell = Array.from(
+    const candidates = Array.from(
       document.querySelectorAll(
         '[data-day-cell="true"][data-current-month="true"][data-today="false"][data-drag-selected="false"]'
       )
-    ).find((candidate) => !candidate.querySelector('[data-day-usage-summary]'))
+    ).filter(
+      (candidate) => !candidate.querySelector('[data-day-usage-summary]')
+    )
+    const todayCell = document.querySelector(
+      '[data-day-cell="true"][data-current-month="true"][data-today="true"]'
+    )
+    const todayTop = todayCell?.getBoundingClientRect().top
+    const cell =
+      typeof todayTop === 'number'
+        ? candidates.find(
+            (candidate) =>
+              Math.abs(candidate.getBoundingClientRect().top - todayTop) < 1
+          )
+        : candidates[0]
+
     return cell?.getAttribute('data-date') ?? null
   })
   if (!iso) {

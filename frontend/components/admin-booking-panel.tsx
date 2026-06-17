@@ -17,28 +17,21 @@ import {
   initialAdminBookingFormState,
   type AdminBookingFormState,
 } from '@/lib/action-form-states'
-import type {
-  GramOption,
-  GpuType,
-  MemoryOption,
-  WorkflowType,
-} from '@/lib/admin-contracts'
+import type { GpuHostType, WorkflowType } from '@/lib/admin-contracts'
+import { formatGpuHostTypeLabel } from '@/lib/admin-contracts'
 import type { BookingResponse } from '@/lib/booking-contracts'
 
 type AdminBookingPanelProps = {
   initialBookings: BookingResponse[]
-  gpuTypes: GpuType[]
-  gramOptions: GramOption[]
-  memoryOptions: MemoryOption[]
+  gpuHostTypes: GpuHostType[]
   workflowTypes: WorkflowType[]
 }
 
 type BookingDraft = {
   status: BookingResponse['status']
-  gpu_type_id: string
-  gpu_count: string
-  gram_option_id: string
-  memory_option_id: string
+  reservation_name: string
+  gpu_host_type_id: string
+  host_count: string
   workflow_type_id: string
   start_date: string
   end_date: string
@@ -108,13 +101,12 @@ function toInputDate(value: string | null): string {
 function createDraft(booking: BookingResponse): BookingDraft {
   return {
     status: booking.status,
-    gpu_type_id: String(booking.gpu_type_id),
-    gpu_count: String(booking.gpu_count),
-    gram_option_id: String(booking.gram_option_id),
-    memory_option_id: String(booking.memory_option_id),
+    gpu_host_type_id: String(booking.gpu_host_type_id),
+    host_count: String(booking.host_count),
     workflow_type_id: String(booking.workflow_type_id),
     start_date: toInputDate(booking.start_date),
     end_date: toInputDate(booking.end_date),
+    reservation_name: booking.reservation_name ?? '',
     alt_email: booking.alt_email ?? '',
     project_name: booking.project_name ?? '',
     project_pi: booking.project_pi ?? '',
@@ -165,9 +157,7 @@ function SelectField({ id, name, value, onChange, options }: SelectProps) {
 
 export function AdminBookingPanel({
   initialBookings,
-  gpuTypes,
-  gramOptions,
-  memoryOptions,
+  gpuHostTypes,
   workflowTypes,
 }: AdminBookingPanelProps) {
   const [bookings, setBookings] = useState(initialBookings)
@@ -187,14 +177,15 @@ export function AdminBookingPanel({
     formData: FormData
   ) => {
     const result = await adminUpdateBooking(prev, formData)
-    if (result.status === 'success' && result.booking) {
+    const updatedBooking = result.booking
+    if (result.status === 'success' && updatedBooking) {
       setBookings((current) =>
         current.map((booking) =>
-          booking.id === result.booking.id ? result.booking : booking
+          booking.id === updatedBooking.id ? updatedBooking : booking
         )
       )
-      setSelectedBookingId(result.booking.id)
-      setDraft(createDraft(result.booking))
+      setSelectedBookingId(updatedBooking.id)
+      setDraft(createDraft(updatedBooking))
       setCapacityWarning(null)
     }
     return result
@@ -223,13 +214,13 @@ export function AdminBookingPanel({
       return
     }
 
-    const gpuTypeId = Number.parseInt(draft.gpu_type_id, 10)
-    const gpuCount = Number.parseInt(draft.gpu_count, 10)
+    const gpuHostTypeId = Number.parseInt(draft.gpu_host_type_id, 10)
+    const hostCount = Number.parseInt(draft.host_count, 10)
     if (
-      !Number.isInteger(gpuTypeId) ||
-      gpuTypeId <= 0 ||
-      !Number.isInteger(gpuCount) ||
-      gpuCount <= 0 ||
+      !Number.isInteger(gpuHostTypeId) ||
+      gpuHostTypeId <= 0 ||
+      !Number.isInteger(hostCount) ||
+      hostCount <= 0 ||
       !draft.start_date ||
       !draft.end_date
     ) {
@@ -242,7 +233,7 @@ export function AdminBookingPanel({
         const capacity = await getCapacity(
           draft.start_date,
           draft.end_date,
-          gpuTypeId
+          gpuHostTypeId
         )
         if (cancelled) {
           return
@@ -253,7 +244,7 @@ export function AdminBookingPanel({
             let confirmedUsed = day.confirmed_used
 
             if (
-              selectedBooking.gpu_type_id === gpuTypeId &&
+              selectedBooking.gpu_host_type_id === gpuHostTypeId &&
               statusConsumesCapacity(selectedBooking.status) &&
               overlapsDay(
                 day.date,
@@ -263,17 +254,17 @@ export function AdminBookingPanel({
             ) {
               confirmedUsed = Math.max(
                 0,
-                confirmedUsed - selectedBooking.gpu_count
+                confirmedUsed - selectedBooking.host_count
               )
             }
 
-            return confirmedUsed + gpuCount > day.total
+            return confirmedUsed + hostCount > day.total
           })
           .map((day) => day.date)
 
         if (exceededDays.length > 0) {
           setCapacityWarning(
-            `Capacity warning: setting status to ${draft.status} would exceed 100% capacity on ${exceededDays.join(', ')}.`
+            `Capacity warning: setting status to ${draft.status} would exceed host capacity on ${exceededDays.join(', ')}.`
           )
           return
         }
@@ -365,55 +356,40 @@ export function AdminBookingPanel({
                 />
               </Field>
 
-              <Field id="gpu_type_id" label="GPU Type">
-                <SelectField
-                  id="gpu_type_id"
-                  name="gpu_type_id"
-                  value={draft.gpu_type_id}
-                  onChange={(value) => updateDraft('gpu_type_id', value)}
-                  options={gpuTypes.map((gpuType) => ({
-                    label: gpuType.name,
-                    value: gpuType.id,
-                  }))}
-                />
-              </Field>
-
-              <Field id="gpu_count" label="GPU Count">
+              <Field id="reservation_name" label="Reservation Name">
                 <Input
-                  id="gpu_count"
-                  name="gpu_count"
-                  type="number"
-                  min={1}
-                  value={draft.gpu_count}
+                  id="reservation_name"
+                  name="reservation_name"
+                  value={draft.reservation_name}
                   onChange={(event) =>
-                    updateDraft('gpu_count', event.target.value)
+                    updateDraft('reservation_name', event.target.value)
                   }
                 />
               </Field>
 
-              <Field id="gram_option_id" label="GRAM">
+              <Field id="gpu_host_type_id" label="GPU Host Type">
                 <SelectField
-                  id="gram_option_id"
-                  name="gram_option_id"
-                  value={draft.gram_option_id}
-                  onChange={(value) => updateDraft('gram_option_id', value)}
-                  options={gramOptions.map((option) => ({
-                    label: option.label,
-                    value: option.id,
+                  id="gpu_host_type_id"
+                  name="gpu_host_type_id"
+                  value={draft.gpu_host_type_id}
+                  onChange={(value) => updateDraft('gpu_host_type_id', value)}
+                  options={gpuHostTypes.map((gpuHostType) => ({
+                    label: formatGpuHostTypeLabel(gpuHostType),
+                    value: gpuHostType.id,
                   }))}
                 />
               </Field>
 
-              <Field id="memory_option_id" label="System Memory">
-                <SelectField
-                  id="memory_option_id"
-                  name="memory_option_id"
-                  value={draft.memory_option_id}
-                  onChange={(value) => updateDraft('memory_option_id', value)}
-                  options={memoryOptions.map((option) => ({
-                    label: option.label,
-                    value: option.id,
-                  }))}
+              <Field id="host_count" label="Host Count">
+                <Input
+                  id="host_count"
+                  name="host_count"
+                  type="number"
+                  min={1}
+                  value={draft.host_count}
+                  onChange={(event) =>
+                    updateDraft('host_count', event.target.value)
+                  }
                 />
               </Field>
 
@@ -488,7 +464,7 @@ export function AdminBookingPanel({
                 />
               </Field>
 
-              <Field id="project_grant_number" label="Project Grant Number">
+              <Field id="project_grant_number" label="Cost Code">
                 <Input
                   id="project_grant_number"
                   name="project_grant_number"

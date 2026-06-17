@@ -10,55 +10,35 @@ from sqlalchemy import select
 
 from config import settings
 from db.engine import async_session_factory, engine
-from db.models import (
-    Base,
-    Booking,
-    BookingStatus,
-    GpuType,
-    GramOption,
-    MemoryOption,
-    WorkflowType,
-)
+from db.models import Base, Booking, BookingStatus, GpuHostType, WorkflowType
 from db.seed import seed_db
 from main import app
 
 
-async def _get_reference_ids() -> tuple[int, int, int, int]:
+async def _get_reference_ids() -> tuple[int, int]:
     """Return seeded reference IDs required to create bookings."""
 
     async with async_session_factory() as session:
-        gpu_type_result = await session.execute(
-            select(GpuType).where(GpuType.name == "H100")
+        host_type_result = await session.execute(
+            select(GpuHostType).where(GpuHostType.gpu_type == "H100")
         )
-        gpu_type = gpu_type_result.scalar_one()
-
-        gram_result = await session.execute(select(GramOption).order_by(GramOption.id))
-        gram_option = gram_result.scalars().first()
-
-        memory_result = await session.execute(
-            select(MemoryOption).order_by(MemoryOption.id)
-        )
-        memory_option = memory_result.scalars().first()
+        host_type = host_type_result.scalar_one()
 
         workflow_result = await session.execute(
             select(WorkflowType).order_by(WorkflowType.id)
         )
         workflow_type = workflow_result.scalars().first()
 
-        assert gram_option is not None
-        assert memory_option is not None
         assert workflow_type is not None
 
-        return gpu_type.id, gram_option.id, memory_option.id, workflow_type.id
+        return host_type.id, workflow_type.id
 
 
 async def _insert_booking(
     *,
     user_email: str,
-    gpu_type_id: int,
-    gpu_count: int,
-    gram_option_id: int,
-    memory_option_id: int,
+    gpu_host_type_id: int,
+    host_count: int,
     workflow_type_id: int,
     start_date: date,
     end_date: date,
@@ -70,10 +50,8 @@ async def _insert_booking(
         session.add(
             Booking(
                 user_email=user_email,
-                gpu_type_id=gpu_type_id,
-                gpu_count=gpu_count,
-                gram_option_id=gram_option_id,
-                memory_option_id=memory_option_id,
+                gpu_host_type_id=gpu_host_type_id,
+                host_count=host_count,
                 workflow_type_id=workflow_type_id,
                 start_date=start_date,
                 end_date=end_date,
@@ -87,18 +65,11 @@ async def _insert_booking(
 async def test_get_capacity_returns_daily_capacity_list_when_bookings_exist() -> None:
     """Return a list of DailyCapacity objects for the requested date range."""
 
-    (
-        gpu_type_id,
-        gram_option_id,
-        memory_option_id,
-        workflow_type_id,
-    ) = await _get_reference_ids()
+    host_type_id, workflow_type_id = await _get_reference_ids()
     await _insert_booking(
         user_email="user@example.com",
-        gpu_type_id=gpu_type_id,
-        gpu_count=5,
-        gram_option_id=gram_option_id,
-        memory_option_id=memory_option_id,
+        gpu_host_type_id=host_type_id,
+        host_count=1,
         workflow_type_id=workflow_type_id,
         start_date=date(2026, 3, 2),
         end_date=date(2026, 3, 3),
@@ -118,8 +89,9 @@ async def test_get_capacity_returns_daily_capacity_list_when_bookings_exist() ->
     assert len(payload) > 0
     first = payload[0]
     assert first["date"]
-    assert isinstance(first["gpu_type_id"], int)
-    assert isinstance(first["gpu_type_name"], str)
+    assert isinstance(first["gpu_host_type_id"], int)
+    assert isinstance(first["gpu_type"], str)
+    assert isinstance(first["gpu_count"], int)
     assert isinstance(first["total"], int)
     assert isinstance(first["confirmed_used"], int)
     assert isinstance(first["pending_used"], int)
@@ -133,10 +105,10 @@ async def test_get_capacity_returns_daily_capacity_list_when_bookings_exist() ->
 async def test_get_capacity_no_bookings_returns_full_availability() -> None:
     """Return full capacity for each day when no bookings exist."""
 
-    (gpu_type_id, _, _, _) = await _get_reference_ids()
+    host_type_id, _ = await _get_reference_ids()
     async with async_session_factory() as session:
-        gpu_type = await session.get(GpuType, gpu_type_id)
-    assert gpu_type is not None
+        host_type = await session.get(GpuHostType, host_type_id)
+    assert host_type is not None
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://testserver") as client:
@@ -145,7 +117,7 @@ async def test_get_capacity_no_bookings_returns_full_availability() -> None:
             params={
                 "start_date": "2026-03-01",
                 "end_date": "2026-03-03",
-                "gpu_type_id": gpu_type_id,
+                "gpu_host_type_id": host_type_id,
             },
         )
 
@@ -153,9 +125,63 @@ async def test_get_capacity_no_bookings_returns_full_availability() -> None:
     payload = response.json()
     assert len(payload) == 3
     for day in payload:
-        assert day["total"] == gpu_type.total_count
+        assert day["total"] == host_type.total_count
         assert day["confirmed_used"] == 0
-        assert day["available"] == gpu_type.total_count
+        assert day["available"] == host_type.total_count
+
+
+@pytest.mark.anyio
+async def test_host_type_availability_returns_currently_bookable_minimum() -> None:
+    """Return each host type's minimum bookable hosts over the requested range."""
+
+    async with async_session_factory() as session:
+        h200_result = await session.execute(
+            select(GpuHostType).where(GpuHostType.gpu_type == "H200")
+        )
+        h200 = h200_result.scalar_one()
+        h100_result = await session.execute(
+            select(GpuHostType).where(GpuHostType.gpu_type == "H100")
+        )
+        h100 = h100_result.scalar_one()
+        workflow_result = await session.execute(
+            select(WorkflowType).order_by(WorkflowType.id)
+        )
+        workflow_type = workflow_result.scalars().first()
+
+    assert workflow_type is not None
+    await _insert_booking(
+        user_email="h200-holder@example.com",
+        gpu_host_type_id=h200.id,
+        host_count=2,
+        workflow_type_id=workflow_type.id,
+        start_date=date(2026, 7, 22),
+        end_date=date(2026, 7, 23),
+        status=BookingStatus.confirmed,
+    )
+    await _insert_booking(
+        user_email="h100-holder@example.com",
+        gpu_host_type_id=h100.id,
+        host_count=2,
+        workflow_type_id=workflow_type.id,
+        start_date=date(2026, 7, 23),
+        end_date=date(2026, 7, 23),
+        status=BookingStatus.confirmed,
+    )
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.get(
+            "/api/v1/capacity/host-types/availability",
+            params={"start_date": "2026-07-22", "end_date": "2026-07-23"},
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    by_type = {item["gpu_type"]: item for item in payload}
+    assert by_type["H200"]["currently_bookable"] == 1
+    assert by_type["H100"]["currently_bookable"] == 0
+    assert by_type["A100"]["currently_bookable"] == 0
+    assert by_type["H100"]["total"] == 2
 
 
 @pytest.mark.anyio
@@ -176,23 +202,17 @@ async def test_get_capacity_missing_start_date_returns_422() -> None:
 async def test_validate_capacity_returns_valid_for_compliant_booking() -> None:
     """Return valid with no warnings when proposed booking is within rules."""
 
-    (
-        gpu_type_id,
-        gram_option_id,
-        memory_option_id,
-        workflow_type_id,
-    ) = await _get_reference_ids()
+    host_type_id, workflow_type_id = await _get_reference_ids()
     start = date.today() + timedelta(days=30)
     end = start + timedelta(days=2)
 
     payload = {
-        "gpu_type_id": gpu_type_id,
-        "gpu_count": 4,
-        "gram_option_id": gram_option_id,
-        "memory_option_id": memory_option_id,
+        "gpu_host_type_id": host_type_id,
+        "host_count": 1,
         "workflow_type_id": workflow_type_id,
         "start_date": start.isoformat(),
         "end_date": end.isoformat(),
+        "project_grant_number": "CC-12345",
     }
 
     transport = ASGITransport(app=app)
@@ -210,21 +230,14 @@ async def test_validate_capacity_returns_valid_for_compliant_booking() -> None:
 
 @pytest.mark.anyio
 async def test_validate_capacity_blocks_when_capacity_is_exceeded() -> None:
-    """Return blocked with a reason when proposed booking exceeds 100% capacity."""
+    """Return blocked with a reason when proposed booking exceeds capacity."""
 
-    (
-        gpu_type_id,
-        gram_option_id,
-        memory_option_id,
-        workflow_type_id,
-    ) = await _get_reference_ids()
+    host_type_id, workflow_type_id = await _get_reference_ids()
     day = date.today() + timedelta(days=30)
     await _insert_booking(
         user_email="full@example.com",
-        gpu_type_id=gpu_type_id,
-        gpu_count=40,
-        gram_option_id=gram_option_id,
-        memory_option_id=memory_option_id,
+        gpu_host_type_id=host_type_id,
+        host_count=2,
         workflow_type_id=workflow_type_id,
         start_date=day,
         end_date=day,
@@ -232,13 +245,12 @@ async def test_validate_capacity_blocks_when_capacity_is_exceeded() -> None:
     )
 
     payload = {
-        "gpu_type_id": gpu_type_id,
-        "gpu_count": 1,
-        "gram_option_id": gram_option_id,
-        "memory_option_id": memory_option_id,
+        "gpu_host_type_id": host_type_id,
+        "host_count": 1,
         "workflow_type_id": workflow_type_id,
         "start_date": day.isoformat(),
         "end_date": day.isoformat(),
+        "project_grant_number": "CC-12345",
     }
 
     transport = ASGITransport(app=app)

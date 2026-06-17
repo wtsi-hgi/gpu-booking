@@ -1,11 +1,10 @@
 export const requiredBookingFields = [
-  'gpu_type_id',
-  'gpu_count',
-  'gram_option_id',
-  'memory_option_id',
+  'gpu_host_type_id',
+  'host_count',
   'workflow_type_id',
   'start_date',
   'end_date',
+  'project_grant_number',
 ] as const
 
 export type BookingFieldName = (typeof requiredBookingFields)[number]
@@ -23,13 +22,12 @@ export type BookingFormValueName =
 export type BookingFormValues = Record<BookingFormValueName, string>
 
 export const bookingFieldLabels: Record<BookingFieldName, string> = {
-  gpu_type_id: 'GPU Type',
-  gpu_count: 'GPU Count',
-  gram_option_id: 'GRAM',
-  memory_option_id: 'System Memory',
+  gpu_host_type_id: 'GPU Host Type',
+  host_count: 'Host Count',
   workflow_type_id: 'Workflow Type',
   start_date: 'Start Date',
   end_date: 'End Date',
+  project_grant_number: 'Cost Code',
 }
 
 export type BookingFormState = {
@@ -44,10 +42,8 @@ export function createInitialBookingFormValues(
   overrides: Partial<BookingFormValues> = {}
 ): BookingFormValues {
   return {
-    gpu_type_id: '',
-    gpu_count: '',
-    gram_option_id: '',
-    memory_option_id: '',
+    gpu_host_type_id: '',
+    host_count: '',
     workflow_type_id: '',
     alt_email: '',
     start_date: '',

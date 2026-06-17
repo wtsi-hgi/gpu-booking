@@ -1,18 +1,18 @@
-import type { GpuType, WorkflowType } from '@/lib/admin-contracts'
+import type { GpuHostType, WorkflowType } from '@/lib/admin-contracts'
 import type { BookingResponse } from '@/lib/booking-contracts'
 
 export type FormState = {
   status: 'idle' | 'success' | 'error'
   message: string | null
   error: string | null
-  gpuType: GpuType | null
+  gpuHostType: GpuHostType | null
 }
 
 export const initialFormState: FormState = {
   status: 'idle',
   message: null,
   error: null,
-  gpuType: null,
+  gpuHostType: null,
 }
 
 export type WorkflowTypeFormState = {

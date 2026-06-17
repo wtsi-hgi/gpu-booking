@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
 
 import {
+  cleanup,
   fireEvent,
   render,
   screen,
@@ -12,7 +13,11 @@ import { createElement } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { BookingForm } from '@/components/booking-form'
-import type { BookingValidation } from '@/lib/booking-contracts'
+import type { GpuHostType, WorkflowType } from '@/lib/admin-contracts'
+import type {
+  BookingValidation,
+  HostTypeAvailability,
+} from '@/lib/booking-contracts'
 import {
   createInitialBookingFormValues,
   type BookingFormState,
@@ -21,6 +26,7 @@ import {
 const mocks = vi.hoisted(() => ({
   createBookingMock: vi.fn(),
   validateBookingMock: vi.fn(),
+  getHostTypeAvailabilityMock: vi.fn(),
   toastSuccessMock: vi.fn(),
   toastErrorMock: vi.fn(),
   routerPushMock: vi.fn(),
@@ -30,6 +36,7 @@ const mocks = vi.hoisted(() => ({
 const {
   createBookingMock,
   validateBookingMock,
+  getHostTypeAvailabilityMock,
   toastSuccessMock,
   toastErrorMock,
   routerPushMock,
@@ -51,31 +58,43 @@ vi.mock('next/navigation', () => ({
 
 vi.mock('@/app/actions', () => ({
   createBooking: mocks.createBookingMock,
+  getHostTypeAvailability: mocks.getHostTypeAvailabilityMock,
   validateBooking: mocks.validateBookingMock,
 }))
 
-const gpuTypes = [
+const gpuHostTypes: GpuHostType[] = [
   {
     id: 1,
-    name: 'H100',
-    gram_gb: 80,
-    system_memory_gb: 500,
-    total_count: 40,
+    gpu_type: 'H100',
+    gpu_count: 8,
+    total_count: 5,
     created_at: '2026-02-01T00:00:00Z',
     updated_at: '2026-02-01T00:00:00Z',
   },
 ]
 
-const gramOptions = [{ id: 1, label: '80GB', value_gb: 80, sort_order: 1 }]
-const memoryOptions = [{ id: 1, label: '500GB', value_gb: 500, sort_order: 1 }]
-const workflowTypes = [{ id: 1, name: 'Training' }]
+const workflowTypes: WorkflowType[] = [{ id: 1, name: 'Training' }]
 
-function renderBookingForm(initialStartDate?: string, initialEndDate?: string) {
+function createAvailability(
+  hostTypes: GpuHostType[] = gpuHostTypes
+): HostTypeAvailability[] {
+  return hostTypes.map((hostType) => ({
+    gpu_host_type_id: hostType.id,
+    gpu_type: hostType.gpu_type,
+    gpu_count: hostType.gpu_count,
+    total: hostType.total_count,
+    currently_bookable: hostType.total_count,
+  }))
+}
+
+function renderBookingForm(
+  initialStartDate?: string,
+  initialEndDate?: string,
+  nextGpuHostTypes: GpuHostType[] = gpuHostTypes
+) {
   return render(
     createElement(BookingForm, {
-      gpuTypes,
-      gramOptions,
-      memoryOptions,
+      gpuHostTypes: nextGpuHostTypes,
       workflowTypes,
       initialStartDate,
       initialEndDate,
@@ -108,13 +127,25 @@ async function fillRequiredFieldsWithDates(
   startDate: string,
   endDate: string
 ) {
-  await user.selectOptions(screen.getByLabelText('GPU Type'), '1')
-  await user.type(screen.getByLabelText('GPU Count'), '4')
-  await user.selectOptions(screen.getByLabelText('GRAM'), '1')
-  await user.selectOptions(screen.getByLabelText('System Memory'), '1')
+  await user.selectOptions(screen.getByLabelText('GPU Host Type'), '1')
+  await user.selectOptions(screen.getByLabelText('Host Count'), '4')
   await user.selectOptions(screen.getByLabelText('Workflow Type'), '1')
   await user.type(screen.getByLabelText('Start Date'), startDate)
   await user.type(screen.getByLabelText('End Date'), endDate)
+  await user.type(screen.getByLabelText('Cost Code'), 'CC-12345')
+}
+
+function changeFieldValue(label: string, value: string) {
+  fireEvent.change(screen.getByLabelText(label), { target: { value } })
+}
+
+function fillRequiredFieldsByChange(startDate: string, endDate: string) {
+  changeFieldValue('GPU Host Type', '1')
+  changeFieldValue('Host Count', '4')
+  changeFieldValue('Workflow Type', '1')
+  changeFieldValue('Start Date', startDate)
+  changeFieldValue('End Date', endDate)
+  changeFieldValue('Cost Code', 'CC-12345')
 }
 
 function formatDateInputValue(date: Date) {
@@ -134,10 +165,8 @@ function getRelativeDate(daysFromToday: number) {
 
 function getSubmittedBookingFormValues(formData: FormData) {
   return createInitialBookingFormValues({
-    gpu_type_id: (formData.get('gpu_type_id') ?? '').toString(),
-    gpu_count: (formData.get('gpu_count') ?? '').toString(),
-    gram_option_id: (formData.get('gram_option_id') ?? '').toString(),
-    memory_option_id: (formData.get('memory_option_id') ?? '').toString(),
+    gpu_host_type_id: (formData.get('gpu_host_type_id') ?? '').toString(),
+    host_count: (formData.get('host_count') ?? '').toString(),
     workflow_type_id: (formData.get('workflow_type_id') ?? '').toString(),
     alt_email: (formData.get('alt_email') ?? '').toString(),
     start_date: (formData.get('start_date') ?? '').toString(),
@@ -179,6 +208,7 @@ function createDomRect(top: number, height: number): DOMRect {
 
 describe('booking form - F3 acceptance coverage', () => {
   beforeEach(() => {
+    cleanup()
     document.body.innerHTML = ''
     vi.clearAllMocks()
 
@@ -216,12 +246,278 @@ describe('booking form - F3 acceptance coverage', () => {
       blocked: false,
       block_reason: null,
     })
+    getHostTypeAvailabilityMock.mockResolvedValue(createAvailability())
   })
 
   it('does not render a separate Validate button', () => {
     renderBookingForm()
 
     expect(screen.queryByRole('button', { name: 'Validate' })).toBeNull()
+  })
+
+  it('omits the automatic capacity check helper text', () => {
+    renderBookingForm()
+
+    expect(
+      screen.queryByText(
+        /Capacity checks run automatically before submission\./
+      )
+    ).toBeNull()
+  })
+
+  it('groups required booking fields at the top of the form', () => {
+    const { container } = renderBookingForm()
+
+    const labelOrder = Array.from(container.querySelectorAll('form label')).map(
+      (label) => label.textContent?.replace(/\s+/g, ' ').trim() ?? ''
+    )
+
+    expect(labelOrder).toEqual([
+      'GPU Host Type',
+      'Host Count',
+      'Workflow Type',
+      'Cost Code',
+      'Start Date',
+      'End Date',
+      'Project Name',
+      'PI/Lead',
+      'Alternate Email',
+      'Technical Lead',
+      'Event Start Date',
+      'Event End Date',
+    ])
+  })
+
+  it('omits GPU host types with zero configured hosts from the selector', () => {
+    renderBookingForm(undefined, undefined, [
+      ...gpuHostTypes,
+      {
+        id: 2,
+        gpu_type: 'A100',
+        gpu_count: 8,
+        total_count: 0,
+        created_at: '2026-02-01T00:00:00Z',
+        updated_at: '2026-02-01T00:00:00Z',
+      },
+    ])
+
+    const gpuHostTypeSelect = screen.getByLabelText('GPU Host Type')
+
+    expect(
+      within(gpuHostTypeSelect).getByRole('option', {
+        name: 'Select GPU host type',
+      })
+    ).toBeTruthy()
+    expect(
+      within(gpuHostTypeSelect).getByRole('option', { name: '8 GPU H100' })
+    ).toBeTruthy()
+    expect(
+      within(gpuHostTypeSelect).queryByRole('option', { name: '8 GPU A100' })
+    ).toBeNull()
+  })
+
+  it('disables Host Count until a GPU host type is selected', async () => {
+    const user = userEvent.setup()
+    renderBookingForm()
+
+    const hostCountSelect = screen.getByLabelText(
+      'Host Count'
+    ) as HTMLSelectElement
+
+    expect(hostCountSelect.disabled).toBe(true)
+
+    await user.selectOptions(screen.getByLabelText('GPU Host Type'), '1')
+
+    expect(hostCountSelect.disabled).toBe(false)
+  })
+
+  it('offers Host Count as fixed choices for the selected availability', async () => {
+    const user = userEvent.setup()
+    getHostTypeAvailabilityMock.mockResolvedValueOnce([
+      {
+        gpu_host_type_id: 1,
+        gpu_type: 'H100',
+        gpu_count: 8,
+        total: 5,
+        currently_bookable: 2,
+      },
+    ])
+
+    renderBookingForm('2026-07-22', '2026-07-23')
+
+    await waitFor(() => {
+      expect(getHostTypeAvailabilityMock).toHaveBeenCalledWith(
+        '2026-07-22',
+        '2026-07-23'
+      )
+    })
+    await user.selectOptions(screen.getByLabelText('GPU Host Type'), '1')
+
+    const hostCountSelect = screen.getByLabelText('Host Count')
+
+    expect(hostCountSelect).toBeInstanceOf(HTMLSelectElement)
+    expect(
+      within(hostCountSelect)
+        .getAllByRole('option')
+        .map((option) => ({
+          label: option.textContent,
+          value: (option as HTMLOptionElement).value,
+        }))
+    ).toEqual([
+      { label: 'Select host count', value: '' },
+      { label: '1', value: '1' },
+      { label: '2', value: '2' },
+    ])
+  })
+
+  it('disables host types that have zero currently bookable hosts for the selected range', async () => {
+    const user = userEvent.setup()
+    const h200 = {
+      id: 2,
+      gpu_type: 'H200',
+      gpu_count: 8,
+      total_count: 3,
+      created_at: '2026-02-01T00:00:00Z',
+      updated_at: '2026-02-01T00:00:00Z',
+    }
+    const h100 = {
+      id: 3,
+      gpu_type: 'H100',
+      gpu_count: 8,
+      total_count: 2,
+      created_at: '2026-02-01T00:00:00Z',
+      updated_at: '2026-02-01T00:00:00Z',
+    }
+    getHostTypeAvailabilityMock.mockResolvedValueOnce([
+      {
+        gpu_host_type_id: h200.id,
+        gpu_type: 'H200',
+        gpu_count: 8,
+        total: 3,
+        currently_bookable: 1,
+      },
+      {
+        gpu_host_type_id: h100.id,
+        gpu_type: 'H100',
+        gpu_count: 8,
+        total: 2,
+        currently_bookable: 0,
+      },
+    ])
+
+    renderBookingForm('2026-07-22', '2026-07-23', [h200, h100])
+
+    await waitFor(() => {
+      expect(getHostTypeAvailabilityMock).toHaveBeenCalledWith(
+        '2026-07-22',
+        '2026-07-23'
+      )
+    })
+
+    const gpuHostTypeSelect = screen.getByLabelText(
+      'GPU Host Type'
+    ) as HTMLSelectElement
+    const h100Option = within(gpuHostTypeSelect).getByRole('option', {
+      name: '8 GPU H100 (none available)',
+    }) as HTMLOptionElement
+
+    expect(h100Option.disabled).toBe(true)
+
+    await user.selectOptions(gpuHostTypeSelect, String(h100.id))
+
+    expect(gpuHostTypeSelect.value).toBe('')
+  })
+
+  it('limits Host Count to the selected host type currently bookable maximum', async () => {
+    const user = userEvent.setup()
+    getHostTypeAvailabilityMock.mockResolvedValueOnce([
+      {
+        gpu_host_type_id: 1,
+        gpu_type: 'H100',
+        gpu_count: 8,
+        total: 5,
+        currently_bookable: 1,
+      },
+    ])
+    renderBookingForm('2026-07-22', '2026-07-23')
+
+    await waitFor(() => {
+      expect(getHostTypeAvailabilityMock).toHaveBeenCalledWith(
+        '2026-07-22',
+        '2026-07-23'
+      )
+    })
+    await user.selectOptions(screen.getByLabelText('GPU Host Type'), '1')
+
+    const hostCountSelect = screen.getByLabelText(
+      'Host Count'
+    ) as HTMLSelectElement
+
+    expect(
+      within(hostCountSelect)
+        .getAllByRole('option')
+        .map((option) => ({
+          label: option.textContent,
+          value: (option as HTMLOptionElement).value,
+        }))
+    ).toEqual([
+      { label: 'Select host count', value: '' },
+      { label: '1', value: '1' },
+    ])
+    expect(
+      within(hostCountSelect).queryByRole('option', { name: '2' })
+    ).toBeNull()
+  })
+
+  it('coerces Host Count down when the selected date range reduces availability', async () => {
+    const user = userEvent.setup()
+    getHostTypeAvailabilityMock
+      .mockResolvedValueOnce([
+        {
+          gpu_host_type_id: 1,
+          gpu_type: 'H100',
+          gpu_count: 8,
+          total: 5,
+          currently_bookable: 5,
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          gpu_host_type_id: 1,
+          gpu_type: 'H100',
+          gpu_count: 8,
+          total: 5,
+          currently_bookable: 1,
+        },
+      ])
+
+    renderBookingForm('2026-07-22', '2026-07-22')
+
+    await waitFor(() => {
+      expect(getHostTypeAvailabilityMock).toHaveBeenCalledWith(
+        '2026-07-22',
+        '2026-07-22'
+      )
+    })
+    await user.selectOptions(screen.getByLabelText('GPU Host Type'), '1')
+    await user.selectOptions(screen.getByLabelText('Host Count'), '4')
+
+    expect(
+      (screen.getByLabelText('Host Count') as HTMLSelectElement).value
+    ).toBe('4')
+
+    await user.clear(screen.getByLabelText('End Date'))
+    await user.type(screen.getByLabelText('End Date'), '2026-07-23')
+
+    await waitFor(() => {
+      expect(getHostTypeAvailabilityMock).toHaveBeenCalledWith(
+        '2026-07-22',
+        '2026-07-23'
+      )
+      expect(
+        (screen.getByLabelText('Host Count') as HTMLSelectElement).value
+      ).toBe('1')
+    })
   })
 
   it('provides a close icon action that returns to the bookings page without submitting', async () => {
@@ -307,19 +603,26 @@ describe('booking form - F3 acceptance coverage', () => {
     await user.click(screen.getByRole('button', { name: 'Create Booking' }))
 
     await waitFor(() => {
-      expect(screen.getByText('GPU Type is required.')).toBeTruthy()
-      expect(screen.getByText('GPU Count is required.')).toBeTruthy()
-      expect(screen.getByText('GRAM is required.')).toBeTruthy()
-      expect(screen.getByText('System Memory is required.')).toBeTruthy()
+      expect(screen.getByText('GPU Host Type is required.')).toBeTruthy()
+      expect(screen.getByText('Host Count is required.')).toBeTruthy()
       expect(screen.getByText('Workflow Type is required.')).toBeTruthy()
       expect(screen.getByText('Start Date is required.')).toBeTruthy()
       expect(screen.getByText('End Date is required.')).toBeTruthy()
+      expect(screen.getByText('Cost Code is required.')).toBeTruthy()
     })
     expect(validateBookingMock).not.toHaveBeenCalled()
     expect(createBookingMock).not.toHaveBeenCalled()
   })
 
-  it('shows blocking capacity feedback under GPU Count and stops submission', async () => {
+  it('labels the project charge field as Cost Code without old wording', () => {
+    renderBookingForm()
+
+    expect(screen.getByLabelText('Cost Code')).toBeTruthy()
+    expect(screen.queryByLabelText('Grant Number')).toBeNull()
+    expect(screen.queryByText('Grant Number')).toBeNull()
+  })
+
+  it('shows blocking capacity feedback under Host Count and stops submission', async () => {
     const user = userEvent.setup()
     validateBookingMock.mockResolvedValueOnce({
       valid: false,
@@ -332,10 +635,10 @@ describe('booking form - F3 acceptance coverage', () => {
     const { startDate, endDate } = await fillRequiredFields(user)
     await user.click(screen.getByRole('button', { name: 'Create Booking' }))
 
-    const gpuCountContainer = getFieldContainer('GPU Count')
+    const hostCountContainer = getFieldContainer('Host Count')
 
     await waitFor(() => {
-      const feedback = within(gpuCountContainer).getByText(
+      const feedback = within(hostCountContainer).getByText(
         '100% capacity exceeded for 2026-04-10'
       )
 
@@ -347,7 +650,7 @@ describe('booking form - F3 acceptance coverage', () => {
     expect(screen.getByRole('button', { name: 'Create Booking' })).toBeTruthy()
   })
 
-  it('shows the per-user capacity warning under GPU Count, shows the warning area, and changes the button to Confirm', async () => {
+  it('shows the per-user capacity warning under Host Count, shows the warning area, and changes the button to Confirm', async () => {
     const user = userEvent.setup()
     const warningMessage =
       'Proposed booking exceeds 40% per-user capacity on 2026-04-10'
@@ -369,10 +672,10 @@ describe('booking form - F3 acceptance coverage', () => {
     const { startDate, endDate } = await fillRequiredFields(user)
     await user.click(screen.getByRole('button', { name: 'Create Booking' }))
 
-    const gpuCountContainer = getFieldContainer('GPU Count')
+    const hostCountContainer = getFieldContainer('Host Count')
 
     await waitFor(() => {
-      const inlineWarning = within(gpuCountContainer).getByText(warningMessage)
+      const inlineWarning = within(hostCountContainer).getByText(warningMessage)
       const inlineWarningFeedback = inlineWarning.closest(
         '[data-validation-severity="warning"]'
       )
@@ -395,7 +698,7 @@ describe('booking form - F3 acceptance coverage', () => {
     expect(createBookingMock).not.toHaveBeenCalled()
   })
 
-  it('shows advance notice warnings under Start Date and not under GPU Count', async () => {
+  it('shows advance notice warnings under Start Date and not under Host Count', async () => {
     const user = userEvent.setup()
     const warningMessage = 'Less than 2 weeks advance notice'
 
@@ -417,7 +720,7 @@ describe('booking form - F3 acceptance coverage', () => {
     await user.click(screen.getByRole('button', { name: 'Create Booking' }))
 
     const startDateContainer = getFieldContainer('Start Date')
-    const gpuCountContainer = getFieldContainer('GPU Count')
+    const hostCountContainer = getFieldContainer('Host Count')
 
     await waitFor(() => {
       const inlineWarning = within(startDateContainer).getByText(warningMessage)
@@ -427,7 +730,7 @@ describe('booking form - F3 acceptance coverage', () => {
 
       expect(inlineWarningFeedback).toBeTruthy()
       expect(inlineWarningFeedback?.className).not.toContain('text-destructive')
-      expect(within(gpuCountContainer).queryByText(warningMessage)).toBeNull()
+      expect(within(hostCountContainer).queryByText(warningMessage)).toBeNull()
 
       const warningArea = screen.getByText(
         'Review warnings before confirming.'
@@ -443,9 +746,9 @@ describe('booking form - F3 acceptance coverage', () => {
     })
 
     expect(createBookingMock).not.toHaveBeenCalled()
-  })
+  }, 10_000)
 
-  it('shows duration warnings under End Date and not under GPU Count', async () => {
+  it('shows duration warnings under End Date and not under Host Count', async () => {
     const user = userEvent.setup()
     const warningMessage = 'Booking duration exceeds 14-day maximum'
 
@@ -467,7 +770,7 @@ describe('booking form - F3 acceptance coverage', () => {
     await user.click(screen.getByRole('button', { name: 'Create Booking' }))
 
     const endDateContainer = getFieldContainer('End Date')
-    const gpuCountContainer = getFieldContainer('GPU Count')
+    const hostCountContainer = getFieldContainer('Host Count')
 
     await waitFor(() => {
       const inlineWarning = within(endDateContainer).getByText(warningMessage)
@@ -477,7 +780,7 @@ describe('booking form - F3 acceptance coverage', () => {
 
       expect(inlineWarningFeedback).toBeTruthy()
       expect(inlineWarningFeedback?.className).not.toContain('text-destructive')
-      expect(within(gpuCountContainer).queryByText(warningMessage)).toBeNull()
+      expect(within(hostCountContainer).queryByText(warningMessage)).toBeNull()
       expect(screen.getByRole('button', { name: 'Confirm' })).toBeTruthy()
     })
 
@@ -497,7 +800,7 @@ describe('booking form - F3 acceptance coverage', () => {
     await user.click(screen.getByRole('button', { name: 'Create Booking' }))
 
     const endDateContainer = getFieldContainer('End Date')
-    const gpuCountContainer = getFieldContainer('GPU Count')
+    const hostCountContainer = getFieldContainer('Host Count')
 
     await waitFor(() => {
       const feedback = within(endDateContainer).getByText(
@@ -506,7 +809,7 @@ describe('booking form - F3 acceptance coverage', () => {
 
       expect(feedback.className).toContain('text-destructive')
       expect(
-        within(gpuCountContainer).queryByText(feedback.textContent ?? '')
+        within(hostCountContainer).queryByText(feedback.textContent ?? '')
       ).toBeNull()
     })
 
@@ -526,7 +829,7 @@ describe('booking form - F3 acceptance coverage', () => {
     await user.click(screen.getByRole('button', { name: 'Create Booking' }))
 
     const startDateContainer = getFieldContainer('Start Date')
-    const gpuCountContainer = getFieldContainer('GPU Count')
+    const hostCountContainer = getFieldContainer('Host Count')
 
     await waitFor(() => {
       const feedback = within(startDateContainer).getByText(
@@ -535,7 +838,7 @@ describe('booking form - F3 acceptance coverage', () => {
 
       expect(feedback.className).toContain('text-destructive')
       expect(
-        within(gpuCountContainer).queryByText(feedback.textContent ?? '')
+        within(hostCountContainer).queryByText(feedback.textContent ?? '')
       ).toBeNull()
     })
 
@@ -771,9 +1074,10 @@ describe('booking form - F3 acceptance coverage', () => {
       expect(screen.getAllByText(warningMessage)).toHaveLength(2)
     })
 
-    const gpuCountInput = screen.getByLabelText('GPU Count') as HTMLInputElement
-    await user.clear(gpuCountInput)
-    await user.type(gpuCountInput, '3')
+    const hostCountSelect = screen.getByLabelText(
+      'Host Count'
+    ) as HTMLSelectElement
+    await user.selectOptions(hostCountSelect, '3')
 
     await waitFor(() => {
       expect(screen.queryByRole('button', { name: 'Confirm' })).toBeNull()
@@ -806,9 +1110,10 @@ describe('booking form - F3 acceptance coverage', () => {
     await fillRequiredFields(user)
     await user.click(screen.getByRole('button', { name: 'Create Booking' }))
 
-    const gpuCountInput = screen.getByLabelText('GPU Count') as HTMLInputElement
-    await user.clear(gpuCountInput)
-    await user.type(gpuCountInput, '5')
+    const hostCountSelect = screen.getByLabelText(
+      'Host Count'
+    ) as HTMLSelectElement
+    await user.selectOptions(hostCountSelect, '5')
 
     firstValidation.resolve({
       valid: true,
@@ -840,15 +1145,15 @@ describe('booking form - F3 acceptance coverage', () => {
     })
 
     expect(
-      (validateBookingMock.mock.calls[0][0] as FormData).get('gpu_count')
+      (validateBookingMock.mock.calls[0][0] as FormData).get('host_count')
     ).toBe('4')
     expect(
-      (validateBookingMock.mock.calls[1][0] as FormData).get('gpu_count')
+      (validateBookingMock.mock.calls[1][0] as FormData).get('host_count')
     ).toBe('5')
     expect(
       getSubmittedBookingFormValues(
         createBookingMock.mock.calls[0][1] as FormData
-      ).gpu_count
+      ).host_count
     ).toBe('5')
   })
 
@@ -862,9 +1167,10 @@ describe('booking form - F3 acceptance coverage', () => {
     const { startDate, endDate } = await fillRequiredFields(user)
     await user.click(screen.getByRole('button', { name: 'Create Booking' }))
 
-    const gpuCountInput = screen.getByLabelText('GPU Count') as HTMLInputElement
-    await user.clear(gpuCountInput)
-    await user.type(gpuCountInput, '6')
+    const hostCountSelect = screen.getByLabelText(
+      'Host Count'
+    ) as HTMLSelectElement
+    await user.selectOptions(hostCountSelect, '5')
 
     firstValidation.resolve({
       valid: true,
@@ -888,16 +1194,16 @@ describe('booking form - F3 acceptance coverage', () => {
     })
 
     expect(
-      (validateBookingMock.mock.calls[0][0] as FormData).get('gpu_count')
+      (validateBookingMock.mock.calls[0][0] as FormData).get('host_count')
     ).toBe('4')
     expect(
-      (validateBookingMock.mock.calls[1][0] as FormData).get('gpu_count')
-    ).toBe('6')
+      (validateBookingMock.mock.calls[1][0] as FormData).get('host_count')
+    ).toBe('5')
     expect(
       getSubmittedBookingFormValues(
         createBookingMock.mock.calls[0][1] as FormData
-      ).gpu_count
-    ).toBe('6')
+      ).host_count
+    ).toBe('5')
   })
 
   it('submits all optional fields when provided', async () => {
@@ -918,15 +1224,16 @@ describe('booking form - F3 acceptance coverage', () => {
     )
 
     renderBookingForm()
-    const { startDate, endDate } = await fillRequiredFields(user)
-
-    await user.type(screen.getByLabelText('Alternate Email'), 'alt@example.com')
-    await user.type(screen.getByLabelText('Project Name'), 'Genome Atlas')
-    await user.type(screen.getByLabelText('PI/Lead'), 'Dr Test')
-    await user.type(screen.getByLabelText('Grant Number'), 'GR-12345')
-    await user.type(screen.getByLabelText('Technical Lead'), 'Lead Engineer')
-    await user.type(screen.getByLabelText('Event Start Date'), '2026-04-09')
-    await user.type(screen.getByLabelText('Event End Date'), '2026-04-13')
+    const startDate = getRelativeDate(2)
+    const endDate = getRelativeDate(4)
+    fillRequiredFieldsByChange(startDate, endDate)
+    changeFieldValue('Alternate Email', 'alt@example.com')
+    changeFieldValue('Project Name', 'Genome Atlas')
+    changeFieldValue('PI/Lead', 'Dr Test')
+    changeFieldValue('Cost Code', 'GR-12345')
+    changeFieldValue('Technical Lead', 'Lead Engineer')
+    changeFieldValue('Event Start Date', '2026-04-09')
+    changeFieldValue('Event End Date', '2026-04-13')
 
     await user.click(screen.getByRole('button', { name: 'Create Booking' }))
 
@@ -966,15 +1273,16 @@ describe('booking form - F3 acceptance coverage', () => {
     )
 
     renderBookingForm()
-    const { startDate, endDate } = await fillRequiredFields(user)
-
-    await user.type(screen.getByLabelText('Alternate Email'), 'alt@example.com')
-    await user.type(screen.getByLabelText('Project Name'), 'Genome Atlas')
-    await user.type(screen.getByLabelText('PI/Lead'), 'Dr Test')
-    await user.type(screen.getByLabelText('Grant Number'), 'GR-12345')
-    await user.type(screen.getByLabelText('Technical Lead'), 'Lead Engineer')
-    await user.type(screen.getByLabelText('Event Start Date'), '2026-04-09')
-    await user.type(screen.getByLabelText('Event End Date'), '2026-04-13')
+    const startDate = getRelativeDate(2)
+    const endDate = getRelativeDate(4)
+    fillRequiredFieldsByChange(startDate, endDate)
+    changeFieldValue('Alternate Email', 'alt@example.com')
+    changeFieldValue('Project Name', 'Genome Atlas')
+    changeFieldValue('PI/Lead', 'Dr Test')
+    changeFieldValue('Cost Code', 'GR-12345')
+    changeFieldValue('Technical Lead', 'Lead Engineer')
+    changeFieldValue('Event Start Date', '2026-04-09')
+    changeFieldValue('Event End Date', '2026-04-13')
 
     await user.click(screen.getByRole('button', { name: 'Create Booking' }))
 
@@ -986,16 +1294,12 @@ describe('booking form - F3 acceptance coverage', () => {
       )
     })
 
-    expect((screen.getByLabelText('GPU Type') as HTMLSelectElement).value).toBe(
-      '1'
-    )
-    expect((screen.getByLabelText('GPU Count') as HTMLInputElement).value).toBe(
-      '4'
-    )
-    expect((screen.getByLabelText('GRAM') as HTMLSelectElement).value).toBe('1')
     expect(
-      (screen.getByLabelText('System Memory') as HTMLSelectElement).value
+      (screen.getByLabelText('GPU Host Type') as HTMLSelectElement).value
     ).toBe('1')
+    expect(
+      (screen.getByLabelText('Host Count') as HTMLSelectElement).value
+    ).toBe('4')
     expect(
       (screen.getByLabelText('Workflow Type') as HTMLSelectElement).value
     ).toBe('1')
@@ -1014,9 +1318,9 @@ describe('booking form - F3 acceptance coverage', () => {
     expect((screen.getByLabelText('PI/Lead') as HTMLInputElement).value).toBe(
       'Dr Test'
     )
-    expect(
-      (screen.getByLabelText('Grant Number') as HTMLInputElement).value
-    ).toBe('GR-12345')
+    expect((screen.getByLabelText('Cost Code') as HTMLInputElement).value).toBe(
+      'GR-12345'
+    )
     expect(
       (screen.getByLabelText('Technical Lead') as HTMLInputElement).value
     ).toBe('Lead Engineer')
@@ -1027,10 +1331,11 @@ describe('booking form - F3 acceptance coverage', () => {
       (screen.getByLabelText('Event End Date') as HTMLInputElement).value
     ).toBe('2026-04-13')
 
-    const gpuCountInput = screen.getByLabelText('GPU Count') as HTMLInputElement
-    await user.clear(gpuCountInput)
-    await user.type(gpuCountInput, '3')
-    expect(gpuCountInput.value).toBe('3')
+    const hostCountSelect = screen.getByLabelText(
+      'Host Count'
+    ) as HTMLSelectElement
+    await user.selectOptions(hostCountSelect, '3')
+    expect(hostCountSelect.value).toBe('3')
 
     const projectNameInput = screen.getByLabelText(
       'Project Name'
@@ -1061,12 +1366,14 @@ describe('booking form - F3 acceptance coverage', () => {
     )
 
     renderBookingForm()
-    await fillRequiredFields(user)
-    await user.type(screen.getByLabelText('Project Name'), 'Genome Atlas')
+    fillRequiredFieldsByChange(getRelativeDate(2), getRelativeDate(4))
+    changeFieldValue('Project Name', 'Genome Atlas')
 
     await user.click(screen.getByRole('button', { name: 'Create Booking' }))
 
-    const gpuCountInput = screen.getByLabelText('GPU Count') as HTMLInputElement
+    const hostCountInput = screen.getByLabelText(
+      'Host Count'
+    ) as HTMLSelectElement
     const projectNameInput = screen.getByLabelText(
       'Project Name'
     ) as HTMLInputElement
@@ -1107,7 +1414,7 @@ describe('booking form - F3 acceptance coverage', () => {
     })
 
     expect(projectNameInput.value).toBe('Genome Atlas')
-    expect(gpuCountInput.value).toBe('4')
+    expect(hostCountInput.value).toBe('4')
   })
 
   it('pre-populates start and end date fields from initial values', () => {

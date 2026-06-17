@@ -1,18 +1,23 @@
 import { z } from 'zod'
 
-export const gpuTypeSchema = z.object({
+export const gpuHostTypeSchema = z.object({
   id: z.number(),
-  name: z.string(),
-  gram_gb: z.number(),
-  system_memory_gb: z.number(),
+  gpu_type: z.string(),
+  gpu_count: z.number(),
   total_count: z.number(),
   created_at: z.string(),
   updated_at: z.string(),
 })
 
-export type GpuType = z.infer<typeof gpuTypeSchema>
+export type GpuHostType = z.infer<typeof gpuHostTypeSchema>
 
-export const gpuTypeListSchema = z.array(gpuTypeSchema)
+export const gpuHostTypeListSchema = z.array(gpuHostTypeSchema)
+
+export function formatGpuHostTypeLabel(
+  hostType: Pick<GpuHostType, 'gpu_type' | 'gpu_count'>
+): string {
+  return `${hostType.gpu_count} GPU ${hostType.gpu_type}`
+}
 
 export const workflowTypeSchema = z.object({
   id: z.number(),
@@ -22,25 +27,3 @@ export const workflowTypeSchema = z.object({
 export type WorkflowType = z.infer<typeof workflowTypeSchema>
 
 export const workflowTypeListSchema = z.array(workflowTypeSchema)
-
-export const gramOptionSchema = z.object({
-  id: z.number(),
-  label: z.string(),
-  value_gb: z.number(),
-  sort_order: z.number(),
-})
-
-export type GramOption = z.infer<typeof gramOptionSchema>
-
-export const gramOptionListSchema = z.array(gramOptionSchema)
-
-export const memoryOptionSchema = z.object({
-  id: z.number(),
-  label: z.string(),
-  value_gb: z.number(),
-  sort_order: z.number(),
-})
-
-export type MemoryOption = z.infer<typeof memoryOptionSchema>
-
-export const memoryOptionListSchema = z.array(memoryOptionSchema)
