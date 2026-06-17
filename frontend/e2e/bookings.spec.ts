@@ -140,6 +140,7 @@ test.describe('bookings flows', () => {
       .selectOption({ label: 'Inference workloads' })
     await page.getByLabel('Project Name').fill(projectName)
     await page.getByLabel('PI/Lead').fill('Dr Warning Path')
+    await page.getByLabel('Cost Code').fill('CC-WARN-E2E')
     await page.getByLabel('Technical Lead').fill('Warn Flow Lead')
 
     await page.getByRole('button', { name: 'Create Booking' }).click()
@@ -247,6 +248,7 @@ test.describe('bookings flows', () => {
       .selectOption({ label: 'Inference workloads' })
     await page.getByLabel('Project Name').fill(projectName)
     await page.getByLabel('PI/Lead').fill('Dr Browser Regression')
+    await page.getByLabel('Cost Code').fill('CC-CREATE-E2E')
     await page.getByLabel('Technical Lead').fill('E2E Lead')
     await page.getByLabel('Alternate Email').fill('browser@example.com')
     await page.getByRole('button', { name: 'Create Booking' }).click()

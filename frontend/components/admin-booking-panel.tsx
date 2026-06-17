@@ -451,7 +451,7 @@ export function AdminBookingPanel({
                 />
               </Field>
 
-              <Field id="project_grant_number" label="Project Grant Number">
+              <Field id="project_grant_number" label="Cost Code">
                 <Input
                   id="project_grant_number"
                   name="project_grant_number"

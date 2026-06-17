@@ -132,6 +132,20 @@ async function fillRequiredFieldsWithDates(
   await user.selectOptions(screen.getByLabelText('Workflow Type'), '1')
   await user.type(screen.getByLabelText('Start Date'), startDate)
   await user.type(screen.getByLabelText('End Date'), endDate)
+  await user.type(screen.getByLabelText('Cost Code'), 'CC-12345')
+}
+
+function changeFieldValue(label: string, value: string) {
+  fireEvent.change(screen.getByLabelText(label), { target: { value } })
+}
+
+function fillRequiredFieldsByChange(startDate: string, endDate: string) {
+  changeFieldValue('GPU Host Type', '1')
+  changeFieldValue('Host Count', '4')
+  changeFieldValue('Workflow Type', '1')
+  changeFieldValue('Start Date', startDate)
+  changeFieldValue('End Date', endDate)
+  changeFieldValue('Cost Code', 'CC-12345')
 }
 
 function formatDateInputValue(date: Date) {
@@ -523,9 +537,18 @@ describe('booking form - F3 acceptance coverage', () => {
       expect(screen.getByText('Workflow Type is required.')).toBeTruthy()
       expect(screen.getByText('Start Date is required.')).toBeTruthy()
       expect(screen.getByText('End Date is required.')).toBeTruthy()
+      expect(screen.getByText('Cost Code is required.')).toBeTruthy()
     })
     expect(validateBookingMock).not.toHaveBeenCalled()
     expect(createBookingMock).not.toHaveBeenCalled()
+  })
+
+  it('labels the project charge field as Cost Code without old wording', () => {
+    renderBookingForm()
+
+    expect(screen.getByLabelText('Cost Code')).toBeTruthy()
+    expect(screen.queryByLabelText('Grant Number')).toBeNull()
+    expect(screen.queryByText('Grant Number')).toBeNull()
   })
 
   it('shows blocking capacity feedback under Host Count and stops submission', async () => {
@@ -1133,15 +1156,16 @@ describe('booking form - F3 acceptance coverage', () => {
     )
 
     renderBookingForm()
-    const { startDate, endDate } = await fillRequiredFields(user)
-
-    await user.type(screen.getByLabelText('Alternate Email'), 'alt@example.com')
-    await user.type(screen.getByLabelText('Project Name'), 'Genome Atlas')
-    await user.type(screen.getByLabelText('PI/Lead'), 'Dr Test')
-    await user.type(screen.getByLabelText('Grant Number'), 'GR-12345')
-    await user.type(screen.getByLabelText('Technical Lead'), 'Lead Engineer')
-    await user.type(screen.getByLabelText('Event Start Date'), '2026-04-09')
-    await user.type(screen.getByLabelText('Event End Date'), '2026-04-13')
+    const startDate = getRelativeDate(2)
+    const endDate = getRelativeDate(4)
+    fillRequiredFieldsByChange(startDate, endDate)
+    changeFieldValue('Alternate Email', 'alt@example.com')
+    changeFieldValue('Project Name', 'Genome Atlas')
+    changeFieldValue('PI/Lead', 'Dr Test')
+    changeFieldValue('Cost Code', 'GR-12345')
+    changeFieldValue('Technical Lead', 'Lead Engineer')
+    changeFieldValue('Event Start Date', '2026-04-09')
+    changeFieldValue('Event End Date', '2026-04-13')
 
     await user.click(screen.getByRole('button', { name: 'Create Booking' }))
 
@@ -1181,15 +1205,16 @@ describe('booking form - F3 acceptance coverage', () => {
     )
 
     renderBookingForm()
-    const { startDate, endDate } = await fillRequiredFields(user)
-
-    await user.type(screen.getByLabelText('Alternate Email'), 'alt@example.com')
-    await user.type(screen.getByLabelText('Project Name'), 'Genome Atlas')
-    await user.type(screen.getByLabelText('PI/Lead'), 'Dr Test')
-    await user.type(screen.getByLabelText('Grant Number'), 'GR-12345')
-    await user.type(screen.getByLabelText('Technical Lead'), 'Lead Engineer')
-    await user.type(screen.getByLabelText('Event Start Date'), '2026-04-09')
-    await user.type(screen.getByLabelText('Event End Date'), '2026-04-13')
+    const startDate = getRelativeDate(2)
+    const endDate = getRelativeDate(4)
+    fillRequiredFieldsByChange(startDate, endDate)
+    changeFieldValue('Alternate Email', 'alt@example.com')
+    changeFieldValue('Project Name', 'Genome Atlas')
+    changeFieldValue('PI/Lead', 'Dr Test')
+    changeFieldValue('Cost Code', 'GR-12345')
+    changeFieldValue('Technical Lead', 'Lead Engineer')
+    changeFieldValue('Event Start Date', '2026-04-09')
+    changeFieldValue('Event End Date', '2026-04-13')
 
     await user.click(screen.getByRole('button', { name: 'Create Booking' }))
 
@@ -1225,9 +1250,9 @@ describe('booking form - F3 acceptance coverage', () => {
     expect((screen.getByLabelText('PI/Lead') as HTMLInputElement).value).toBe(
       'Dr Test'
     )
-    expect(
-      (screen.getByLabelText('Grant Number') as HTMLInputElement).value
-    ).toBe('GR-12345')
+    expect((screen.getByLabelText('Cost Code') as HTMLInputElement).value).toBe(
+      'GR-12345'
+    )
     expect(
       (screen.getByLabelText('Technical Lead') as HTMLInputElement).value
     ).toBe('Lead Engineer')
@@ -1274,8 +1299,8 @@ describe('booking form - F3 acceptance coverage', () => {
     )
 
     renderBookingForm()
-    await fillRequiredFields(user)
-    await user.type(screen.getByLabelText('Project Name'), 'Genome Atlas')
+    fillRequiredFieldsByChange(getRelativeDate(2), getRelativeDate(4))
+    changeFieldValue('Project Name', 'Genome Atlas')
 
     await user.click(screen.getByRole('button', { name: 'Create Booking' }))
 

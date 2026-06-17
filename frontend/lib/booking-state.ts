@@ -4,6 +4,7 @@ export const requiredBookingFields = [
   'workflow_type_id',
   'start_date',
   'end_date',
+  'project_grant_number',
 ] as const
 
 export type BookingFieldName = (typeof requiredBookingFields)[number]
@@ -26,6 +27,7 @@ export const bookingFieldLabels: Record<BookingFieldName, string> = {
   workflow_type_id: 'Workflow Type',
   start_date: 'Start Date',
   end_date: 'End Date',
+  project_grant_number: 'Cost Code',
 }
 
 export type BookingFormState = {

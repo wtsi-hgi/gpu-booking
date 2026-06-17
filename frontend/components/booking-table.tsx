@@ -736,7 +736,7 @@ export function BookingTable({
                             </div>
                             <div>
                               <dt className="text-muted-foreground">
-                                Grant Number
+                                Cost Code
                               </dt>
                               <dd>{booking.project_grant_number ?? '—'}</dd>
                             </div>

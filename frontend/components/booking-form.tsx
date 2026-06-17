@@ -1132,7 +1132,7 @@ export function BookingForm({
                   htmlFor="project_grant_number"
                   className="text-sm font-medium"
                 >
-                  Grant Number
+                  Cost Code
                 </label>
                 <Input
                   id="project_grant_number"
@@ -1140,7 +1140,13 @@ export function BookingForm({
                   type="text"
                   value={formValues.project_grant_number}
                   onChange={handleFieldChange('project_grant_number')}
+                  aria-invalid={Boolean(fieldErrors.project_grant_number)}
                 />
+                {fieldErrors.project_grant_number && (
+                  <p className="text-destructive text-sm">
+                    {fieldErrors.project_grant_number}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-1">

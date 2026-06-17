@@ -212,6 +212,7 @@ async def test_validate_capacity_returns_valid_for_compliant_booking() -> None:
         "workflow_type_id": workflow_type_id,
         "start_date": start.isoformat(),
         "end_date": end.isoformat(),
+        "project_grant_number": "CC-12345",
     }
 
     transport = ASGITransport(app=app)
@@ -249,6 +250,7 @@ async def test_validate_capacity_blocks_when_capacity_is_exceeded() -> None:
         "workflow_type_id": workflow_type_id,
         "start_date": day.isoformat(),
         "end_date": day.isoformat(),
+        "project_grant_number": "CC-12345",
     }
 
     transport = ASGITransport(app=app)

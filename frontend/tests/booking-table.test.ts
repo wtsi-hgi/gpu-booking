@@ -323,7 +323,8 @@ describe('booking-table G1 acceptance tests', () => {
 
     expect(screen.getByText('Project PI')).toBeTruthy()
     expect(screen.getByText('Dr Jane Doe')).toBeTruthy()
-    expect(screen.getByText('Grant Number')).toBeTruthy()
+    expect(screen.getByText('Cost Code')).toBeTruthy()
+    expect(screen.queryByText('Grant Number')).toBeNull()
     expect(screen.getByText('GR-12345')).toBeTruthy()
     expect(screen.getByText('Technical Lead')).toBeTruthy()
     expect(screen.getByText('Alex Researcher')).toBeTruthy()

@@ -122,7 +122,7 @@ type ParsedBookingPayload = {
     alt_email: string | null
     project_name: string | null
     project_pi: string | null
-    project_grant_number: string | null
+    project_grant_number: string
     technical_lead: string | null
     event_start_date: string | null
     event_end_date: string | null
@@ -141,6 +141,9 @@ function parseBookingPayload(formData: FormData): ParsedBookingPayload {
       .trim(),
     start_date: (formData.get('start_date') ?? '').toString().trim(),
     end_date: (formData.get('end_date') ?? '').toString().trim(),
+    project_grant_number: (formData.get('project_grant_number') ?? '')
+      .toString()
+      .trim(),
   }
 
   const missingFields = (
@@ -171,10 +174,7 @@ function parseBookingPayload(formData: FormData): ParsedBookingPayload {
       alt_email: parseOptionalString(formData, 'alt_email'),
       project_name: parseOptionalString(formData, 'project_name'),
       project_pi: parseOptionalString(formData, 'project_pi'),
-      project_grant_number: parseOptionalString(
-        formData,
-        'project_grant_number'
-      ),
+      project_grant_number: requiredValues.project_grant_number,
       technical_lead: parseOptionalString(formData, 'technical_lead'),
       event_start_date: parseOptionalString(formData, 'event_start_date'),
       event_end_date: parseOptionalString(formData, 'event_end_date'),

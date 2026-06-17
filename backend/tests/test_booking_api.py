@@ -94,6 +94,7 @@ def _booking_payload(
         "workflow_type_id": workflow_type_id,
         "start_date": start_date or _date_string(30),
         "end_date": end_date or _date_string(31),
+        "project_grant_number": "CC-12345",
     }
 
 
@@ -512,6 +513,31 @@ async def test_create_booking_returns_422_for_non_positive_host_count(
         start_date=_date_string(20),
         end_date=_date_string(20),
     )
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.post("/api/v1/bookings", json=payload)
+
+    assert response.status_code == 422
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("cost_code", [None, "", "   "])
+async def test_create_booking_returns_422_for_missing_or_blank_cost_code(
+    cost_code: str | None,
+) -> None:
+    host_type_id, workflow_type_id = await _get_reference_ids()
+    payload = _booking_payload(
+        gpu_host_type_id=host_type_id,
+        workflow_type_id=workflow_type_id,
+        host_count=1,
+        start_date=_date_string(20),
+        end_date=_date_string(20),
+    )
+    if cost_code is None:
+        payload.pop("project_grant_number")
+    else:
+        payload["project_grant_number"] = cost_code
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://testserver") as client:

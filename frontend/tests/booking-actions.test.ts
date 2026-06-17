@@ -60,6 +60,7 @@ function buildRequiredFormData() {
   formData.set('workflow_type_id', '1')
   formData.set('start_date', '2026-04-10')
   formData.set('end_date', '2026-04-12')
+  formData.set('project_grant_number', 'CC-12345')
   return formData
 }
 
@@ -186,6 +187,32 @@ describe('booking data actions', () => {
     )
   })
 
+  it('rejects createBooking before the backend call when Cost Code is blank', async () => {
+    const backendJsonMock = vi.mocked(backendJson)
+    const formData = buildRequiredFormData()
+    formData.set('project_grant_number', '   ')
+
+    const state = await createBooking(initialBookingFormState, formData)
+
+    expect(state).toEqual({
+      status: 'error',
+      message: null,
+      error: 'Please complete all required fields.',
+      fieldErrors: {
+        project_grant_number: 'Cost Code is required.',
+      },
+      values: createInitialBookingFormValues({
+        gpu_host_type_id: '1',
+        host_count: '2',
+        workflow_type_id: '1',
+        start_date: '2026-04-10',
+        end_date: '2026-04-12',
+        project_grant_number: '   ',
+      }),
+    })
+    expect(backendJsonMock).not.toHaveBeenCalled()
+  })
+
   it('returns submitted values when createBooking fails so the form can be rehydrated', async () => {
     const backendJsonMock = vi.mocked(backendJson)
     backendJsonMock.mockRejectedValueOnce(
@@ -210,6 +237,7 @@ describe('booking data actions', () => {
         start_date: '2026-04-10',
         end_date: '2026-04-12',
         project_name: 'Genome Atlas',
+        project_grant_number: 'CC-12345',
       }),
     })
   })
@@ -266,7 +294,7 @@ describe('booking data actions', () => {
           alt_email: null,
           project_name: null,
           project_pi: null,
-          project_grant_number: null,
+          project_grant_number: 'CC-12345',
           technical_lead: null,
           event_start_date: null,
           event_end_date: null,

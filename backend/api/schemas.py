@@ -3,7 +3,7 @@
 from datetime import date, datetime
 from enum import StrEnum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class MessageResponse(BaseModel):
@@ -99,10 +99,20 @@ class BookingCreate(BaseModel):
     alt_email: str | None = None
     project_name: str | None = None
     project_pi: str | None = None
-    project_grant_number: str | None = None
+    project_grant_number: str
     technical_lead: str | None = None
     event_start_date: date | None = None
     event_end_date: date | None = None
+
+    @field_validator("project_grant_number")
+    @classmethod
+    def validate_project_grant_number(cls, value: str) -> str:
+        """Require a nonblank project charge code."""
+
+        stripped_value = value.strip()
+        if not stripped_value:
+            raise ValueError("Cost Code is required.")
+        return stripped_value
 
 
 class AdminBookingUpdate(BaseModel):

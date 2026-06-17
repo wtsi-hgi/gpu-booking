@@ -335,7 +335,7 @@ export async function createBooking(
     alt_email: overrides.altEmail ?? null,
     project_name: overrides.projectName ?? null,
     project_pi: overrides.projectPi ?? null,
-    project_grant_number: overrides.projectGrantNumber ?? null,
+    project_grant_number: overrides.projectGrantNumber ?? 'CC-12345',
     technical_lead: overrides.technicalLead ?? null,
     event_start_date: overrides.eventStartDate ?? null,
     event_end_date: overrides.eventEndDate ?? null,
