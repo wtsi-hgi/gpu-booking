@@ -912,10 +912,7 @@ export function BookingForm({
       <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
         <div className="space-y-1.5">
           <CardTitle>Create Booking</CardTitle>
-          <CardDescription>
-            Request GPU hosts for your project. Capacity checks run
-            automatically before submission.
-          </CardDescription>
+          <CardDescription>Request GPU hosts for your project.</CardDescription>
         </div>
         <Button
           type="button"

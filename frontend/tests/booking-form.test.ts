@@ -241,6 +241,16 @@ describe('booking form - F3 acceptance coverage', () => {
     expect(screen.queryByRole('button', { name: 'Validate' })).toBeNull()
   })
 
+  it('omits the automatic capacity check helper text', () => {
+    renderBookingForm()
+
+    expect(
+      screen.queryByText(
+        /Capacity checks run automatically before submission\./
+      )
+    ).toBeNull()
+  })
+
   it('omits GPU host types with zero configured hosts from the selector', () => {
     renderBookingForm(undefined, undefined, [
       ...gpuHostTypes,
