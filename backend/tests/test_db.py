@@ -82,7 +82,10 @@ async def test_get_session_yields_queryable_and_closed_session(
     assert close_called
 
 
-def test_database_url_default() -> None:
+def test_database_url_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.delenv("GPU_BOOKING_DATABASE_URL", raising=False)
+
     settings = Settings(_env_file=None)
 
     assert settings.database_url == "sqlite+aiosqlite:///./gpu_booking.db"
