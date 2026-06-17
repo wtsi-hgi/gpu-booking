@@ -1,6 +1,12 @@
-import { expect, test } from '@playwright/test'
+import {
+  expect,
+  test,
+  type APIRequestContext,
+  type APIResponse,
+} from '@playwright/test'
 
 import {
+  adminUpdateBooking,
   createBooking,
   dragAcrossDays,
   getBookingRow,
@@ -12,6 +18,41 @@ import {
   gotoPath,
   switchUser,
 } from './helpers'
+
+type GpuHostTypeReference = {
+  id: number
+  gpu_type: string
+  gpu_count: number
+  total_count: number
+}
+
+const backendBaseUrl =
+  process.env.PLAYWRIGHT_BACKEND_URL ?? 'http://127.0.0.1:8100'
+
+async function readJson<T>(response: APIResponse): Promise<T> {
+  const body = await response.text()
+  expect(response.ok(), body).toBeTruthy()
+  return JSON.parse(body) as T
+}
+
+async function createOneHostGpuType(
+  request: APIRequestContext,
+  gpuType: string
+): Promise<GpuHostTypeReference> {
+  const response = await request.post(
+    `${backendBaseUrl}/api/v1/admin/gpu-host-types`,
+    {
+      data: {
+        gpu_count: 8,
+        gpu_type: gpuType,
+        total_count: 1,
+      },
+      headers: { 'X-Dev-User': 'admin@example.com' },
+    }
+  )
+
+  return readJson<GpuHostTypeReference>(response)
+}
 
 test.describe('bookings flows', () => {
   test('shows calendar filtering, table details, and user cancellation behaviour', async ({
@@ -265,5 +306,62 @@ test.describe('bookings flows', () => {
     await expect(page.locator('[data-booking-row="true"]')).toContainText(
       projectName
     )
+  })
+
+  test('greys out the calendar selection CTA when confirmed bookings leave no hosts available', async ({
+    page,
+    request,
+  }) => {
+    const dates = getCurrentMonthInteractionDates()
+    const selectedDate = dates.focusPlusTwo
+    const uniqueGpuType = `PW CTA Zero ${Date.now()}`
+    const gpuHostTypeLabel = `8 GPU ${uniqueGpuType}`
+    await createOneHostGpuType(request, uniqueGpuType)
+    const booking = await createBooking(request, 'holder@example.com', {
+      endDate: selectedDate,
+      gpuHostTypeLabel,
+      hostCount: 1,
+      projectGrantNumber: 'CC-ZERO-CTA',
+      projectName: 'PW Zero Availability Calendar CTA',
+      startDate: selectedDate,
+    })
+
+    await adminUpdateBooking(request, booking, {
+      reservation_name: 'PW Zero Availability Hold',
+      status: 'confirmed',
+    })
+
+    await gotoPath(page, '/bookings')
+    await switchUser(page, 'researcher@example.com')
+    await page
+      .locator('#gpu-host-type-filter')
+      .selectOption({ label: gpuHostTypeLabel })
+
+    const selectedDay = getDayCell(page, selectedDate)
+    await expect(selectedDay).toContainText('1 of 1 hosts')
+    await expect(selectedDay).toContainText('1 confirmed')
+    await selectedDay.click()
+
+    const selectionPanel = page.locator('[data-selection-panel="true"]')
+    await expect(selectionPanel).toHaveAttribute(
+      'data-selection-available',
+      '0'
+    )
+
+    const createButton = selectionPanel.getByRole('button', {
+      name: /create booking for selection/i,
+    })
+    await expect(createButton).toHaveText(
+      'Create booking for selection (0 hosts available)'
+    )
+    await expect(createButton).toBeDisabled()
+    await expect(createButton).toHaveCSS('opacity', '0.5')
+    await expect(createButton).toHaveCSS('pointer-events', 'none')
+
+    const bookingsUrl = page.url()
+    await createButton.evaluate((element) => {
+      ;(element as HTMLButtonElement).click()
+    })
+    await expect(page).toHaveURL(bookingsUrl)
   })
 })

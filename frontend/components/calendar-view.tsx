@@ -471,6 +471,9 @@ export function CalendarView({
       : selectionDetails.dayCount === 1
         ? `Create booking for selection (${selectionDetails.tightestAvailability.available} hosts available)`
         : `Create booking for selection (up to ${selectionDetails.tightestAvailability.available} hosts available)`
+  const selectionCtaDisabled =
+    selectionDetails !== null &&
+    selectionDetails.tightestAvailability.available <= 0
   const committedSelectionEndDate =
     dragSelection === null ? selectedRange?.endDate : null
 
@@ -1299,6 +1302,7 @@ export function CalendarView({
                     <Button
                       type="button"
                       className="w-full"
+                      disabled={selectionCtaDisabled}
                       onClick={() =>
                         openBookingForm(
                           displayedSelection.startDate,
