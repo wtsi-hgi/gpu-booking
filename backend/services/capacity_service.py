@@ -7,7 +7,12 @@ from datetime import date, timedelta
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.schemas import BookingValidation, CapacityWarning, DailyCapacity
+from api.schemas import (
+    BookingValidation,
+    CapacityWarning,
+    DailyCapacity,
+    HostTypeAvailability,
+)
 from db.models import Booking, BookingStatus, GpuHostType
 
 _CONFIRMED_STATUSES: tuple[BookingStatus, ...] = (
@@ -134,6 +139,48 @@ async def get_daily_capacity(
             )
 
     return capacities
+
+
+async def get_host_type_availability(
+    session: AsyncSession,
+    start_date: date,
+    end_date: date,
+) -> list[HostTypeAvailability]:
+    """Calculate minimum currently bookable hosts by type over a date range."""
+
+    gpu_host_types = await _load_gpu_host_types(session)
+    bookings = await _load_overlapping_bookings(session, start_date, end_date)
+    days = _iter_days(start_date, end_date)
+    availability: list[HostTypeAvailability] = []
+
+    for gpu_host_type in gpu_host_types:
+        available_by_day = [
+            gpu_host_type.total_count
+            - sum(
+                booking.host_count
+                for booking in bookings
+                if booking.gpu_host_type_id == gpu_host_type.id
+                and booking.status in _CONFIRMED_STATUSES
+                and _booking_overlaps_day(booking, day)
+            )
+            for day in days
+        ]
+        currently_bookable = (
+            max(0, min(available_by_day))
+            if available_by_day
+            else gpu_host_type.total_count
+        )
+        availability.append(
+            HostTypeAvailability(
+                gpu_host_type_id=gpu_host_type.id,
+                gpu_type=gpu_host_type.gpu_type,
+                gpu_count=gpu_host_type.gpu_count,
+                total=gpu_host_type.total_count,
+                currently_bookable=currently_bookable,
+            )
+        )
+
+    return availability
 
 
 async def validate_booking(

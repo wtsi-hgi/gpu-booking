@@ -58,6 +58,20 @@ export type DailyCapacity = z.infer<typeof dailyCapacitySchema>
 
 export const dailyCapacityListSchema = z.array(dailyCapacitySchema)
 
+export const hostTypeAvailabilitySchema = z.object({
+  gpu_host_type_id: z.number(),
+  gpu_type: z.string(),
+  gpu_count: z.number(),
+  total: z.number(),
+  currently_bookable: z.number(),
+})
+
+export type HostTypeAvailability = z.infer<typeof hostTypeAvailabilitySchema>
+
+export const hostTypeAvailabilityListSchema = z.array(
+  hostTypeAvailabilitySchema
+)
+
 export const capacityWarningSchema = z.object({
   rule: z.string(),
   message: z.string(),

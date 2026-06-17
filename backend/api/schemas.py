@@ -169,6 +169,16 @@ class DailyCapacity(BaseModel):
     warnings: list[str]
 
 
+class HostTypeAvailability(BaseModel):
+    """Range-level bookable host count for one GPU host type."""
+
+    gpu_host_type_id: int
+    gpu_type: str
+    gpu_count: int
+    total: int
+    currently_bookable: int = Field(ge=0)
+
+
 class CapacityWarning(BaseModel):
     """Warning or block metadata for capacity validation rules."""
 

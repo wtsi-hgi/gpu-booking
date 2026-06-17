@@ -8,10 +8,20 @@ from typing import Annotated
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.schemas import BookingCreate, BookingValidation, DailyCapacity, UserInfo
+from api.schemas import (
+    BookingCreate,
+    BookingValidation,
+    DailyCapacity,
+    HostTypeAvailability,
+    UserInfo,
+)
 from db.engine import get_session
 from middleware.auth import get_current_user
-from services.capacity_service import get_daily_capacity, validate_booking
+from services.capacity_service import (
+    get_daily_capacity,
+    get_host_type_availability,
+    validate_booking,
+)
 
 router = APIRouter()
 
@@ -32,6 +42,25 @@ async def get_capacity(
         end_date=end_date,
         gpu_host_type_id=gpu_host_type_id,
         user_email=user.email,
+    )
+
+
+@router.get(
+    "/capacity/host-types/availability",
+    response_model=list[HostTypeAvailability],
+)
+async def get_capacity_host_type_availability(
+    user: Annotated[UserInfo, Depends(get_current_user)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    start_date: date,
+    end_date: date,
+) -> list[HostTypeAvailability]:
+    """Get range-minimum bookable host count for each GPU host type."""
+
+    return await get_host_type_availability(
+        session,
+        start_date=start_date,
+        end_date=end_date,
     )
 
 

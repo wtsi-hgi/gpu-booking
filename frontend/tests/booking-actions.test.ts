@@ -6,6 +6,7 @@ import {
   createBooking,
   getBookings,
   getCapacity,
+  getHostTypeAvailability,
   validateBooking,
 } from '@/app/actions'
 import { backendJson } from '@/lib/backend-client'
@@ -14,6 +15,7 @@ import {
   bookingResponseSchema,
   bookingValidationSchema,
   dailyCapacityListSchema,
+  hostTypeAvailabilityListSchema,
 } from '@/lib/booking-contracts'
 import {
   createInitialBookingFormValues,
@@ -88,6 +90,19 @@ describe('booking data actions', () => {
     expect(backendJsonMock).toHaveBeenCalledWith(
       '/api/v1/capacity?start_date=2026-04-01&end_date=2026-04-30',
       dailyCapacityListSchema
+    )
+  })
+
+  it('builds getHostTypeAvailability query params and uses availability schema', async () => {
+    const backendJsonMock = vi.mocked(backendJson)
+    backendJsonMock.mockResolvedValueOnce([])
+
+    const result = await getHostTypeAvailability('2026-07-22', '2026-07-23')
+
+    expect(result).toEqual([])
+    expect(backendJsonMock).toHaveBeenCalledWith(
+      '/api/v1/capacity/host-types/availability?start_date=2026-07-22&end_date=2026-07-23',
+      hostTypeAvailabilityListSchema
     )
   })
 

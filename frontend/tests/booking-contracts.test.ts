@@ -6,6 +6,7 @@ import {
   bookingValidationSchema,
   capacityWarningSchema,
   dailyCapacitySchema,
+  hostTypeAvailabilitySchema,
 } from '@/lib/booking-contracts'
 
 const fullBookingPayload = {
@@ -96,6 +97,18 @@ describe('booking contracts', () => {
     }
 
     expect(dailyCapacitySchema.parse(payload)).toEqual(payload)
+  })
+
+  it('parses valid host type availability payloads', () => {
+    const payload = {
+      gpu_host_type_id: 2,
+      gpu_type: 'H100',
+      gpu_count: 8,
+      total: 2,
+      currently_bookable: 0,
+    }
+
+    expect(hostTypeAvailabilitySchema.parse(payload)).toEqual(payload)
   })
 
   it('rejects daily capacity payloads missing total', () => {

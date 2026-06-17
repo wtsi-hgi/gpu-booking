@@ -14,7 +14,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { BookingForm } from '@/components/booking-form'
 import type { GpuHostType, WorkflowType } from '@/lib/admin-contracts'
-import type { BookingValidation } from '@/lib/booking-contracts'
+import type {
+  BookingValidation,
+  HostTypeAvailability,
+} from '@/lib/booking-contracts'
 import {
   createInitialBookingFormValues,
   type BookingFormState,
@@ -23,6 +26,7 @@ import {
 const mocks = vi.hoisted(() => ({
   createBookingMock: vi.fn(),
   validateBookingMock: vi.fn(),
+  getHostTypeAvailabilityMock: vi.fn(),
   toastSuccessMock: vi.fn(),
   toastErrorMock: vi.fn(),
   routerPushMock: vi.fn(),
@@ -32,6 +36,7 @@ const mocks = vi.hoisted(() => ({
 const {
   createBookingMock,
   validateBookingMock,
+  getHostTypeAvailabilityMock,
   toastSuccessMock,
   toastErrorMock,
   routerPushMock,
@@ -53,6 +58,7 @@ vi.mock('next/navigation', () => ({
 
 vi.mock('@/app/actions', () => ({
   createBooking: mocks.createBookingMock,
+  getHostTypeAvailability: mocks.getHostTypeAvailabilityMock,
   validateBooking: mocks.validateBookingMock,
 }))
 
@@ -68,6 +74,18 @@ const gpuHostTypes: GpuHostType[] = [
 ]
 
 const workflowTypes: WorkflowType[] = [{ id: 1, name: 'Training' }]
+
+function createAvailability(
+  hostTypes: GpuHostType[] = gpuHostTypes
+): HostTypeAvailability[] {
+  return hostTypes.map((hostType) => ({
+    gpu_host_type_id: hostType.id,
+    gpu_type: hostType.gpu_type,
+    gpu_count: hostType.gpu_count,
+    total: hostType.total_count,
+    currently_bookable: hostType.total_count,
+  }))
+}
 
 function renderBookingForm(
   initialStartDate?: string,
@@ -214,6 +232,7 @@ describe('booking form - F3 acceptance coverage', () => {
       blocked: false,
       block_reason: null,
     })
+    getHostTypeAvailabilityMock.mockResolvedValue(createAvailability())
   })
 
   it('does not render a separate Validate button', () => {
@@ -248,6 +267,162 @@ describe('booking form - F3 acceptance coverage', () => {
     expect(
       within(gpuHostTypeSelect).queryByRole('option', { name: '8 GPU A100' })
     ).toBeNull()
+  })
+
+  it('disables Host Count until a GPU host type is selected', async () => {
+    const user = userEvent.setup()
+    renderBookingForm()
+
+    const hostCountInput = screen.getByLabelText(
+      'Host Count'
+    ) as HTMLInputElement
+
+    expect(hostCountInput.disabled).toBe(true)
+
+    await user.selectOptions(screen.getByLabelText('GPU Host Type'), '1')
+
+    expect(hostCountInput.disabled).toBe(false)
+  })
+
+  it('disables host types that have zero currently bookable hosts for the selected range', async () => {
+    const user = userEvent.setup()
+    const h200 = {
+      id: 2,
+      gpu_type: 'H200',
+      gpu_count: 8,
+      total_count: 3,
+      created_at: '2026-02-01T00:00:00Z',
+      updated_at: '2026-02-01T00:00:00Z',
+    }
+    const h100 = {
+      id: 3,
+      gpu_type: 'H100',
+      gpu_count: 8,
+      total_count: 2,
+      created_at: '2026-02-01T00:00:00Z',
+      updated_at: '2026-02-01T00:00:00Z',
+    }
+    getHostTypeAvailabilityMock.mockResolvedValueOnce([
+      {
+        gpu_host_type_id: h200.id,
+        gpu_type: 'H200',
+        gpu_count: 8,
+        total: 3,
+        currently_bookable: 1,
+      },
+      {
+        gpu_host_type_id: h100.id,
+        gpu_type: 'H100',
+        gpu_count: 8,
+        total: 2,
+        currently_bookable: 0,
+      },
+    ])
+
+    renderBookingForm('2026-07-22', '2026-07-23', [h200, h100])
+
+    await waitFor(() => {
+      expect(getHostTypeAvailabilityMock).toHaveBeenCalledWith(
+        '2026-07-22',
+        '2026-07-23'
+      )
+    })
+
+    const gpuHostTypeSelect = screen.getByLabelText(
+      'GPU Host Type'
+    ) as HTMLSelectElement
+    const h100Option = within(gpuHostTypeSelect).getByRole('option', {
+      name: '8 GPU H100 (none available)',
+    }) as HTMLOptionElement
+
+    expect(h100Option.disabled).toBe(true)
+
+    await user.selectOptions(gpuHostTypeSelect, String(h100.id))
+
+    expect(gpuHostTypeSelect.value).toBe('')
+  })
+
+  it('limits Host Count to the selected host type currently bookable maximum', async () => {
+    const user = userEvent.setup()
+    getHostTypeAvailabilityMock.mockResolvedValueOnce([
+      {
+        gpu_host_type_id: 1,
+        gpu_type: 'H100',
+        gpu_count: 8,
+        total: 5,
+        currently_bookable: 1,
+      },
+    ])
+    renderBookingForm('2026-07-22', '2026-07-23')
+
+    await waitFor(() => {
+      expect(getHostTypeAvailabilityMock).toHaveBeenCalledWith(
+        '2026-07-22',
+        '2026-07-23'
+      )
+    })
+    await user.selectOptions(screen.getByLabelText('GPU Host Type'), '1')
+
+    const hostCountInput = screen.getByLabelText(
+      'Host Count'
+    ) as HTMLInputElement
+
+    expect(hostCountInput.max).toBe('1')
+
+    fireEvent.change(hostCountInput, { target: { value: '2' } })
+
+    expect(hostCountInput.value).toBe('1')
+  })
+
+  it('coerces Host Count down when the selected date range reduces availability', async () => {
+    const user = userEvent.setup()
+    getHostTypeAvailabilityMock
+      .mockResolvedValueOnce([
+        {
+          gpu_host_type_id: 1,
+          gpu_type: 'H100',
+          gpu_count: 8,
+          total: 5,
+          currently_bookable: 5,
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          gpu_host_type_id: 1,
+          gpu_type: 'H100',
+          gpu_count: 8,
+          total: 5,
+          currently_bookable: 1,
+        },
+      ])
+
+    renderBookingForm('2026-07-22', '2026-07-22')
+
+    await waitFor(() => {
+      expect(getHostTypeAvailabilityMock).toHaveBeenCalledWith(
+        '2026-07-22',
+        '2026-07-22'
+      )
+    })
+    await user.selectOptions(screen.getByLabelText('GPU Host Type'), '1')
+    await user.type(screen.getByLabelText('Host Count'), '4')
+
+    expect(
+      (screen.getByLabelText('Host Count') as HTMLInputElement).value
+    ).toBe('4')
+
+    await user.clear(screen.getByLabelText('End Date'))
+    await user.type(screen.getByLabelText('End Date'), '2026-07-23')
+
+    await waitFor(() => {
+      expect(getHostTypeAvailabilityMock).toHaveBeenCalledWith(
+        '2026-07-22',
+        '2026-07-23'
+      )
+      expect(
+        (screen.getByLabelText('Host Count') as HTMLInputElement).value
+      ).toBe('1')
+    })
   })
 
   it('provides a close icon action that returns to the bookings page without submitting', async () => {
@@ -894,7 +1069,7 @@ describe('booking form - F3 acceptance coverage', () => {
       'Host Count'
     ) as HTMLInputElement
     await user.clear(hostCountInput)
-    await user.type(hostCountInput, '6')
+    await user.type(hostCountInput, '5')
 
     firstValidation.resolve({
       valid: true,
@@ -922,12 +1097,12 @@ describe('booking form - F3 acceptance coverage', () => {
     ).toBe('4')
     expect(
       (validateBookingMock.mock.calls[1][0] as FormData).get('host_count')
-    ).toBe('6')
+    ).toBe('5')
     expect(
       getSubmittedBookingFormValues(
         createBookingMock.mock.calls[0][1] as FormData
       ).host_count
-    ).toBe('6')
+    ).toBe('5')
   })
 
   it('submits all optional fields when provided', async () => {

@@ -131,6 +131,60 @@ async def test_get_capacity_no_bookings_returns_full_availability() -> None:
 
 
 @pytest.mark.anyio
+async def test_host_type_availability_returns_currently_bookable_minimum() -> None:
+    """Return each host type's minimum bookable hosts over the requested range."""
+
+    async with async_session_factory() as session:
+        h200_result = await session.execute(
+            select(GpuHostType).where(GpuHostType.gpu_type == "H200")
+        )
+        h200 = h200_result.scalar_one()
+        h100_result = await session.execute(
+            select(GpuHostType).where(GpuHostType.gpu_type == "H100")
+        )
+        h100 = h100_result.scalar_one()
+        workflow_result = await session.execute(
+            select(WorkflowType).order_by(WorkflowType.id)
+        )
+        workflow_type = workflow_result.scalars().first()
+
+    assert workflow_type is not None
+    await _insert_booking(
+        user_email="h200-holder@example.com",
+        gpu_host_type_id=h200.id,
+        host_count=2,
+        workflow_type_id=workflow_type.id,
+        start_date=date(2026, 7, 22),
+        end_date=date(2026, 7, 23),
+        status=BookingStatus.confirmed,
+    )
+    await _insert_booking(
+        user_email="h100-holder@example.com",
+        gpu_host_type_id=h100.id,
+        host_count=2,
+        workflow_type_id=workflow_type.id,
+        start_date=date(2026, 7, 23),
+        end_date=date(2026, 7, 23),
+        status=BookingStatus.confirmed,
+    )
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.get(
+            "/api/v1/capacity/host-types/availability",
+            params={"start_date": "2026-07-22", "end_date": "2026-07-23"},
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    by_type = {item["gpu_type"]: item for item in payload}
+    assert by_type["H200"]["currently_bookable"] == 1
+    assert by_type["H100"]["currently_bookable"] == 0
+    assert by_type["A100"]["currently_bookable"] == 0
+    assert by_type["H100"]["total"] == 2
+
+
+@pytest.mark.anyio
 async def test_get_capacity_missing_start_date_returns_422() -> None:
     """Return validation error when required start_date query parameter is missing."""
 

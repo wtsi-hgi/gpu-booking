@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   requireCurrentUserMock: vi.fn(),
   getWorkflowTypesMock: vi.fn(),
   createBookingMock: vi.fn(),
+  getHostTypeAvailabilityMock: vi.fn(),
   validateBookingMock: vi.fn(),
 }))
 
@@ -30,6 +31,7 @@ vi.mock('@/app/actions', () => ({
   getGpuHostTypes: mocks.getGpuHostTypesMock,
   getWorkflowTypes: mocks.getWorkflowTypesMock,
   createBooking: mocks.createBookingMock,
+  getHostTypeAvailability: mocks.getHostTypeAvailabilityMock,
   validateBooking: mocks.validateBookingMock,
 }))
 
@@ -73,6 +75,15 @@ beforeEach(() => {
     blocked: false,
     block_reason: null,
   })
+  mocks.getHostTypeAvailabilityMock.mockResolvedValue([
+    {
+      gpu_host_type_id: 1,
+      gpu_type: 'H100',
+      gpu_count: 8,
+      total: 2,
+      currently_bookable: 2,
+    },
+  ])
 })
 
 describe('new booking page - F2 query prefill', () => {

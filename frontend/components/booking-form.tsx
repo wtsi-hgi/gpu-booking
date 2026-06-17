@@ -3,8 +3,10 @@
 import {
   startTransition,
   useActionState,
+  useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type ChangeEvent,
@@ -14,7 +16,11 @@ import { X } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 
-import { createBooking, validateBooking } from '@/app/actions'
+import {
+  createBooking,
+  getHostTypeAvailability,
+  validateBooking,
+} from '@/app/actions'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -26,7 +32,10 @@ import {
 import { Input } from '@/components/ui/input'
 import type { GpuHostType, WorkflowType } from '@/lib/admin-contracts'
 import { formatGpuHostTypeLabel } from '@/lib/admin-contracts'
-import type { BookingValidation } from '@/lib/booking-contracts'
+import type {
+  BookingValidation,
+  HostTypeAvailability,
+} from '@/lib/booking-contracts'
 import {
   buildRequiredFieldErrors,
   createInitialBookingFormValues,
@@ -53,9 +62,15 @@ type FieldValidationFeedback = Partial<
   Record<BookingFieldName, ValidationFeedback>
 >
 
+type AvailabilityState = {
+  rangeKey: string
+  items: HostTypeAvailability[]
+}
+
 const START_DATE_FUTURE_MESSAGE = 'Start date must be in the future'
 const START_DATE_BEFORE_END_DATE_MESSAGE = 'Start date must be before end date'
 const WARNING_SUMMARY_SCROLL_PADDING_PX = 16
+const datePattern = /^\d{4}-\d{2}-\d{2}$/
 
 const validationRuleFieldMap: Partial<Record<string, BookingFieldName>> = {
   advance_notice_min_14_days: 'start_date',
@@ -122,6 +137,36 @@ function getTodayInputValue(): string {
   const day = String(today.getDate()).padStart(2, '0')
 
   return `${year}-${month}-${day}`
+}
+
+function getAvailabilityRangeKey(startDate: string, endDate: string) {
+  if (
+    !datePattern.test(startDate) ||
+    !datePattern.test(endDate) ||
+    startDate > endDate
+  ) {
+    return null
+  }
+
+  return `${startDate}:${endDate}`
+}
+
+function getHostTypeId(value: string): number | null {
+  const id = Number.parseInt(value, 10)
+  return Number.isInteger(id) && id > 0 ? id : null
+}
+
+function constrainHostCountValue(value: string, max: number): string {
+  if (!value || max <= 0) {
+    return ''
+  }
+
+  const parsed = Number.parseInt(value, 10)
+  if (!Number.isInteger(parsed)) {
+    return ''
+  }
+
+  return String(Math.min(Math.max(parsed, 1), max))
 }
 
 function addValidationFeedback(
@@ -359,10 +404,16 @@ export function BookingForm({
   const [validationError, setValidationError] = useState<string | null>(null)
   const [clientValidationFeedback, setClientValidationFeedback] =
     useState<FieldValidationFeedback>({})
+  const [availabilityState, setAvailabilityState] =
+    useState<AvailabilityState | null>(null)
+  const [availabilityError, setAvailabilityError] = useState<string | null>(
+    null
+  )
   const [awaitingConfirmation, setAwaitingConfirmation] = useState(false)
   const [validating, setValidating] = useState(false)
   const validationRequestIdRef = useRef(0)
   const activeValidationRequestIdRef = useRef<number | null>(null)
+  const availabilityRequestIdRef = useRef(0)
   const scrollRestoreRef = useRef<{ left: number; top: number } | null>(null)
   const warningSummaryRef = useRef<HTMLDivElement | null>(null)
   const initialFormValuesRef = useRef<BookingFormValues | null>(null)
@@ -384,6 +435,54 @@ export function BookingForm({
     validationResultFieldFeedback,
     clientValidationFeedback
   )
+  const availabilityRangeKey = getAvailabilityRangeKey(
+    formValues.start_date,
+    formValues.end_date
+  )
+  const availabilityAppliesToRange =
+    availabilityState !== null &&
+    availabilityState.rangeKey === availabilityRangeKey
+  const hostTypeAvailabilityById = useMemo(
+    () =>
+      new Map(
+        availabilityAppliesToRange
+          ? availabilityState.items.map((item) => [item.gpu_host_type_id, item])
+          : []
+      ),
+    [availabilityAppliesToRange, availabilityState]
+  )
+  const selectableGpuHostTypes = useMemo(
+    () => gpuHostTypes.filter((gpuHostType) => gpuHostType.total_count > 0),
+    [gpuHostTypes]
+  )
+  const selectedGpuHostTypeId = getHostTypeId(formValues.gpu_host_type_id)
+  const selectedGpuHostType =
+    selectedGpuHostTypeId === null
+      ? null
+      : (selectableGpuHostTypes.find(
+          (gpuHostType) => gpuHostType.id === selectedGpuHostTypeId
+        ) ?? null)
+
+  const getHostTypeBookableLimit = useCallback(
+    (gpuHostType: GpuHostType): number => {
+      const availability = hostTypeAvailabilityById.get(gpuHostType.id)
+      if (availability) {
+        return Math.min(
+          gpuHostType.total_count,
+          availability.currently_bookable
+        )
+      }
+
+      return gpuHostType.total_count
+    },
+    [hostTypeAvailabilityById]
+  )
+
+  const selectedHostCountMax = selectedGpuHostType
+    ? getHostTypeBookableLimit(selectedGpuHostType)
+    : 0
+  const isHostCountDisabled =
+    pending || selectedGpuHostType === null || selectedHostCountMax <= 0
 
   function hasBlockingValidation(field: BookingFieldName): boolean {
     return fieldValidationFeedback[field]?.severity === 'block'
@@ -467,6 +566,7 @@ export function BookingForm({
     field: BookingFormValueName
   ): (event: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void {
     return (event) => {
+      const nextValue = event.target.value
       if (activeValidationRequestIdRef.current !== null) {
         cancelValidationRequest()
       }
@@ -480,9 +580,40 @@ export function BookingForm({
         clearValidationState()
       }
 
+      if (field === 'host_count') {
+        setFormValues((current) => ({
+          ...current,
+          host_count: constrainHostCountValue(nextValue, selectedHostCountMax),
+        }))
+        return
+      }
+
+      if (field === 'gpu_host_type_id') {
+        const nextGpuHostTypeId = getHostTypeId(nextValue)
+        const nextGpuHostType =
+          nextGpuHostTypeId === null
+            ? null
+            : (selectableGpuHostTypes.find(
+                (gpuHostType) => gpuHostType.id === nextGpuHostTypeId
+              ) ?? null)
+        const nextHostCountMax = nextGpuHostType
+          ? getHostTypeBookableLimit(nextGpuHostType)
+          : 0
+
+        setFormValues((current) => ({
+          ...current,
+          gpu_host_type_id: nextValue,
+          host_count: constrainHostCountValue(
+            current.host_count,
+            nextHostCountMax
+          ),
+        }))
+        return
+      }
+
       setFormValues((current) => ({
         ...current,
-        [field]: event.target.value,
+        [field]: nextValue,
       }))
     }
   }
@@ -547,6 +678,88 @@ export function BookingForm({
       activeValidationRequestIdRef.current = null
     }
   }, [])
+
+  useEffect(() => {
+    if (!availabilityRangeKey) {
+      availabilityRequestIdRef.current += 1
+      setAvailabilityState(null)
+      setAvailabilityError(null)
+      return
+    }
+
+    const requestId = availabilityRequestIdRef.current + 1
+    availabilityRequestIdRef.current = requestId
+    const [startDate, endDate] = availabilityRangeKey.split(':')
+    setAvailabilityError(null)
+
+    getHostTypeAvailability(startDate, endDate)
+      .then((items) => {
+        if (availabilityRequestIdRef.current !== requestId) {
+          return
+        }
+
+        setAvailabilityState({
+          rangeKey: availabilityRangeKey,
+          items,
+        })
+      })
+      .catch((error: unknown) => {
+        if (availabilityRequestIdRef.current !== requestId) {
+          return
+        }
+
+        setAvailabilityState(null)
+        setAvailabilityError(
+          error instanceof Error
+            ? error.message
+            : 'Failed to load host availability.'
+        )
+      })
+  }, [availabilityRangeKey])
+
+  useEffect(() => {
+    setFormValues((current) => {
+      const currentHostTypeId = getHostTypeId(current.gpu_host_type_id)
+
+      if (currentHostTypeId === null) {
+        return current.host_count ? { ...current, host_count: '' } : current
+      }
+
+      const currentGpuHostType = selectableGpuHostTypes.find(
+        (gpuHostType) => gpuHostType.id === currentHostTypeId
+      )
+
+      if (!currentGpuHostType) {
+        return {
+          ...current,
+          gpu_host_type_id: '',
+          host_count: '',
+        }
+      }
+
+      const currentHostCountMax = getHostTypeBookableLimit(currentGpuHostType)
+
+      if (currentHostCountMax <= 0) {
+        return {
+          ...current,
+          gpu_host_type_id: '',
+          host_count: '',
+        }
+      }
+
+      const nextHostCount = constrainHostCountValue(
+        current.host_count,
+        currentHostCountMax
+      )
+
+      return nextHostCount === current.host_count
+        ? current
+        : {
+            ...current,
+            host_count: nextHostCount,
+          }
+    })
+  }, [availabilityState, getHostTypeBookableLimit, selectableGpuHostTypes])
 
   useEffect(() => {
     if (!pending) {
@@ -693,9 +906,6 @@ export function BookingForm({
       : awaitingConfirmation
         ? 'Confirm'
         : 'Create Booking'
-  const selectableGpuHostTypes = gpuHostTypes.filter(
-    (gpuHostType) => gpuHostType.total_count > 0
-  )
 
   return (
     <Card className="shadow-lg">
@@ -745,11 +955,21 @@ export function BookingForm({
                   }
                 >
                   <option value="">Select GPU host type</option>
-                  {selectableGpuHostTypes.map((gpuHostType) => (
-                    <option key={gpuHostType.id} value={gpuHostType.id}>
-                      {formatGpuHostTypeLabel(gpuHostType)}
-                    </option>
-                  ))}
+                  {selectableGpuHostTypes.map((gpuHostType) => {
+                    const bookableLimit = getHostTypeBookableLimit(gpuHostType)
+                    const isUnavailable = bookableLimit <= 0
+
+                    return (
+                      <option
+                        key={gpuHostType.id}
+                        value={gpuHostType.id}
+                        disabled={isUnavailable}
+                      >
+                        {formatGpuHostTypeLabel(gpuHostType)}
+                        {isUnavailable ? ' (none available)' : ''}
+                      </option>
+                    )
+                  })}
                 </select>
                 {fieldErrors.gpu_host_type_id && (
                   <p className="text-destructive text-sm">
@@ -757,6 +977,11 @@ export function BookingForm({
                   </p>
                 )}
                 {renderValidationFeedback('gpu_host_type_id')}
+                {availabilityError && (
+                  <p className="text-destructive text-sm" role="alert">
+                    {availabilityError}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-1">
@@ -768,6 +993,10 @@ export function BookingForm({
                   name="host_count"
                   type="number"
                   min={1}
+                  max={
+                    selectedHostCountMax > 0 ? selectedHostCountMax : undefined
+                  }
+                  disabled={isHostCountDisabled}
                   value={formValues.host_count}
                   onChange={handleFieldChange('host_count')}
                   aria-invalid={

@@ -14,7 +14,11 @@ from sqlalchemy.ext.asyncio import (
 from sqlalchemy.pool import StaticPool
 
 from db.models import Base, Booking, BookingStatus, GpuHostType, WorkflowType
-from services.capacity_service import get_daily_capacity, validate_booking
+from services.capacity_service import (
+    get_daily_capacity,
+    get_host_type_availability,
+    validate_booking,
+)
 
 
 @pytest.fixture
@@ -206,6 +210,99 @@ async def test_get_daily_capacity_counts_spot_and_tentative_as_confirmed(
 
     assert capacities[0].confirmed_used == 3
     assert capacities[0].available == 2
+
+
+@pytest.mark.anyio
+async def test_get_host_type_availability_returns_min_bookable_across_range(
+    db_session: AsyncSession,
+) -> None:
+    workflow_id = await _create_workflow_type(db_session)
+    h200 = await _create_host_type(db_session, "H200", 3)
+    h100 = await _create_host_type(db_session, "H100", 2)
+    await _create_host_type(db_session, "A100", 0)
+    await _create_booking(
+        db_session,
+        user_email="h200-holder@example.com",
+        gpu_host_type_id=h200.id,
+        host_count=2,
+        start_date=date(2026, 7, 22),
+        end_date=date(2026, 7, 23),
+        status=BookingStatus.confirmed,
+        workflow_type_id=workflow_id,
+    )
+    await _create_booking(
+        db_session,
+        user_email="h100-holder@example.com",
+        gpu_host_type_id=h100.id,
+        host_count=2,
+        start_date=date(2026, 7, 23),
+        end_date=date(2026, 7, 23),
+        status=BookingStatus.confirmed,
+        workflow_type_id=workflow_id,
+    )
+    await _create_booking(
+        db_session,
+        user_email="pending@example.com",
+        gpu_host_type_id=h100.id,
+        host_count=1,
+        start_date=date(2026, 7, 22),
+        end_date=date(2026, 7, 22),
+        status=BookingStatus.unconfirmed,
+        workflow_type_id=workflow_id,
+    )
+    await db_session.commit()
+
+    availability = await get_host_type_availability(
+        db_session,
+        start_date=date(2026, 7, 22),
+        end_date=date(2026, 7, 23),
+    )
+
+    by_type = {host.gpu_type: host for host in availability}
+    assert by_type["H200"].currently_bookable == 1
+    assert by_type["H100"].currently_bookable == 0
+    assert by_type["A100"].currently_bookable == 0
+    assert by_type["H100"].total == 2
+
+
+@pytest.mark.anyio
+async def test_get_host_type_availability_counts_tentative_and_spot_as_booked(
+    db_session: AsyncSession,
+) -> None:
+    workflow_id = await _create_workflow_type(db_session)
+    host_type = await _create_host_type(db_session, "H100", 5)
+    day = date(2026, 7, 24)
+    await _create_booking(
+        db_session,
+        user_email="tentative-holder@example.com",
+        gpu_host_type_id=host_type.id,
+        host_count=2,
+        start_date=day,
+        end_date=day,
+        status=BookingStatus.tentative,
+        workflow_type_id=workflow_id,
+    )
+    await _create_booking(
+        db_session,
+        user_email="spot-holder@example.com",
+        gpu_host_type_id=host_type.id,
+        host_count=1,
+        start_date=day,
+        end_date=day,
+        status=BookingStatus.spot,
+        workflow_type_id=workflow_id,
+    )
+    await db_session.commit()
+
+    availability = await get_host_type_availability(
+        db_session,
+        start_date=day,
+        end_date=day,
+    )
+
+    assert len(availability) == 1
+    assert availability[0].gpu_host_type_id == host_type.id
+    assert availability[0].currently_bookable == 2
 
 
 @pytest.mark.anyio

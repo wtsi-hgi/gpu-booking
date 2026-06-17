@@ -24,6 +24,8 @@ import {
   type BookingResponse,
   type BookingValidation,
   type DailyCapacity,
+  hostTypeAvailabilityListSchema,
+  type HostTypeAvailability,
 } from '@/lib/booking-contracts'
 import {
   buildRequiredFieldErrors,
@@ -269,6 +271,21 @@ export async function getCapacity(
   return backendJsonWithAuth(
     `/api/v1/capacity?${params.toString()}`,
     dailyCapacityListSchema
+  )
+}
+
+export async function getHostTypeAvailability(
+  startDate: string,
+  endDate: string
+): Promise<HostTypeAvailability[]> {
+  const params = new URLSearchParams({
+    start_date: startDate,
+    end_date: endDate,
+  })
+
+  return backendJsonWithAuth(
+    `/api/v1/capacity/host-types/availability?${params.toString()}`,
+    hostTypeAvailabilityListSchema
   )
 }
 
