@@ -483,6 +483,13 @@ export function BookingForm({
     : 0
   const isHostCountDisabled =
     pending || selectedGpuHostType === null || selectedHostCountMax <= 0
+  const hostCountOptions = useMemo(
+    () =>
+      Array.from({ length: Math.max(0, selectedHostCountMax) }, (_, index) =>
+        String(index + 1)
+      ),
+    [selectedHostCountMax]
+  )
 
   function hasBlockingValidation(field: BookingFieldName): boolean {
     return fieldValidationFeedback[field]?.severity === 'block'
@@ -985,14 +992,10 @@ export function BookingForm({
                 <label htmlFor="host_count" className="text-sm font-medium">
                   Host Count
                 </label>
-                <Input
+                <select
                   id="host_count"
                   name="host_count"
-                  type="number"
-                  min={1}
-                  max={
-                    selectedHostCountMax > 0 ? selectedHostCountMax : undefined
-                  }
+                  className="border-input bg-background ring-offset-background focus-visible:ring-ring h-10 w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
                   disabled={isHostCountDisabled}
                   value={formValues.host_count}
                   onChange={handleFieldChange('host_count')}
@@ -1000,7 +1003,14 @@ export function BookingForm({
                     Boolean(fieldErrors.host_count) ||
                     hasBlockingValidation('host_count')
                   }
-                />
+                >
+                  <option value="">Select host count</option>
+                  {hostCountOptions.map((hostCount) => (
+                    <option key={hostCount} value={hostCount}>
+                      {hostCount}
+                    </option>
+                  ))}
+                </select>
                 {fieldErrors.host_count && (
                   <p className="text-destructive text-sm">
                     {fieldErrors.host_count}

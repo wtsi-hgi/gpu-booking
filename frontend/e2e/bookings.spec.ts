@@ -134,7 +134,7 @@ test.describe('bookings flows', () => {
     await switchUser(page, 'researcher@example.com')
 
     await page.getByLabel('GPU Host Type').selectOption({ label: '8 GPU H100' })
-    await page.getByLabel('Host Count').fill(String(proposedHostCount))
+    await page.getByLabel('Host Count').selectOption(String(proposedHostCount))
     await page
       .getByLabel('Workflow Type')
       .selectOption({ label: 'Inference workloads' })
@@ -242,7 +242,7 @@ test.describe('bookings flows', () => {
     ).toHaveValue(futureDates.end)
 
     await page.getByLabel('GPU Host Type').selectOption({ label: '8 GPU H100' })
-    await page.getByLabel('Host Count').fill('1')
+    await page.getByLabel('Host Count').selectOption('1')
     await page
       .getByLabel('Workflow Type')
       .selectOption({ label: 'Inference workloads' })

@@ -128,7 +128,7 @@ async function fillRequiredFieldsWithDates(
   endDate: string
 ) {
   await user.selectOptions(screen.getByLabelText('GPU Host Type'), '1')
-  await user.type(screen.getByLabelText('Host Count'), '4')
+  await user.selectOptions(screen.getByLabelText('Host Count'), '4')
   await user.selectOptions(screen.getByLabelText('Workflow Type'), '1')
   await user.type(screen.getByLabelText('Start Date'), startDate)
   await user.type(screen.getByLabelText('End Date'), endDate)
@@ -297,15 +297,54 @@ describe('booking form - F3 acceptance coverage', () => {
     const user = userEvent.setup()
     renderBookingForm()
 
-    const hostCountInput = screen.getByLabelText(
+    const hostCountSelect = screen.getByLabelText(
       'Host Count'
-    ) as HTMLInputElement
+    ) as HTMLSelectElement
 
-    expect(hostCountInput.disabled).toBe(true)
+    expect(hostCountSelect.disabled).toBe(true)
 
     await user.selectOptions(screen.getByLabelText('GPU Host Type'), '1')
 
-    expect(hostCountInput.disabled).toBe(false)
+    expect(hostCountSelect.disabled).toBe(false)
+  })
+
+  it('offers Host Count as fixed choices for the selected availability', async () => {
+    const user = userEvent.setup()
+    getHostTypeAvailabilityMock.mockResolvedValueOnce([
+      {
+        gpu_host_type_id: 1,
+        gpu_type: 'H100',
+        gpu_count: 8,
+        total: 5,
+        currently_bookable: 2,
+      },
+    ])
+
+    renderBookingForm('2026-07-22', '2026-07-23')
+
+    await waitFor(() => {
+      expect(getHostTypeAvailabilityMock).toHaveBeenCalledWith(
+        '2026-07-22',
+        '2026-07-23'
+      )
+    })
+    await user.selectOptions(screen.getByLabelText('GPU Host Type'), '1')
+
+    const hostCountSelect = screen.getByLabelText('Host Count')
+
+    expect(hostCountSelect).toBeInstanceOf(HTMLSelectElement)
+    expect(
+      within(hostCountSelect)
+        .getAllByRole('option')
+        .map((option) => ({
+          label: option.textContent,
+          value: (option as HTMLOptionElement).value,
+        }))
+    ).toEqual([
+      { label: 'Select host count', value: '' },
+      { label: '1', value: '1' },
+      { label: '2', value: '2' },
+    ])
   })
 
   it('disables host types that have zero currently bookable hosts for the selected range', async () => {
@@ -387,15 +426,24 @@ describe('booking form - F3 acceptance coverage', () => {
     })
     await user.selectOptions(screen.getByLabelText('GPU Host Type'), '1')
 
-    const hostCountInput = screen.getByLabelText(
+    const hostCountSelect = screen.getByLabelText(
       'Host Count'
-    ) as HTMLInputElement
+    ) as HTMLSelectElement
 
-    expect(hostCountInput.max).toBe('1')
-
-    fireEvent.change(hostCountInput, { target: { value: '2' } })
-
-    expect(hostCountInput.value).toBe('1')
+    expect(
+      within(hostCountSelect)
+        .getAllByRole('option')
+        .map((option) => ({
+          label: option.textContent,
+          value: (option as HTMLOptionElement).value,
+        }))
+    ).toEqual([
+      { label: 'Select host count', value: '' },
+      { label: '1', value: '1' },
+    ])
+    expect(
+      within(hostCountSelect).queryByRole('option', { name: '2' })
+    ).toBeNull()
   })
 
   it('coerces Host Count down when the selected date range reduces availability', async () => {
@@ -429,10 +477,10 @@ describe('booking form - F3 acceptance coverage', () => {
       )
     })
     await user.selectOptions(screen.getByLabelText('GPU Host Type'), '1')
-    await user.type(screen.getByLabelText('Host Count'), '4')
+    await user.selectOptions(screen.getByLabelText('Host Count'), '4')
 
     expect(
-      (screen.getByLabelText('Host Count') as HTMLInputElement).value
+      (screen.getByLabelText('Host Count') as HTMLSelectElement).value
     ).toBe('4')
 
     await user.clear(screen.getByLabelText('End Date'))
@@ -444,7 +492,7 @@ describe('booking form - F3 acceptance coverage', () => {
         '2026-07-23'
       )
       expect(
-        (screen.getByLabelText('Host Count') as HTMLInputElement).value
+        (screen.getByLabelText('Host Count') as HTMLSelectElement).value
       ).toBe('1')
     })
   })
@@ -1003,11 +1051,10 @@ describe('booking form - F3 acceptance coverage', () => {
       expect(screen.getAllByText(warningMessage)).toHaveLength(2)
     })
 
-    const hostCountInput = screen.getByLabelText(
+    const hostCountSelect = screen.getByLabelText(
       'Host Count'
-    ) as HTMLInputElement
-    await user.clear(hostCountInput)
-    await user.type(hostCountInput, '3')
+    ) as HTMLSelectElement
+    await user.selectOptions(hostCountSelect, '3')
 
     await waitFor(() => {
       expect(screen.queryByRole('button', { name: 'Confirm' })).toBeNull()
@@ -1040,11 +1087,10 @@ describe('booking form - F3 acceptance coverage', () => {
     await fillRequiredFields(user)
     await user.click(screen.getByRole('button', { name: 'Create Booking' }))
 
-    const hostCountInput = screen.getByLabelText(
+    const hostCountSelect = screen.getByLabelText(
       'Host Count'
-    ) as HTMLInputElement
-    await user.clear(hostCountInput)
-    await user.type(hostCountInput, '5')
+    ) as HTMLSelectElement
+    await user.selectOptions(hostCountSelect, '5')
 
     firstValidation.resolve({
       valid: true,
@@ -1098,11 +1144,10 @@ describe('booking form - F3 acceptance coverage', () => {
     const { startDate, endDate } = await fillRequiredFields(user)
     await user.click(screen.getByRole('button', { name: 'Create Booking' }))
 
-    const hostCountInput = screen.getByLabelText(
+    const hostCountSelect = screen.getByLabelText(
       'Host Count'
-    ) as HTMLInputElement
-    await user.clear(hostCountInput)
-    await user.type(hostCountInput, '5')
+    ) as HTMLSelectElement
+    await user.selectOptions(hostCountSelect, '5')
 
     firstValidation.resolve({
       valid: true,
@@ -1230,7 +1275,7 @@ describe('booking form - F3 acceptance coverage', () => {
       (screen.getByLabelText('GPU Host Type') as HTMLSelectElement).value
     ).toBe('1')
     expect(
-      (screen.getByLabelText('Host Count') as HTMLInputElement).value
+      (screen.getByLabelText('Host Count') as HTMLSelectElement).value
     ).toBe('4')
     expect(
       (screen.getByLabelText('Workflow Type') as HTMLSelectElement).value
@@ -1263,12 +1308,11 @@ describe('booking form - F3 acceptance coverage', () => {
       (screen.getByLabelText('Event End Date') as HTMLInputElement).value
     ).toBe('2026-04-13')
 
-    const hostCountInput = screen.getByLabelText(
+    const hostCountSelect = screen.getByLabelText(
       'Host Count'
-    ) as HTMLInputElement
-    await user.clear(hostCountInput)
-    await user.type(hostCountInput, '3')
-    expect(hostCountInput.value).toBe('3')
+    ) as HTMLSelectElement
+    await user.selectOptions(hostCountSelect, '3')
+    expect(hostCountSelect.value).toBe('3')
 
     const projectNameInput = screen.getByLabelText(
       'Project Name'
@@ -1306,7 +1350,7 @@ describe('booking form - F3 acceptance coverage', () => {
 
     const hostCountInput = screen.getByLabelText(
       'Host Count'
-    ) as HTMLInputElement
+    ) as HTMLSelectElement
     const projectNameInput = screen.getByLabelText(
       'Project Name'
     ) as HTMLInputElement
