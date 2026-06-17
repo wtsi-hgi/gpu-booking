@@ -35,6 +35,12 @@ _CAPACITY_CONSUMING_STATUSES: set[BookingStatus] = {
     BookingStatus.tentative,
     BookingStatus.spot,
 }
+_CAPACITY_CONSUMING_STATUS_VALUES = {
+    booking_status.value for booking_status in _CAPACITY_CONSUMING_STATUSES
+}
+_RESERVATION_NAME_REQUIRED_DETAIL = (
+    "Reservation name is required when confirming a booking."
+)
 
 
 async def _ensure_booking_reference_data_exists(
@@ -80,17 +86,24 @@ async def admin_update_booking(
     next_status = update_data.get("status", booking.status)
     if isinstance(next_status, str):
         next_status = BookingStatus(next_status)
+    next_status_value = next_status.value
 
     gpu_host_type_id = update_data.get("gpu_host_type_id", booking.gpu_host_type_id)
     host_count = update_data.get("host_count", booking.host_count)
     start_date = update_data.get("start_date", booking.start_date)
     end_date = update_data.get("end_date", booking.end_date)
     workflow_type_id = update_data.get("workflow_type_id", booking.workflow_type_id)
+    reservation_name = update_data.get("reservation_name", booking.reservation_name)
 
     if start_date > end_date:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Start date must be before end date",
+        )
+    if next_status_value == BookingStatus.confirmed.value and not reservation_name:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=_RESERVATION_NAME_REQUIRED_DETAIL,
         )
 
     await _ensure_booking_reference_data_exists(
@@ -121,7 +134,7 @@ async def admin_update_booking(
     )
     if (
         capacity_relevant_changed
-        and next_status in _CAPACITY_CONSUMING_STATUSES
+        and next_status_value in _CAPACITY_CONSUMING_STATUS_VALUES
         and validation.blocked
     ):
         raise HTTPException(

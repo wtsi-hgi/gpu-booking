@@ -119,6 +119,7 @@ class AdminBookingUpdate(BaseModel):
     """Admin booking update payload."""
 
     status: BookingStatus | None = None
+    reservation_name: str | None = None
     admin_notes: str | None = None
     gpu_host_type_id: int | None = None
     host_count: int | None = Field(default=None, gt=0)
@@ -132,6 +133,16 @@ class AdminBookingUpdate(BaseModel):
     technical_lead: str | None = None
     event_start_date: date | None = None
     event_end_date: date | None = None
+
+    @field_validator("reservation_name")
+    @classmethod
+    def validate_reservation_name(cls, value: str | None) -> str | None:
+        """Normalize optional reservation names."""
+
+        if value is None:
+            return None
+        stripped_value = value.strip()
+        return stripped_value if stripped_value else None
 
 
 class BookingResponse(BaseModel):
@@ -148,6 +159,7 @@ class BookingResponse(BaseModel):
     start_date: date
     end_date: date
     status: BookingStatus
+    reservation_name: str | None
     alt_email: str | None
     project_name: str | None
     project_pi: str | None

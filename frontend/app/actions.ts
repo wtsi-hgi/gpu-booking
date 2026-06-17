@@ -391,8 +391,19 @@ export async function adminUpdateBooking(
   }
 
   try {
+    const reservationName = parseOptionalString(formData, 'reservation_name')
+    if (status === 'confirmed' && reservationName === null) {
+      return {
+        status: 'error',
+        message: null,
+        error: 'Reservation name is required when confirming a booking.',
+        booking: null,
+      }
+    }
+
     const payload = {
       status,
+      reservation_name: reservationName,
       admin_notes: parseOptionalString(formData, 'admin_notes'),
       gpu_host_type_id: parseRequiredInteger(formData, 'gpu_host_type_id'),
       host_count: parseRequiredInteger(formData, 'host_count'),

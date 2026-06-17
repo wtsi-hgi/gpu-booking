@@ -155,6 +155,7 @@ function buildSearchBlob(booking: BookingResponse): string {
     booking.start_date,
     booking.end_date,
     booking.workflow_type_name,
+    booking.reservation_name ?? '',
     booking.project_name ?? '',
     booking.created_at,
     booking.admin_notes ?? '',
@@ -739,6 +740,12 @@ export function BookingTable({
                                 Cost Code
                               </dt>
                               <dd>{booking.project_grant_number ?? '—'}</dd>
+                            </div>
+                            <div>
+                              <dt className="text-muted-foreground">
+                                Reservation Name
+                              </dt>
+                              <dd>{booking.reservation_name ?? '—'}</dd>
                             </div>
                             <div>
                               <dt className="text-muted-foreground">

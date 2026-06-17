@@ -38,6 +38,7 @@ const bookingResponse = {
   start_date: '2026-04-10',
   end_date: '2026-04-12',
   status: 'unconfirmed',
+  reservation_name: null,
   alt_email: 'alt@example.com',
   project_name: 'Genome Atlas',
   project_pi: 'Dr Test',
@@ -341,6 +342,7 @@ describe('booking data actions', () => {
     const formData = buildRequiredFormData()
     formData.set('booking_id', '11')
     formData.set('status', 'confirmed')
+    formData.set('reservation_name', '  Frontier reservation 9  ')
     formData.set('host_count', '3')
     formData.set('admin_notes', 'Approved - project priority')
     formData.set('alt_email', 'alt@example.com')
@@ -370,6 +372,7 @@ describe('booking data actions', () => {
         method: 'PATCH',
         body: JSON.stringify({
           status: 'confirmed',
+          reservation_name: 'Frontier reservation 9',
           admin_notes: 'Approved - project priority',
           gpu_host_type_id: 1,
           host_count: 3,
@@ -386,5 +389,31 @@ describe('booking data actions', () => {
         }),
       }
     )
+  })
+
+  it('rejects confirmed admin updates without a reservation name before calling backend', async () => {
+    const backendJsonMock = vi.mocked(backendJson)
+    const formData = buildRequiredFormData()
+    formData.set('booking_id', '11')
+    formData.set('status', 'confirmed')
+    formData.set('reservation_name', '   ')
+
+    const result = await adminUpdateBooking(
+      {
+        status: 'idle',
+        message: null,
+        error: null,
+        booking: null,
+      },
+      formData
+    )
+
+    expect(result).toEqual({
+      status: 'error',
+      message: null,
+      error: 'Reservation name is required when confirming a booking.',
+      booking: null,
+    })
+    expect(backendJsonMock).not.toHaveBeenCalled()
   })
 })

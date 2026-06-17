@@ -259,14 +259,115 @@ async def test_patch_admin_booking_sets_confirmed_and_admin_modified_fields() ->
     async with AsyncClient(transport=transport, base_url="http://testserver") as client:
         response = await client.patch(
             f"/api/v1/admin/bookings/{booking.id}",
-            json={"status": "confirmed"},
+            json={"status": "confirmed", "reservation_name": "Reservation A"},
         )
 
     assert response.status_code == 200
     payload = response.json()
     assert payload["status"] == "confirmed"
+    assert payload["reservation_name"] == "Reservation A"
     assert payload["admin_modified_by"] == _default_admin_email()
     assert payload["admin_modified_at"] is not None
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"status": "confirmed"},
+        {"status": "confirmed", "reservation_name": ""},
+        {"status": "confirmed", "reservation_name": "   "},
+    ],
+)
+async def test_patch_admin_booking_requires_reservation_name_when_confirming(
+    payload: dict[str, str],
+) -> None:
+    """Reject confirmed status updates without a nonblank reservation name."""
+
+    host_type_id, workflow_type_id = await _get_reference_ids()
+    booking = await _insert_booking(
+        user_email="needs-reservation@example.com",
+        gpu_host_type_id=host_type_id,
+        workflow_type_id=workflow_type_id,
+        start_date=date.today() + timedelta(days=31),
+        end_date=date.today() + timedelta(days=33),
+        status=BookingStatus.unconfirmed,
+    )
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.patch(
+            f"/api/v1/admin/bookings/{booking.id}",
+            json=payload,
+        )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == (
+        "Reservation name is required when confirming a booking."
+    )
+
+
+@pytest.mark.anyio
+async def test_patch_admin_booking_trims_and_stores_reservation_name() -> None:
+    """Trim reservation names before saving and returning the booking."""
+
+    host_type_id, workflow_type_id = await _get_reference_ids()
+    booking = await _insert_booking(
+        user_email="trim-reservation@example.com",
+        gpu_host_type_id=host_type_id,
+        workflow_type_id=workflow_type_id,
+        start_date=date.today() + timedelta(days=34),
+        end_date=date.today() + timedelta(days=35),
+        status=BookingStatus.unconfirmed,
+    )
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.patch(
+            f"/api/v1/admin/bookings/{booking.id}",
+            json={
+                "status": "confirmed",
+                "reservation_name": "  NCCS reservation 42  ",
+            },
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["reservation_name"] == "NCCS reservation 42"
+
+    async with async_session_factory() as session:
+        stored_booking = await session.get(Booking, booking.id)
+
+    assert stored_booking is not None
+    assert stored_booking.reservation_name == "NCCS reservation 42"
+
+
+@pytest.mark.anyio
+async def test_patch_admin_booking_allows_non_confirmed_without_reservation_name() -> (
+    None
+):
+    """Do not require reservation names for non-confirmed statuses."""
+
+    host_type_id, workflow_type_id = await _get_reference_ids()
+    booking = await _insert_booking(
+        user_email="rejected-without-reservation@example.com",
+        gpu_host_type_id=host_type_id,
+        workflow_type_id=workflow_type_id,
+        start_date=date.today() + timedelta(days=36),
+        end_date=date.today() + timedelta(days=37),
+        status=BookingStatus.unconfirmed,
+    )
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.patch(
+            f"/api/v1/admin/bookings/{booking.id}",
+            json={"status": "rejected"},
+        )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "rejected"
+    assert response.json()["reservation_name"] is None
 
 
 @pytest.mark.anyio
@@ -380,7 +481,7 @@ async def test_patch_admin_booking_returns_conflict_when_confirm_exceeds_capacit
     async with AsyncClient(transport=transport, base_url="http://testserver") as client:
         response = await client.patch(
             f"/api/v1/admin/bookings/{target.id}",
-            json={"status": "confirmed"},
+            json={"status": "confirmed", "reservation_name": "Capacity hold"},
         )
 
     assert response.status_code == 409
@@ -508,7 +609,7 @@ async def test_patch_admin_booking_can_reactivate_cancelled_booking() -> None:
     async with AsyncClient(transport=transport, base_url="http://testserver") as client:
         response = await client.patch(
             f"/api/v1/admin/bookings/{booking.id}",
-            json={"status": "confirmed"},
+            json={"status": "confirmed", "reservation_name": "Reactivation hold"},
         )
 
     assert response.status_code == 200

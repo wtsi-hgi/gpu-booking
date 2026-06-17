@@ -38,6 +38,7 @@ function buildBooking(
     start_date: '2026-03-10',
     end_date: '2026-03-12',
     status: 'unconfirmed',
+    reservation_name: null,
     alt_email: null,
     project_name: `Project ${id}`,
     project_pi: null,
@@ -311,6 +312,7 @@ describe('booking-table G1 acceptance tests', () => {
         event_start_date: '2026-04-01',
         event_end_date: '2026-04-03',
         alt_email: 'alt-contact@example.com',
+        reservation_name: 'Summit reservation 17',
       }),
     ]
 
@@ -326,6 +328,8 @@ describe('booking-table G1 acceptance tests', () => {
     expect(screen.getByText('Cost Code')).toBeTruthy()
     expect(screen.queryByText('Grant Number')).toBeNull()
     expect(screen.getByText('GR-12345')).toBeTruthy()
+    expect(screen.getByText('Reservation Name')).toBeTruthy()
+    expect(screen.getByText('Summit reservation 17')).toBeTruthy()
     expect(screen.getByText('Technical Lead')).toBeTruthy()
     expect(screen.getByText('Alex Researcher')).toBeTruthy()
     expect(screen.getByText('Event Start Date')).toBeTruthy()

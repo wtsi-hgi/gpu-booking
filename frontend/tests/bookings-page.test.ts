@@ -83,6 +83,7 @@ function buildBooking(id: number, status: BookingStatus = 'confirmed') {
     start_date: '2026-03-10',
     end_date: '2026-03-12',
     status,
+    reservation_name: null,
     alt_email: null,
     project_name: null,
     project_pi: null,

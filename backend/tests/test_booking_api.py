@@ -61,6 +61,7 @@ async def _insert_booking(
     host_count: int = 1,
     status: BookingStatus = BookingStatus.unconfirmed,
     admin_notes: str | None = None,
+    reservation_name: str | None = None,
 ) -> None:
     """Insert a booking record for list endpoint scenarios."""
 
@@ -75,6 +76,7 @@ async def _insert_booking(
                 end_date=end_date,
                 status=status,
                 admin_notes=admin_notes,
+                reservation_name=reservation_name,
             )
         )
         await session.commit()
@@ -291,6 +293,33 @@ async def test_list_bookings_shows_admin_notes_for_admin_user() -> None:
     body = response.json()
     assert len(body) == 1
     assert body[0]["admin_notes"] == "visible admin note"
+
+
+@pytest.mark.anyio
+async def test_list_bookings_shows_reservation_name_for_non_admin_user() -> None:
+    host_type_id, workflow_type_id = await _get_reference_ids()
+
+    await _insert_booking(
+        user_email="owner@example.com",
+        gpu_host_type_id=host_type_id,
+        workflow_type_id=workflow_type_id,
+        start_date=date(2026, 3, 12),
+        end_date=date(2026, 3, 14),
+        status=BookingStatus.confirmed,
+        reservation_name="Summit reservation 17",
+    )
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.get(
+            "/api/v1/bookings",
+            headers={"X-Dev-User": "owner@example.com"},
+        )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body) == 1
+    assert body[0]["reservation_name"] == "Summit reservation 17"
 
 
 @pytest.mark.anyio

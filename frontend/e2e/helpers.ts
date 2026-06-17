@@ -42,6 +42,7 @@ export type BookingRecord = {
     | 'spot'
     | 'rejected'
     | 'cancelled'
+  reservation_name: string | null
   alt_email: string | null
   project_name: string | null
   project_pi: string | null
@@ -85,6 +86,7 @@ type AdminUpdateOverrides = {
   project_grant_number?: string | null
   project_name?: string | null
   project_pi?: string | null
+  reservation_name?: string | null
   start_date?: string
   status?: BookingRecord['status']
   technical_lead?: string | null
@@ -353,8 +355,18 @@ function buildAdminPayload(
   booking: BookingRecord,
   overrides: AdminUpdateOverrides = {}
 ) {
+  const nextStatus = overrides.status ?? booking.status
+  const reservationName = Object.prototype.hasOwnProperty.call(
+    overrides,
+    'reservation_name'
+  )
+    ? (overrides.reservation_name ?? null)
+    : (booking.reservation_name ??
+      (nextStatus === 'confirmed' ? `Reservation ${booking.id}` : null))
+
   return {
-    status: overrides.status ?? booking.status,
+    status: nextStatus,
+    reservation_name: reservationName,
     admin_notes: overrides.admin_notes ?? booking.admin_notes,
     gpu_host_type_id: overrides.gpu_host_type_id ?? booking.gpu_host_type_id,
     host_count: overrides.host_count ?? booking.host_count,

@@ -99,9 +99,19 @@ test.describe('admin flows', () => {
     await getBookingRow(page, booking.id).click()
 
     const sidePanel = page.getByTestId('admin-booking-side-panel')
+    const reservationName = uniqueName('PW Reservation')
 
     await sidePanel.getByLabel('Status').selectOption('confirmed')
     await expect(page.getByTestId('admin-capacity-warning')).toHaveCount(0)
+    await sidePanel.getByRole('button', { name: 'Save' }).click()
+    await expect(sidePanel.getByRole('alert')).toContainText(
+      'Reservation name is required when confirming a booking.'
+    )
+    await expect(page.getByTestId(`status-badge-${booking.id}`)).toContainText(
+      'Pending'
+    )
+
+    await sidePanel.getByLabel('Reservation Name').fill(reservationName)
     await sidePanel
       .getByLabel('Admin Notes')
       .fill('Approved - playwright update')
@@ -114,6 +124,15 @@ test.describe('admin flows', () => {
     await expect(getBookingRow(page, booking.id)).toContainText(
       'Approved - playwright update'
     )
+
+    await gotoPath(page, '/bookings')
+    await switchUser(page, 'other@example.com')
+    await page.getByRole('tab', { name: 'Table' }).click()
+    await page.getByLabel('Search').fill('PW Admin Update Booking')
+    await getBookingRow(page, booking.id).click()
+    await expect(
+      page.locator(`[data-booking-detail-id="${booking.id}"]`)
+    ).toContainText(reservationName)
   })
 
   test('shows an error when an admin confirmation would exceed capacity', async ({
@@ -152,6 +171,7 @@ test.describe('admin flows', () => {
 
     await sidePanel.getByLabel('Host Count').fill('2')
     await sidePanel.getByLabel('Status').selectOption('confirmed')
+    await sidePanel.getByLabel('Reservation Name').fill('PW Capacity Hold')
     await expect(page.getByTestId('admin-capacity-warning')).toContainText(
       'exceed host capacity'
     )

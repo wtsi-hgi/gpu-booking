@@ -21,6 +21,7 @@ export const bookingResponseSchema = z.object({
   start_date: z.string(),
   end_date: z.string(),
   status: bookingStatusSchema,
+  reservation_name: z.string().nullable(),
   alt_email: z.string().nullable(),
   project_name: z.string().nullable(),
   project_pi: z.string().nullable(),

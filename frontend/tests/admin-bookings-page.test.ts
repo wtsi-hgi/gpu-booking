@@ -61,6 +61,7 @@ function buildBooking(
     start_date: '2026-04-01',
     end_date: '2026-04-03',
     status: 'unconfirmed',
+    reservation_name: null,
     alt_email: null,
     project_name: 'Genome Atlas',
     project_pi: 'Dr A',
@@ -166,6 +167,7 @@ describe('admin bookings page - H2 acceptance tests', () => {
     const panelQueries = within(panel)
 
     expect(panelQueries.getByLabelText('Status')).toBeTruthy()
+    expect(panelQueries.getByLabelText('Reservation Name')).toBeTruthy()
     expect(panelQueries.getByLabelText('GPU Host Type')).toBeTruthy()
     expect(panelQueries.getByLabelText('Host Count')).toBeTruthy()
     expect(panelQueries.queryByLabelText('GRAM')).toBeNull()
@@ -178,7 +180,58 @@ describe('admin bookings page - H2 acceptance tests', () => {
       status: 'success',
       message: 'Booking updated successfully.',
       error: null,
-      booking: buildBooking({ status: 'confirmed' }),
+      booking: buildBooking({
+        status: 'confirmed',
+        reservation_name: 'Frontier reservation 9',
+      }),
+    })
+
+    renderPanel()
+
+    fireEvent.click(document.querySelector('[data-booking-id="1"]') as Element)
+    fireEvent.change(
+      within(screen.getByTestId('admin-booking-side-panel')).getByLabelText(
+        'Status'
+      ),
+      {
+        target: { value: 'confirmed' },
+      }
+    )
+    fireEvent.change(
+      within(screen.getByTestId('admin-booking-side-panel')).getByLabelText(
+        'Reservation Name'
+      ),
+      {
+        target: { value: 'Frontier reservation 9' },
+      }
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => {
+      expect(mocks.adminUpdateBookingMock).toHaveBeenCalledTimes(1)
+      expect(mocks.toastSuccessMock).toHaveBeenCalledWith(
+        'Booking updated successfully.'
+      )
+      expect(screen.getByTestId('status-badge-1').textContent).toContain(
+        'Confirmed'
+      )
+    })
+
+    const submittedFormData = mocks.adminUpdateBookingMock.mock.calls[0]?.[1]
+    expect(submittedFormData).toBeInstanceOf(FormData)
+    expect((submittedFormData as FormData).get('reservation_name')).toBe(
+      'Frontier reservation 9'
+    )
+
+    expect(screen.queryByTestId('admin-capacity-warning')).toBeNull()
+  })
+
+  it('shows a reservation-name error when confirmed save is rejected', async () => {
+    mocks.adminUpdateBookingMock.mockResolvedValueOnce({
+      status: 'error',
+      message: null,
+      error: 'Reservation name is required when confirming a booking.',
+      booking: null,
     })
 
     renderPanel()
@@ -195,16 +248,13 @@ describe('admin bookings page - H2 acceptance tests', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save' }))
 
     await waitFor(() => {
-      expect(mocks.adminUpdateBookingMock).toHaveBeenCalledTimes(1)
-      expect(mocks.toastSuccessMock).toHaveBeenCalledWith(
-        'Booking updated successfully.'
+      expect(mocks.toastErrorMock).toHaveBeenCalledWith(
+        'Reservation name is required when confirming a booking.'
       )
-      expect(screen.getByTestId('status-badge-1').textContent).toContain(
-        'Confirmed'
+      expect(screen.getByRole('alert').textContent).toContain(
+        'Reservation name is required'
       )
     })
-
-    expect(screen.queryByTestId('admin-capacity-warning')).toBeNull()
   })
 
   it('does not show a capacity warning when confirming within available host capacity', async () => {

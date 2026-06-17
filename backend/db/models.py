@@ -124,6 +124,7 @@ class Booking(Base):
         default=BookingStatus.unconfirmed,
         server_default=BookingStatus.unconfirmed.value,
     )
+    reservation_name: Mapped[str | None] = mapped_column(String, nullable=True)
     alt_email: Mapped[str | None] = mapped_column(String, nullable=True)
     project_name: Mapped[str | None] = mapped_column(String, nullable=True)
     project_pi: Mapped[str | None] = mapped_column(String, nullable=True)

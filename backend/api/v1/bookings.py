@@ -53,6 +53,7 @@ async def _build_booking_response(
         start_date=booking.start_date,
         end_date=booking.end_date,
         status=booking.status,
+        reservation_name=booking.reservation_name,
         alt_email=booking.alt_email,
         project_name=booking.project_name,
         project_pi=booking.project_pi,

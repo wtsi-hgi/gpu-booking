@@ -29,6 +29,7 @@ type AdminBookingPanelProps = {
 
 type BookingDraft = {
   status: BookingResponse['status']
+  reservation_name: string
   gpu_host_type_id: string
   host_count: string
   workflow_type_id: string
@@ -105,6 +106,7 @@ function createDraft(booking: BookingResponse): BookingDraft {
     workflow_type_id: String(booking.workflow_type_id),
     start_date: toInputDate(booking.start_date),
     end_date: toInputDate(booking.end_date),
+    reservation_name: booking.reservation_name ?? '',
     alt_email: booking.alt_email ?? '',
     project_name: booking.project_name ?? '',
     project_pi: booking.project_pi ?? '',
@@ -351,6 +353,17 @@ export function AdminBookingPanel({
                     { label: 'Rejected', value: 'rejected' },
                     { label: 'Cancelled', value: 'cancelled' },
                   ]}
+                />
+              </Field>
+
+              <Field id="reservation_name" label="Reservation Name">
+                <Input
+                  id="reservation_name"
+                  name="reservation_name"
+                  value={draft.reservation_name}
+                  onChange={(event) =>
+                    updateDraft('reservation_name', event.target.value)
+                  }
                 />
               </Field>
 
