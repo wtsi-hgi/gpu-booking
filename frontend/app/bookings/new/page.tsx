@@ -6,10 +6,12 @@ type NewBookingPageProps = {
   searchParams?: Promise<{
     start?: string
     end?: string
+    gpu_host_type_id?: string
   }>
 }
 
 const datePattern = /^\d{4}-\d{2}-\d{2}$/
+const positiveIntegerPattern = /^[1-9]\d*$/
 
 function isValidDateParam(value: string | undefined): value is string {
   if (!value) {
@@ -17,6 +19,14 @@ function isValidDateParam(value: string | undefined): value is string {
   }
 
   return datePattern.test(value)
+}
+
+function isValidGpuHostTypeParam(value: string | undefined): value is string {
+  if (!value) {
+    return false
+  }
+
+  return positiveIntegerPattern.test(value)
 }
 
 export default async function NewBookingPage({
@@ -28,6 +38,11 @@ export default async function NewBookingPage({
     : undefined
   const endDate = isValidDateParam(resolvedSearchParams?.end)
     ? resolvedSearchParams.end
+    : undefined
+  const gpuHostTypeId = isValidGpuHostTypeParam(
+    resolvedSearchParams?.gpu_host_type_id
+  )
+    ? resolvedSearchParams.gpu_host_type_id
     : undefined
 
   await requireCurrentUser('/bookings/new')
@@ -43,6 +58,7 @@ export default async function NewBookingPage({
         workflowTypes={workflowTypes}
         initialStartDate={startDate}
         initialEndDate={endDate}
+        initialGpuHostTypeId={gpuHostTypeId}
       />
     </main>
   )

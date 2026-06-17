@@ -51,6 +51,7 @@ type BookingFormProps = {
   workflowTypes: WorkflowType[]
   initialStartDate?: string
   initialEndDate?: string
+  initialGpuHostTypeId?: string
 }
 
 type ValidationFeedback = {
@@ -84,9 +85,14 @@ const validationRuleFieldMap: Partial<Record<string, BookingFieldName>> = {
 function buildFormValues(
   values: Partial<BookingFormValues> | undefined,
   initialStartDate?: string,
-  initialEndDate?: string
+  initialEndDate?: string,
+  initialGpuHostTypeId?: string
 ): BookingFormValues {
   const nextValues = createInitialBookingFormValues(values ?? {})
+
+  if (!nextValues.gpu_host_type_id && initialGpuHostTypeId) {
+    nextValues.gpu_host_type_id = initialGpuHostTypeId
+  }
 
   if (!nextValues.start_date && initialStartDate) {
     nextValues.start_date = initialStartDate
@@ -392,6 +398,7 @@ export function BookingForm({
   workflowTypes,
   initialStartDate,
   initialEndDate,
+  initialGpuHostTypeId,
 }: BookingFormProps) {
   const router = useRouter()
   const [state, formAction, pending] = useActionState(
@@ -421,7 +428,8 @@ export function BookingForm({
     const initialValues = buildFormValues(
       state.values,
       initialStartDate,
-      initialEndDate
+      initialEndDate,
+      initialGpuHostTypeId
     )
 
     initialFormValuesRef.current = initialValues
@@ -773,7 +781,8 @@ export function BookingForm({
       const nextValues = buildFormValues(
         state.values,
         initialStartDate,
-        initialEndDate
+        initialEndDate,
+        initialGpuHostTypeId
       )
 
       setFormValues((current) => {
@@ -786,7 +795,13 @@ export function BookingForm({
         return current
       })
     }
-  }, [initialEndDate, initialStartDate, pending, state.values])
+  }, [
+    initialEndDate,
+    initialGpuHostTypeId,
+    initialStartDate,
+    pending,
+    state.values,
+  ])
 
   useEffect(() => {
     if (state.status === 'error' && Object.keys(state.fieldErrors).length > 0) {

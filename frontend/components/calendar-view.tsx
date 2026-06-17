@@ -722,6 +722,9 @@ export function CalendarView({
       start: startDate,
       end: endDate,
     })
+    if (selectedGpuHostTypeId !== undefined) {
+      params.set('gpu_host_type_id', String(selectedGpuHostTypeId))
+    }
 
     router.push(`/bookings/new?${params.toString()}`)
   }

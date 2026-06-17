@@ -239,8 +239,12 @@ test.describe('bookings flows', () => {
     await expect(
       page.getByLabel('Event End Date', { exact: true })
     ).toHaveValue(monthDates.focusPlusOne)
+    await expect(page.getByLabel('GPU Host Type')).toHaveValue('')
 
     await gotoPath(page, '/bookings')
+    const gpuHostTypeFilter = page.locator('#gpu-host-type-filter')
+    await gpuHostTypeFilter.selectOption({ label: '8 GPU H100' })
+    const selectedGpuHostTypeId = await gpuHostTypeFilter.inputValue()
 
     const dragStartCell = getDayCell(page, monthDates.focusPlusOne)
     const dragEndCell = getDayCell(page, monthDates.focusPlusFour)
@@ -262,6 +266,9 @@ test.describe('bookings flows', () => {
       new RegExp(
         `/bookings/new\\?start=${monthDates.focusPlusOne}&end=${monthDates.focusPlusFour}`
       )
+    )
+    await expect(page.getByLabel('GPU Host Type')).toHaveValue(
+      selectedGpuHostTypeId
     )
 
     await gotoPath(
