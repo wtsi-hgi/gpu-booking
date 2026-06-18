@@ -987,7 +987,7 @@ export function CalendarView({
                           : null,
                         isDragBoundary ? 'ring-primary/30 ring-1' : null,
                         isToday ? 'calendar-today-indicator' : null,
-                        hasSelectionJump ? 'pb-10' : null
+                        hasSelectionJump ? 'pb-10 xl:pb-2' : null
                       )}
                       data-day-cell="true"
                       data-date={day.dateIso}
@@ -1090,7 +1090,7 @@ export function CalendarView({
                           type="button"
                           variant="secondary"
                           size="sm"
-                          className="border-primary/15 bg-background/95 absolute right-2 bottom-2 z-10 h-auto rounded-full border px-2.5 py-1 text-[11px] font-semibold shadow-sm backdrop-blur"
+                          className="border-primary/15 bg-background/95 absolute right-2 bottom-2 z-10 h-auto rounded-full border px-2.5 py-1 text-[11px] font-semibold shadow-sm backdrop-blur xl:hidden"
                           aria-label="Jump to selection details"
                           data-selection-jump="true"
                           onMouseDown={(event) => event.stopPropagation()}

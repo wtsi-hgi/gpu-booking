@@ -315,6 +315,57 @@ test.describe('bookings flows', () => {
     )
   })
 
+  test('hides the calendar selection Details button when the side panel is already visible', async ({
+    page,
+  }) => {
+    const dates = getCurrentMonthInteractionDates()
+
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await gotoPath(page, '/bookings')
+    await switchUser(page, 'researcher@example.com')
+
+    await dragAcrossDays(
+      page,
+      getDayCell(page, dates.focusPlusOne),
+      getDayCell(page, dates.focusPlusFour)
+    )
+
+    const calendarGrid = page.locator('[data-calendar-grid="true"]')
+    const selectionPanel = page.locator('[data-selection-panel="true"]')
+    const detailsButton = page.locator('[data-selection-jump="true"]')
+
+    await expect(selectionPanel).toHaveAttribute(
+      'data-selection-start',
+      dates.focusPlusOne
+    )
+    await expect(selectionPanel).toHaveAttribute(
+      'data-selection-end',
+      dates.focusPlusFour
+    )
+    await expect(selectionPanel).toBeInViewport()
+
+    const wideGridBox = await calendarGrid.boundingBox()
+    const widePanelBox = await selectionPanel.boundingBox()
+    expect(wideGridBox).not.toBeNull()
+    expect(widePanelBox).not.toBeNull()
+    expect(widePanelBox!.x).toBeGreaterThan(wideGridBox!.x + wideGridBox!.width)
+    await expect(detailsButton).toBeHidden()
+
+    await page.setViewportSize({ width: 390, height: 900 })
+
+    const narrowGridBox = await calendarGrid.boundingBox()
+    const narrowPanelBox = await selectionPanel.boundingBox()
+    expect(narrowGridBox).not.toBeNull()
+    expect(narrowPanelBox).not.toBeNull()
+    expect(narrowPanelBox!.y).toBeGreaterThan(
+      narrowGridBox!.y + narrowGridBox!.height
+    )
+    await expect(detailsButton).toBeVisible()
+    await expect(
+      page.getByRole('button', { name: /jump to selection details/i })
+    ).toBeVisible()
+  })
+
   test('greys out the calendar selection CTA when confirmed bookings leave no hosts available', async ({
     page,
     request,
