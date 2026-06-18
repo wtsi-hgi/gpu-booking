@@ -531,10 +531,20 @@ describe('bookings page - F1 calendar grid', () => {
   })
 
   it('shows selection details for a single-day click and waits for the CTA before navigating', async () => {
+    mocks.getCapacityMock.mockResolvedValueOnce([
+      buildCapacity('2026-03-16', 80, 20, 0),
+    ])
+    mocks.getBookingsMock.mockResolvedValueOnce([
+      buildBookingWithOverrides(1, {
+        start_date: '2026-03-16',
+        end_date: '2026-03-16',
+      }),
+    ])
+
     const { default: BookingsPage } = await import('@/app/bookings/page')
     render(await BookingsPage())
 
-    const dayCell = document.querySelector('[data-date="2026-03-10"]')
+    const dayCell = document.querySelector('[data-date="2026-03-16"]')
     expect(dayCell).toBeTruthy()
 
     fireEvent.mouseDown(dayCell as Element)
@@ -546,10 +556,10 @@ describe('bookings page - F1 calendar grid', () => {
 
     expect(selectionPanel).toBeTruthy()
     expect(selectionPanel?.getAttribute('data-selection-start')).toBe(
-      '2026-03-10'
+      '2026-03-16'
     )
     expect(selectionPanel?.getAttribute('data-selection-end')).toBe(
-      '2026-03-10'
+      '2026-03-16'
     )
     expect(selectionPanel?.getAttribute('data-selection-days')).toBe('1')
     expect(selectionPanel?.getAttribute('data-selection-available')).toBe('60')
@@ -570,7 +580,90 @@ describe('bookings page - F1 calendar grid', () => {
     fireEvent.click(selectionButton)
 
     expect(mocks.routerPushMock).toHaveBeenCalledWith(
-      '/bookings/new?start=2026-03-10&end=2026-03-10'
+      '/bookings/new?start=2026-03-16&end=2026-03-16'
+    )
+  })
+
+  it('greys out the selection CTA for normal users when the selected range includes a past date', async () => {
+    mocks.getCapacityMock.mockResolvedValueOnce([
+      buildCapacity('2026-03-14', 40, 0, 0),
+      buildCapacity('2026-03-15', 40, 0, 0),
+      buildCapacity('2026-03-16', 40, 0, 0),
+    ])
+
+    const { default: BookingsPage } = await import('@/app/bookings/page')
+    render(await BookingsPage())
+
+    const startDayCell = document.querySelector('[data-date="2026-03-14"]')
+    const endDayCell = document.querySelector('[data-date="2026-03-16"]')
+
+    expect(startDayCell).toBeTruthy()
+    expect(endDayCell).toBeTruthy()
+
+    fireEvent.mouseDown(startDayCell as Element)
+    fireEvent.mouseEnter(endDayCell as Element)
+    fireEvent.mouseUp(endDayCell as Element)
+
+    const selectionPanel = document.querySelector(
+      '[data-selection-panel="true"]'
+    )
+
+    expect(selectionPanel?.getAttribute('data-selection-start')).toBe(
+      '2026-03-14'
+    )
+    expect(selectionPanel?.getAttribute('data-selection-end')).toBe(
+      '2026-03-16'
+    )
+    expect(selectionPanel?.getAttribute('data-selection-available')).toBe('40')
+
+    const selectionButton = screen.getByRole('button', {
+      name: /^Create Booking$/,
+    }) as HTMLButtonElement
+
+    expect(selectionButton.textContent).toBe('Create Booking')
+    expect(selectionButton.disabled).toBe(true)
+
+    fireEvent.click(selectionButton)
+
+    expect(mocks.routerPushMock).not.toHaveBeenCalled()
+  })
+
+  it('keeps the selection CTA enabled for admins when the selected range includes a past date', async () => {
+    mocks.requireCurrentUserMock.mockResolvedValueOnce({
+      email: 'admin@example.com',
+      is_admin: true,
+      auth_mode: 'insecure',
+    })
+    mocks.getCapacityMock.mockResolvedValueOnce([
+      buildCapacity('2026-03-14', 40, 0, 0),
+      buildCapacity('2026-03-15', 40, 0, 0),
+      buildCapacity('2026-03-16', 40, 0, 0),
+    ])
+
+    const { default: BookingsPage } = await import('@/app/bookings/page')
+    render(await BookingsPage())
+
+    const startDayCell = document.querySelector('[data-date="2026-03-14"]')
+    const endDayCell = document.querySelector('[data-date="2026-03-16"]')
+
+    expect(startDayCell).toBeTruthy()
+    expect(endDayCell).toBeTruthy()
+
+    fireEvent.mouseDown(startDayCell as Element)
+    fireEvent.mouseEnter(endDayCell as Element)
+    fireEvent.mouseUp(endDayCell as Element)
+
+    const selectionButton = screen.getByRole('button', {
+      name: /^Create Booking$/,
+    }) as HTMLButtonElement
+
+    expect(selectionButton.textContent).toBe('Create Booking')
+    expect(selectionButton.disabled).toBe(false)
+
+    fireEvent.click(selectionButton)
+
+    expect(mocks.routerPushMock).toHaveBeenCalledWith(
+      '/bookings/new?start=2026-03-14&end=2026-03-16'
     )
   })
 
@@ -845,28 +938,28 @@ describe('bookings page - F1 calendar grid', () => {
 
   it('shows least availability and overlapping bookings for a dragged date range before using the CTA', async () => {
     mocks.getCapacityMock.mockResolvedValueOnce([
-      buildCapacity('2026-03-10', 40, 10, 0, 1, 'H100'),
-      buildCapacity('2026-03-11', 40, 32, 0, 1, 'H100'),
-      buildCapacity('2026-03-12', 40, 18, 4, 1, 'H100'),
-      buildCapacity('2026-03-13', 40, 8, 0, 1, 'H100'),
-      buildCapacity('2026-03-14', 40, 15, 0, 1, 'H100'),
+      buildCapacity('2026-03-16', 40, 10, 0, 1, 'H100'),
+      buildCapacity('2026-03-17', 40, 32, 0, 1, 'H100'),
+      buildCapacity('2026-03-18', 40, 18, 4, 1, 'H100'),
+      buildCapacity('2026-03-19', 40, 8, 0, 1, 'H100'),
+      buildCapacity('2026-03-20', 40, 15, 0, 1, 'H100'),
     ])
     mocks.getBookingsMock.mockResolvedValueOnce([
       buildBookingWithOverrides(1, {
-        start_date: '2026-03-10',
-        end_date: '2026-03-12',
+        start_date: '2026-03-16',
+        end_date: '2026-03-18',
         user_email: 'user@example.com',
       }),
       buildBookingWithOverrides(2, {
-        start_date: '2026-03-14',
-        end_date: '2026-03-16',
+        start_date: '2026-03-20',
+        end_date: '2026-03-22',
         user_email: 'other@example.com',
         workflow_type_name: 'Inference',
         host_count: 1,
       }),
       buildBookingWithOverrides(3, {
-        start_date: '2026-03-18',
-        end_date: '2026-03-20',
+        start_date: '2026-03-24',
+        end_date: '2026-03-26',
         user_email: 'late@example.com',
       }),
     ])
@@ -874,10 +967,10 @@ describe('bookings page - F1 calendar grid', () => {
     const { default: BookingsPage } = await import('@/app/bookings/page')
     render(await BookingsPage())
 
-    const startDayCell = document.querySelector('[data-date="2026-03-10"]')
-    const middleDayCell = document.querySelector('[data-date="2026-03-12"]')
-    const endDayCell = document.querySelector('[data-date="2026-03-14"]')
-    const outsideDayCell = document.querySelector('[data-date="2026-03-15"]')
+    const startDayCell = document.querySelector('[data-date="2026-03-16"]')
+    const middleDayCell = document.querySelector('[data-date="2026-03-18"]')
+    const endDayCell = document.querySelector('[data-date="2026-03-20"]')
+    const outsideDayCell = document.querySelector('[data-date="2026-03-21"]')
 
     expect(startDayCell).toBeTruthy()
     expect(middleDayCell).toBeTruthy()
@@ -893,10 +986,10 @@ describe('bookings page - F1 calendar grid', () => {
     )
 
     expect(selectionPanel?.getAttribute('data-selection-start')).toBe(
-      '2026-03-10'
+      '2026-03-16'
     )
     expect(selectionPanel?.getAttribute('data-selection-end')).toBe(
-      '2026-03-14'
+      '2026-03-20'
     )
     expect(selectionPanel?.getAttribute('data-selection-days')).toBe('5')
     expect(selectionPanel?.getAttribute('data-selection-available')).toBe('8')
@@ -918,7 +1011,7 @@ describe('bookings page - F1 calendar grid', () => {
     fireEvent.click(selectionButton)
 
     expect(mocks.routerPushMock).toHaveBeenCalledWith(
-      '/bookings/new?start=2026-03-10&end=2026-03-14'
+      '/bookings/new?start=2026-03-16&end=2026-03-20'
     )
   })
 

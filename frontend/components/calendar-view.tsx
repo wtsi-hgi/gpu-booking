@@ -26,6 +26,7 @@ type CalendarViewProps = {
   initialBookings: BookingResponse[]
   gpuHostTypes: GpuHostType[]
   currentUserEmail: string
+  currentUserIsAdmin: boolean
 }
 
 type DayCell = {
@@ -342,6 +343,7 @@ export function CalendarView({
   initialBookings,
   gpuHostTypes,
   currentUserEmail,
+  currentUserIsAdmin,
 }: CalendarViewProps) {
   const router = useRouter()
   const [currentMonth, setCurrentMonth] = useState<Date>(() =>
@@ -466,9 +468,12 @@ export function CalendarView({
     }
   }, [bookings, capacityByDate, displayedSelection])
   const selectionCtaLabel = 'Create Booking'
+  const selectionIncludesPastDate =
+    displayedSelection !== null && displayedSelection.startDate < todayIso
   const selectionCtaDisabled =
     selectionDetails !== null &&
-    selectionDetails.tightestAvailability.available <= 0
+    (selectionDetails.tightestAvailability.available <= 0 ||
+      (!currentUserIsAdmin && selectionIncludesPastDate))
   const committedSelectionEndDate =
     dragSelection === null ? selectedRange?.endDate : null
 
