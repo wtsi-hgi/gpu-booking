@@ -22,18 +22,25 @@ const screenshotPath = path.join(
 test('greys out the calendar CTA for a normal user selecting a range with past dates', async ({
   page,
 }) => {
-  const pastStartDate = getIsoDateOffset(-1)
-  const futureEndDate = getIsoDateOffset(1)
+  const pastStartDate = getIsoDateOffset(-2)
+  const pastEndDate = getIsoDateOffset(-1)
 
   await page.setViewportSize({ width: 1440, height: 900 })
   await gotoPath(page, '/bookings')
   await switchUser(page, 'researcher@example.com')
 
-  await dragAcrossDays(
-    page,
-    getDayCell(page, pastStartDate),
-    getDayCell(page, futureEndDate)
-  )
+  let pastStartCell = getDayCell(page, pastStartDate)
+
+  if ((await pastStartCell.count()) === 0) {
+    await page.getByRole('button', { name: 'Previous month' }).click()
+    pastStartCell = getDayCell(page, pastStartDate)
+  }
+
+  const pastEndCell = getDayCell(page, pastEndDate)
+  await expect(pastStartCell).toBeVisible()
+  await expect(pastEndCell).toBeVisible()
+
+  await dragAcrossDays(page, pastStartCell, pastEndCell)
 
   const selectionPanel = page.locator('[data-selection-panel="true"]')
   await expect(selectionPanel).toHaveAttribute(
@@ -42,7 +49,7 @@ test('greys out the calendar CTA for a normal user selecting a range with past d
   )
   await expect(selectionPanel).toHaveAttribute(
     'data-selection-end',
-    futureEndDate
+    pastEndDate
   )
 
   const createButton = selectionPanel.getByRole('button', {
