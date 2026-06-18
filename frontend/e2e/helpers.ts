@@ -448,7 +448,7 @@ export async function switchUser(
   })
 
   if (expectAdmin) {
-    await expect(adminNavigationLink).toBeVisible()
+    await expect(adminNavigationLink.first()).toBeVisible()
     return
   }
 

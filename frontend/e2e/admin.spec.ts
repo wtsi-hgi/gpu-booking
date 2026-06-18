@@ -49,20 +49,33 @@ test.describe('admin flows', () => {
     await expect(
       page.getByRole('heading', { name: 'Manage Bookings' })
     ).toBeVisible()
+    await expect(
+      page.getByRole('link', { name: 'Admin Dashboard' })
+    ).toHaveAttribute('href', '/admin')
+    await page.getByRole('link', { name: 'Admin Dashboard' }).click()
+    await expect(page).toHaveURL(/\/admin$/)
 
-    await page.goto('/admin')
     await page.getByRole('link', { name: /GPU Host Types/i }).click()
     await expect(page).toHaveURL(/\/admin\/gpu-host-types$/)
     await expect(
       page.getByRole('heading', { name: 'Manage GPU Host Types' })
     ).toBeVisible()
+    await expect(
+      page.getByRole('link', { name: 'Admin Dashboard' })
+    ).toHaveAttribute('href', '/admin')
+    await page.getByRole('link', { name: 'Admin Dashboard' }).click()
+    await expect(page).toHaveURL(/\/admin$/)
 
-    await page.goto('/admin')
     await page.getByRole('link', { name: /Workflow Types/i }).click()
     await expect(page).toHaveURL(/\/admin\/workflow-types$/)
     await expect(
       page.getByRole('heading', { name: 'Manage Workflow Types' })
     ).toBeVisible()
+    await expect(
+      page.getByRole('link', { name: 'Admin Dashboard' })
+    ).toHaveAttribute('href', '/admin')
+    await page.getByRole('link', { name: 'Admin Dashboard' }).click()
+    await expect(page).toHaveURL(/\/admin$/)
   })
 
   test('navigates from the admin dashboard into booking management and updates a booking', async ({
