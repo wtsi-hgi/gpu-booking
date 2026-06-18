@@ -465,12 +465,7 @@ export function CalendarView({
       tightestAvailability,
     }
   }, [bookings, capacityByDate, displayedSelection])
-  const selectionCtaLabel =
-    selectionDetails === null
-      ? 'Create booking for selection'
-      : selectionDetails.dayCount === 1
-        ? `Create booking for selection (${selectionDetails.tightestAvailability.available} hosts available)`
-        : `Create booking for selection (up to ${selectionDetails.tightestAvailability.available} hosts available)`
+  const selectionCtaLabel = 'Create Booking'
   const selectionCtaDisabled =
     selectionDetails !== null &&
     selectionDetails.tightestAvailability.available <= 0
@@ -1161,7 +1156,10 @@ export function CalendarView({
                           ? 'Selected day'
                           : 'Selected range'}
                       </p>
-                      <p className="text-base font-semibold">
+                      <p
+                        className="text-base font-semibold"
+                        id="calendar-selection-range-summary"
+                      >
                         {formatDisplayRange(
                           displayedSelection.startDate,
                           displayedSelection.endDate
@@ -1174,7 +1172,10 @@ export function CalendarView({
                       </p>
                     </div>
 
-                    <div className="border-border/80 bg-muted/30 dark:border-primary/50 dark:bg-muted/45 rounded-lg border p-4">
+                    <div
+                      className="border-border/80 bg-muted/30 dark:border-primary/50 dark:bg-muted/45 rounded-lg border p-4"
+                      id="calendar-selection-availability-summary"
+                    >
                       <div className="flex items-start justify-between gap-3">
                         <div className="space-y-1">
                           <p className="text-sm font-medium">
@@ -1304,6 +1305,7 @@ export function CalendarView({
 
                     <Button
                       type="button"
+                      aria-describedby="calendar-selection-range-summary calendar-selection-availability-summary"
                       className="w-full"
                       disabled={selectionCtaDisabled}
                       onClick={() =>

@@ -559,10 +559,13 @@ describe('bookings page - F1 calendar grid', () => {
     expect(mocks.routerPushMock).not.toHaveBeenCalled()
 
     const selectionButton = screen.getByRole('button', {
-      name: /create booking for selection/i,
+      name: /^Create Booking$/,
     })
 
-    expect(selectionButton.textContent).toContain('60 hosts available')
+    expect(selectionButton.textContent).toBe('Create Booking')
+    expect(selectionButton.getAttribute('aria-describedby')).toBe(
+      'calendar-selection-range-summary calendar-selection-availability-summary'
+    )
 
     fireEvent.click(selectionButton)
 
@@ -717,10 +720,10 @@ describe('bookings page - F1 calendar grid', () => {
     expect(screen.getByText('adjacent@example.com')).toBeTruthy()
 
     const selectionButton = screen.getByRole('button', {
-      name: /create booking for selection/i,
+      name: /^Create Booking$/,
     })
 
-    expect(selectionButton.textContent).toContain('6 hosts available')
+    expect(selectionButton.textContent).toBe('Create Booking')
 
     fireEvent.click(selectionButton)
 
@@ -907,10 +910,10 @@ describe('bookings page - F1 calendar grid', () => {
     expect(mocks.routerPushMock).not.toHaveBeenCalled()
 
     const selectionButton = screen.getByRole('button', {
-      name: /create booking for selection/i,
+      name: /^Create Booking$/,
     })
 
-    expect(selectionButton.textContent).toContain('up to 8 hosts available')
+    expect(selectionButton.textContent).toBe('Create Booking')
 
     fireEvent.click(selectionButton)
 
@@ -1284,7 +1287,7 @@ describe('bookings page - F1 calendar grid', () => {
     expect(selectionPanel?.getAttribute('data-selection-end')).toBeNull()
     expect(
       screen.queryByRole('button', {
-        name: /create booking for selection/i,
+        name: /^Create Booking$/,
       })
     ).toBeNull()
   })
@@ -1351,7 +1354,7 @@ describe('bookings page - F1 calendar grid', () => {
     expect(selectionPanel?.getAttribute('data-selection-days')).toBeNull()
     expect(
       screen.queryByRole('button', {
-        name: /create booking for selection/i,
+        name: /^Create Booking$/,
       })
     ).toBeNull()
     expect(
