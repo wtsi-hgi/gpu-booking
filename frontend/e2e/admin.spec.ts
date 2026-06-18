@@ -52,6 +52,30 @@ test.describe('admin flows', () => {
     ).toBeVisible()
     await expect(page.getByText('0 pending bookings')).toBeVisible()
     await expect(
+      page.getByRole('link', {
+        name: /Manage Bookings.*0 pending bookings.*0 confirmed bookings this month/i,
+      })
+    ).toBeVisible()
+    await expect(
+      page.getByRole('link', {
+        name: /GPU Host Types.*4 GPU host types configured/i,
+      })
+    ).toBeVisible()
+    await expect(
+      page.getByRole('link', {
+        name: /Workflow Types.*4 workflow types configured/i,
+      })
+    ).toBeVisible()
+    await expect(
+      page.getByText('Pending Bookings', { exact: true })
+    ).toHaveCount(0)
+    await expect(
+      page.getByText('Confirmed This Month', { exact: true })
+    ).toHaveCount(0)
+    await expect(
+      page.getByText('GPU Host Types Configured', { exact: true })
+    ).toHaveCount(0)
+    await expect(
       page.getByRole('link', { name: 'Bookings', exact: true })
     ).toHaveAttribute('href', '/bookings')
 
