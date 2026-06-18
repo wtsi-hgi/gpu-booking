@@ -1,4 +1,5 @@
 import { getWorkflowTypes } from '@/app/actions'
+import { AdminPageHeader } from '@/components/admin-page-header'
 import { WorkflowTypeManager } from '@/components/workflow-type-manager'
 import { requireCurrentUser } from '@/lib/server-auth'
 
@@ -20,17 +21,11 @@ export default async function AdminWorkflowTypesPage() {
 
   return (
     <main className="container mx-auto max-w-5xl px-4 py-12">
-      <div className="space-y-2">
-        <p className="text-primary text-sm tracking-[0.2em] uppercase">
-          Admin Configuration
-        </p>
-        <h1 className="text-3xl font-semibold tracking-tight">
-          Manage Workflow Types
-        </h1>
-        <p className="text-muted-foreground">
-          Configure workflow options available in booking requests.
-        </p>
-      </div>
+      <AdminPageHeader
+        eyebrow="Admin Configuration"
+        title="Manage Workflow Types"
+        description="Configure workflow options available in booking requests."
+      />
 
       <div className="mt-8">
         <WorkflowTypeManager initialWorkflowTypes={workflowTypes} />

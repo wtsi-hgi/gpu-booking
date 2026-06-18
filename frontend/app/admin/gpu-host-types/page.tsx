@@ -1,4 +1,5 @@
 import { getGpuHostTypes } from '@/app/actions'
+import { AdminPageHeader } from '@/components/admin-page-header'
 import { GpuHostTypeManager } from '@/components/gpu-host-type-manager'
 import { requireCurrentUser } from '@/lib/server-auth'
 
@@ -20,17 +21,11 @@ export default async function AdminGpuHostTypesPage() {
 
   return (
     <main className="container mx-auto max-w-5xl px-4 py-12">
-      <div className="space-y-2">
-        <p className="text-primary text-sm tracking-[0.2em] uppercase">
-          Admin Configuration
-        </p>
-        <h1 className="text-3xl font-semibold tracking-tight">
-          Manage GPU Host Types
-        </h1>
-        <p className="text-muted-foreground">
-          Configure reservable host shapes and available host counts.
-        </p>
-      </div>
+      <AdminPageHeader
+        eyebrow="Admin Configuration"
+        title="Manage GPU Host Types"
+        description="Configure reservable host shapes and available host counts."
+      />
 
       <div className="mt-8">
         <GpuHostTypeManager initialGpuHostTypes={gpuHostTypes} />

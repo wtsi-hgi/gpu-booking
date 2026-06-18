@@ -1,6 +1,13 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
@@ -26,6 +33,7 @@ type CalendarViewProps = {
   initialBookings: BookingResponse[]
   gpuHostTypes: GpuHostType[]
   currentUserEmail: string
+  currentUserIsAdmin: boolean
 }
 
 type DayCell = {
@@ -60,7 +68,12 @@ type SeededState<T> = {
   data: T
 }
 
+type SelectionPanelLayout = 'unknown' | 'below' | 'beside'
+
 const weekdayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+const layoutTolerancePixels = 1
+const useBrowserLayoutEffect =
+  typeof window === 'undefined' ? useEffect : useLayoutEffect
 
 const monthNameFormatter = new Intl.DateTimeFormat('en-GB', {
   month: 'long',
@@ -342,6 +355,7 @@ export function CalendarView({
   initialBookings,
   gpuHostTypes,
   currentUserEmail,
+  currentUserIsAdmin,
 }: CalendarViewProps) {
   const router = useRouter()
   const [currentMonth, setCurrentMonth] = useState<Date>(() =>
@@ -373,8 +387,11 @@ export function CalendarView({
   const [dragStartDate, setDragStartDate] = useState<string | null>(null)
   const [dragCurrentDate, setDragCurrentDate] = useState<string | null>(null)
   const [isMonthSelectorOpen, setIsMonthSelectorOpen] = useState(false)
+  const [selectionPanelLayout, setSelectionPanelLayout] =
+    useState<SelectionPanelLayout>('unknown')
   const hasMountedRef = useRef(false)
   const dragMovedRef = useRef(false)
+  const calendarGridRef = useRef<HTMLDivElement>(null)
   const selectionPanelRef = useRef<HTMLDivElement>(null)
   const monthSelectorRef = useRef<HTMLDivElement | null>(null)
 
@@ -465,17 +482,110 @@ export function CalendarView({
       tightestAvailability,
     }
   }, [bookings, capacityByDate, displayedSelection])
-  const selectionCtaLabel =
-    selectionDetails === null
-      ? 'Create booking for selection'
-      : selectionDetails.dayCount === 1
-        ? `Create booking for selection (${selectionDetails.tightestAvailability.available} hosts available)`
-        : `Create booking for selection (up to ${selectionDetails.tightestAvailability.available} hosts available)`
+  const selectionCtaLabel = 'Create Booking'
+  const selectionStartsOnOrBeforeToday =
+    displayedSelection !== null && displayedSelection.startDate <= todayIso
   const selectionCtaDisabled =
     selectionDetails !== null &&
-    selectionDetails.tightestAvailability.available <= 0
+    (selectionDetails.tightestAvailability.available <= 0 ||
+      (!currentUserIsAdmin && selectionStartsOnOrBeforeToday))
   const committedSelectionEndDate =
     dragSelection === null ? selectedRange?.endDate : null
+
+  const measureSelectionPanelPlacement = useCallback(() => {
+    if (activeTab !== 'calendar') {
+      setSelectionPanelLayout((current) =>
+        current === 'unknown' ? current : 'unknown'
+      )
+      return
+    }
+
+    const calendarGrid = calendarGridRef.current
+    const selectionPanel = selectionPanelRef.current
+
+    if (calendarGrid === null || selectionPanel === null) {
+      setSelectionPanelLayout((current) =>
+        current === 'unknown' ? current : 'unknown'
+      )
+      return
+    }
+
+    const gridRect = calendarGrid.getBoundingClientRect()
+    const panelRect = selectionPanel.getBoundingClientRect()
+
+    if (
+      gridRect.width <= 0 ||
+      gridRect.height <= 0 ||
+      panelRect.width <= 0 ||
+      panelRect.height <= 0
+    ) {
+      setSelectionPanelLayout((current) =>
+        current === 'unknown' ? current : 'unknown'
+      )
+      return
+    }
+
+    const nextLayout =
+      panelRect.left >= gridRect.right - layoutTolerancePixels &&
+      panelRect.top < gridRect.bottom - layoutTolerancePixels
+        ? 'beside'
+        : 'below'
+
+    setSelectionPanelLayout((current) =>
+      current === nextLayout ? current : nextLayout
+    )
+  }, [activeTab])
+
+  useBrowserLayoutEffect(measureSelectionPanelPlacement, [
+    measureSelectionPanelPlacement,
+  ])
+
+  useBrowserLayoutEffect(() => {
+    if (activeTab !== 'calendar') {
+      return
+    }
+
+    const calendarGrid = calendarGridRef.current
+    if (calendarGrid === null) {
+      return
+    }
+
+    let animationFrameId: number | null = null
+    const scheduleMeasurement = () => {
+      if (animationFrameId !== null) {
+        window.cancelAnimationFrame(animationFrameId)
+      }
+
+      if (typeof window.requestAnimationFrame !== 'function') {
+        measureSelectionPanelPlacement()
+        return
+      }
+
+      animationFrameId = window.requestAnimationFrame(() => {
+        animationFrameId = null
+        measureSelectionPanelPlacement()
+      })
+    }
+
+    const resizeObserver =
+      typeof ResizeObserver === 'undefined'
+        ? null
+        : new ResizeObserver(scheduleMeasurement)
+
+    resizeObserver?.observe(calendarGrid)
+    window.addEventListener('resize', scheduleMeasurement)
+    window.addEventListener('orientationchange', scheduleMeasurement)
+
+    return () => {
+      if (animationFrameId !== null) {
+        window.cancelAnimationFrame(animationFrameId)
+      }
+
+      resizeObserver?.disconnect()
+      window.removeEventListener('resize', scheduleMeasurement)
+      window.removeEventListener('orientationchange', scheduleMeasurement)
+    }
+  }, [activeTab, measureSelectionPanelPlacement])
 
   const clearSelection = useCallback(() => {
     setSelectedRange(null)
@@ -938,7 +1048,11 @@ export function CalendarView({
                 ))}
               </div>
 
-              <div className="grid grid-cols-7 gap-1" data-calendar-grid="true">
+              <div
+                ref={calendarGridRef}
+                className="grid grid-cols-7 gap-1"
+                data-calendar-grid="true"
+              >
                 {dayCells.map((day) => {
                   const summary = capacityByDate.get(day.dateIso) ?? {
                     total: 0,
@@ -987,7 +1101,9 @@ export function CalendarView({
                           : null,
                         isDragBoundary ? 'ring-primary/30 ring-1' : null,
                         isToday ? 'calendar-today-indicator' : null,
-                        hasSelectionJump ? 'pb-10' : null
+                        hasSelectionJump && selectionPanelLayout === 'below'
+                          ? 'pb-10'
+                          : null
                       )}
                       data-day-cell="true"
                       data-date={day.dateIso}
@@ -1085,7 +1201,7 @@ export function CalendarView({
                         </div>
                       ) : null}
 
-                      {hasSelectionJump ? (
+                      {hasSelectionJump && selectionPanelLayout === 'below' ? (
                         <Button
                           type="button"
                           variant="secondary"
@@ -1123,6 +1239,7 @@ export function CalendarView({
               data-selection-overlap-count={
                 selectionDetails?.overlappingBookings.length
               }
+              data-selection-layout={selectionPanelLayout}
               tabIndex={-1}
             >
               <CardHeader className="pb-4">
@@ -1161,7 +1278,10 @@ export function CalendarView({
                           ? 'Selected day'
                           : 'Selected range'}
                       </p>
-                      <p className="text-base font-semibold">
+                      <p
+                        className="text-base font-semibold"
+                        id="calendar-selection-range-summary"
+                      >
                         {formatDisplayRange(
                           displayedSelection.startDate,
                           displayedSelection.endDate
@@ -1174,7 +1294,10 @@ export function CalendarView({
                       </p>
                     </div>
 
-                    <div className="border-border/80 bg-muted/30 dark:border-primary/50 dark:bg-muted/45 rounded-lg border p-4">
+                    <div
+                      className="border-border/80 bg-muted/30 dark:border-primary/50 dark:bg-muted/45 rounded-lg border p-4"
+                      id="calendar-selection-availability-summary"
+                    >
                       <div className="flex items-start justify-between gap-3">
                         <div className="space-y-1">
                           <p className="text-sm font-medium">
@@ -1304,6 +1427,7 @@ export function CalendarView({
 
                     <Button
                       type="button"
+                      aria-describedby="calendar-selection-range-summary calendar-selection-availability-summary"
                       className="w-full"
                       disabled={selectionCtaDisabled}
                       onClick={() =>

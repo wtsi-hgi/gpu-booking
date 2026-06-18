@@ -132,7 +132,7 @@ async def create_booking(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Start date must be before end date",
         )
-    if booking.start_date <= date.today():
+    if not user.is_admin and booking.start_date <= date.today():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Start date must be in the future",

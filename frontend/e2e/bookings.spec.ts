@@ -259,9 +259,7 @@ test.describe('bookings flows', () => {
       monthDates.focusPlusFour
     )
 
-    await page
-      .getByRole('button', { name: /create booking for selection/i })
-      .click()
+    await page.getByRole('button', { name: /^Create Booking$/ }).click()
     await expect(page).toHaveURL(
       new RegExp(
         `/bookings/new\\?start=${monthDates.focusPlusOne}&end=${monthDates.focusPlusFour}`
@@ -315,6 +313,118 @@ test.describe('bookings flows', () => {
     )
   })
 
+  test('hides the calendar selection Details button when the side panel is already visible', async ({
+    page,
+  }) => {
+    const dates = getCurrentMonthInteractionDates()
+
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await gotoPath(page, '/bookings')
+    await switchUser(page, 'researcher@example.com')
+
+    await dragAcrossDays(
+      page,
+      getDayCell(page, dates.focusPlusOne),
+      getDayCell(page, dates.focusPlusFour)
+    )
+
+    const calendarGrid = page.locator('[data-calendar-grid="true"]')
+    const selectionPanel = page.locator('[data-selection-panel="true"]')
+    const detailsButton = page.locator('[data-selection-jump="true"]')
+
+    await expect(selectionPanel).toHaveAttribute(
+      'data-selection-start',
+      dates.focusPlusOne
+    )
+    await expect(selectionPanel).toHaveAttribute(
+      'data-selection-end',
+      dates.focusPlusFour
+    )
+    await expect(selectionPanel).toBeInViewport()
+
+    const wideGridBox = await calendarGrid.boundingBox()
+    const widePanelBox = await selectionPanel.boundingBox()
+    expect(wideGridBox).not.toBeNull()
+    expect(widePanelBox).not.toBeNull()
+    expect(widePanelBox!.x).toBeGreaterThan(wideGridBox!.x + wideGridBox!.width)
+    await expect(selectionPanel).toHaveAttribute(
+      'data-selection-layout',
+      'beside'
+    )
+    await expect(detailsButton).toBeHidden()
+
+    await page.setViewportSize({ width: 390, height: 900 })
+
+    const narrowGridBox = await calendarGrid.boundingBox()
+    const narrowPanelBox = await selectionPanel.boundingBox()
+    expect(narrowGridBox).not.toBeNull()
+    expect(narrowPanelBox).not.toBeNull()
+    expect(narrowPanelBox!.y).toBeGreaterThan(
+      narrowGridBox!.y + narrowGridBox!.height
+    )
+    await expect(selectionPanel).toHaveAttribute(
+      'data-selection-layout',
+      'below'
+    )
+    await expect(detailsButton).toBeVisible()
+    await expect(
+      page.getByRole('button', { name: /jump to selection details/i })
+    ).toBeVisible()
+  })
+
+  test('uses concise Create Booking CTA text in the wide selection side panel', async ({
+    page,
+  }) => {
+    const dates = getCurrentMonthInteractionDates()
+
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await gotoPath(page, '/bookings')
+    await switchUser(page, 'researcher@example.com')
+
+    await dragAcrossDays(
+      page,
+      getDayCell(page, dates.focusPlusOne),
+      getDayCell(page, dates.focusPlusFour)
+    )
+
+    const calendarGrid = page.locator('[data-calendar-grid="true"]')
+    const selectionPanel = page.locator('[data-selection-panel="true"]')
+    const createButton = selectionPanel.getByRole('button', {
+      name: /^Create Booking$/,
+    })
+
+    await expect(selectionPanel).toHaveAttribute(
+      'data-selection-start',
+      dates.focusPlusOne
+    )
+    await expect(selectionPanel).toHaveAttribute(
+      'data-selection-end',
+      dates.focusPlusFour
+    )
+    await expect(selectionPanel).toHaveAttribute(
+      'data-selection-available',
+      /^\d+$/
+    )
+    await expect(selectionPanel).toBeInViewport()
+
+    const wideGridBox = await calendarGrid.boundingBox()
+    const widePanelBox = await selectionPanel.boundingBox()
+    expect(wideGridBox).not.toBeNull()
+    expect(widePanelBox).not.toBeNull()
+    expect(widePanelBox!.x).toBeGreaterThan(wideGridBox!.x + wideGridBox!.width)
+
+    await expect(createButton).toBeVisible()
+    await expect(createButton).toHaveText('Create Booking')
+    await expect(selectionPanel).not.toContainText(
+      /Create booking for selection/i
+    )
+
+    const overflowPixels = await createButton.evaluate(
+      (button) => button.scrollWidth - button.clientWidth
+    )
+    expect(overflowPixels).toBeLessThanOrEqual(0)
+  })
+
   test('greys out the calendar selection CTA when confirmed bookings leave no hosts available', async ({
     page,
     request,
@@ -356,11 +466,9 @@ test.describe('bookings flows', () => {
     )
 
     const createButton = selectionPanel.getByRole('button', {
-      name: /create booking for selection/i,
+      name: /^Create Booking$/,
     })
-    await expect(createButton).toHaveText(
-      'Create booking for selection (0 hosts available)'
-    )
+    await expect(createButton).toHaveText('Create Booking')
     await expect(createButton).toBeDisabled()
     await expect(createButton).toHaveCSS('opacity', '0.5')
     await expect(createButton).toHaveCSS('pointer-events', 'none')

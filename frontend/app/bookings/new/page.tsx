@@ -45,7 +45,7 @@ export default async function NewBookingPage({
     ? resolvedSearchParams.gpu_host_type_id
     : undefined
 
-  await requireCurrentUser('/bookings/new')
+  const user = await requireCurrentUser('/bookings/new')
   const [gpuHostTypes, workflowTypes] = await Promise.all([
     getGpuHostTypes(),
     getWorkflowTypes(),
@@ -59,6 +59,7 @@ export default async function NewBookingPage({
         initialStartDate={startDate}
         initialEndDate={endDate}
         initialGpuHostTypeId={gpuHostTypeId}
+        isAdmin={user.is_admin}
       />
     </main>
   )

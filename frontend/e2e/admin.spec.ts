@@ -1,3 +1,6 @@
+import { mkdir } from 'node:fs/promises'
+import path from 'node:path'
+
 import { expect, test, type Locator, type Page } from '@playwright/test'
 
 import {
@@ -12,6 +15,15 @@ import {
 function uniqueName(prefix: string): string {
   return `${prefix} ${Date.now()}-${Math.floor(Math.random() * 1000)}`
 }
+
+const adminBookingDrawerToastPostfixScreenshotPath = path.resolve(
+  __dirname,
+  '..',
+  '..',
+  '.tmp',
+  'agent',
+  'admin-booking-drawer-toast-close-postfix.png'
+)
 
 function getGpuHostTypeRow(page: Page, label: string): Locator {
   return page
@@ -41,6 +53,30 @@ test.describe('admin flows', () => {
     ).toBeVisible()
     await expect(page.getByText('0 pending bookings')).toBeVisible()
     await expect(
+      page.getByRole('link', {
+        name: /Manage Bookings.*0 pending bookings.*0 confirmed bookings this month/i,
+      })
+    ).toBeVisible()
+    await expect(
+      page.getByRole('link', {
+        name: /GPU Host Types.*4 GPU host types configured/i,
+      })
+    ).toBeVisible()
+    await expect(
+      page.getByRole('link', {
+        name: /Workflow Types.*4 workflow types configured/i,
+      })
+    ).toBeVisible()
+    await expect(
+      page.getByText('Pending Bookings', { exact: true })
+    ).toHaveCount(0)
+    await expect(
+      page.getByText('Confirmed This Month', { exact: true })
+    ).toHaveCount(0)
+    await expect(
+      page.getByText('GPU Host Types Configured', { exact: true })
+    ).toHaveCount(0)
+    await expect(
       page.getByRole('link', { name: 'Bookings', exact: true })
     ).toHaveAttribute('href', '/bookings')
 
@@ -49,20 +85,33 @@ test.describe('admin flows', () => {
     await expect(
       page.getByRole('heading', { name: 'Manage Bookings' })
     ).toBeVisible()
+    await expect(
+      page.getByRole('link', { name: 'Admin Dashboard' })
+    ).toHaveAttribute('href', '/admin')
+    await page.getByRole('link', { name: 'Admin Dashboard' }).click()
+    await expect(page).toHaveURL(/\/admin$/)
 
-    await page.goto('/admin')
     await page.getByRole('link', { name: /GPU Host Types/i }).click()
     await expect(page).toHaveURL(/\/admin\/gpu-host-types$/)
     await expect(
       page.getByRole('heading', { name: 'Manage GPU Host Types' })
     ).toBeVisible()
+    await expect(
+      page.getByRole('link', { name: 'Admin Dashboard' })
+    ).toHaveAttribute('href', '/admin')
+    await page.getByRole('link', { name: 'Admin Dashboard' }).click()
+    await expect(page).toHaveURL(/\/admin$/)
 
-    await page.goto('/admin')
     await page.getByRole('link', { name: /Workflow Types/i }).click()
     await expect(page).toHaveURL(/\/admin\/workflow-types$/)
     await expect(
       page.getByRole('heading', { name: 'Manage Workflow Types' })
     ).toBeVisible()
+    await expect(
+      page.getByRole('link', { name: 'Admin Dashboard' })
+    ).toHaveAttribute('href', '/admin')
+    await page.getByRole('link', { name: 'Admin Dashboard' }).click()
+    await expect(page).toHaveURL(/\/admin$/)
   })
 
   test('navigates from the admin dashboard into booking management and updates a booking', async ({
@@ -133,6 +182,69 @@ test.describe('admin flows', () => {
     await expect(
       page.locator(`[data-booking-detail-id="${booking.id}"]`)
     ).toContainText(reservationName)
+  })
+
+  test('keeps admin booking drawer Close usable while update success toast is visible', async ({
+    page,
+    request,
+  }) => {
+    const projectName = uniqueName('PW Drawer Toast Regression')
+    const booking = await createBooking(request, 'drawer-toast@example.com', {
+      endDate: getIsoDateOffset(12),
+      hostCount: 1,
+      projectGrantNumber: 'CC-DRAWER-TOAST',
+      projectName,
+      projectPi: 'Dr Drawer Toast',
+      startDate: getIsoDateOffset(11),
+      technicalLead: 'Drawer Toast Lead',
+    })
+
+    await gotoPath(page, '/admin/bookings')
+    await switchUser(page, 'admin@example.com', true)
+    await page.getByLabel('Search').fill(projectName)
+    await expect(getBookingRow(page, booking.id)).toBeVisible()
+    await getBookingRow(page, booking.id).click()
+
+    const sidePanel = page.getByTestId('admin-booking-side-panel')
+    const closeButton = sidePanel.getByRole('button', { name: 'Close' })
+    await expect(sidePanel).toBeVisible()
+    await expect(closeButton).toBeVisible()
+
+    await sidePanel.getByLabel('Project PI').fill('Dr Drawer Toast Edited')
+    await expect(page.getByText('Booking updated successfully.')).toHaveCount(0)
+
+    await sidePanel.getByLabel('Admin Notes').fill('Saved with toast visible')
+    await sidePanel.getByRole('button', { name: 'Save' }).click()
+    await expect(page.getByText('Booking updated successfully.')).toBeVisible()
+
+    await sidePanel.evaluate((panel) => {
+      panel.scrollTop = 0
+    })
+    await expect(closeButton).toBeVisible()
+
+    const elementAtCloseCenterText = await closeButton.evaluate((button) => {
+      const rect = button.getBoundingClientRect()
+      const topElement = document.elementFromPoint(
+        rect.left + rect.width / 2,
+        rect.top + rect.height / 2
+      )
+
+      return topElement?.textContent?.trim() ?? ''
+    })
+
+    expect(elementAtCloseCenterText).not.toContain(
+      'Booking updated successfully.'
+    )
+
+    await mkdir(path.dirname(adminBookingDrawerToastPostfixScreenshotPath), {
+      recursive: true,
+    })
+    await page.screenshot({
+      fullPage: true,
+      path: adminBookingDrawerToastPostfixScreenshotPath,
+    })
+    await closeButton.click()
+    await expect(sidePanel).toHaveCount(0)
   })
 
   test('shows an error when an admin confirmation would exceed capacity', async ({

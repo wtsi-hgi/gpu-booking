@@ -8,25 +8,65 @@ import {
 } from '@/components/ui/card'
 import { backendJson } from '@/lib/backend-client'
 import { bookingListSchema } from '@/lib/booking-contracts'
-import { gpuHostTypeListSchema } from '@/lib/admin-contracts'
+import {
+  gpuHostTypeListSchema,
+  workflowTypeListSchema,
+} from '@/lib/admin-contracts'
 
-const adminSections = [
-  {
-    title: 'Manage Bookings',
-    description: 'Review and update booking requests.',
-    href: '/admin/bookings',
-  },
-  {
-    title: 'GPU Host Types',
-    description: 'Configure host shapes and availability.',
-    href: '/admin/gpu-host-types',
-  },
-  {
-    title: 'Workflow Types',
-    description: 'Maintain available workflow categories.',
-    href: '/admin/workflow-types',
-  },
-]
+type SummaryStats = {
+  pendingBookings: number
+  confirmedBookingsThisMonth: number
+  gpuHostTypesConfigured: number
+  workflowTypesConfigured: number
+}
+
+function pluralize(count: number, singular: string, plural: string): string {
+  return `${count} ${count === 1 ? singular : plural}`
+}
+
+function getAdminSections(stats: SummaryStats) {
+  const pendingBookings = pluralize(
+    stats.pendingBookings,
+    'pending booking',
+    'pending bookings'
+  )
+  const confirmedBookings = pluralize(
+    stats.confirmedBookingsThisMonth,
+    'confirmed booking',
+    'confirmed bookings'
+  )
+  const gpuHostTypes = pluralize(
+    stats.gpuHostTypesConfigured,
+    'GPU host type',
+    'GPU host types'
+  )
+  const workflowTypes = pluralize(
+    stats.workflowTypesConfigured,
+    'workflow type',
+    'workflow types'
+  )
+
+  return [
+    {
+      title: 'Manage Bookings',
+      description: 'Review and update booking requests.',
+      summary: `${pendingBookings}, ${confirmedBookings} this month`,
+      href: '/admin/bookings',
+    },
+    {
+      title: 'GPU Host Types',
+      description: 'Configure host shapes and availability.',
+      summary: `${gpuHostTypes} configured`,
+      href: '/admin/gpu-host-types',
+    },
+    {
+      title: 'Workflow Types',
+      description: 'Maintain available workflow categories.',
+      summary: `${workflowTypes} configured`,
+      href: '/admin/workflow-types',
+    },
+  ]
+}
 
 function toDateParam(value: Date): string {
   return value.toISOString().slice(0, 10)
@@ -51,34 +91,43 @@ async function loadSummaryStats() {
     pendingBookingsRequest,
     confirmedBookingsRequest,
     gpuHostTypesRequest,
+    workflowTypesRequest,
   ] = await Promise.all([
+    buildRequestInitWithAuth(),
     buildRequestInitWithAuth(),
     buildRequestInitWithAuth(),
     buildRequestInitWithAuth(),
   ])
 
-  const [pendingBookings, confirmedBookings, gpuHostTypes] = await Promise.all([
-    backendJson(
-      '/api/v1/bookings?status=unconfirmed',
-      bookingListSchema,
-      pendingBookingsRequest
-    ),
-    backendJson(
-      `/api/v1/bookings?status=confirmed&start_date=${monthBounds.start}&end_date=${monthBounds.end}`,
-      bookingListSchema,
-      confirmedBookingsRequest
-    ),
-    backendJson(
-      '/api/v1/gpu-host-types',
-      gpuHostTypeListSchema,
-      gpuHostTypesRequest
-    ),
-  ])
+  const [pendingBookings, confirmedBookings, gpuHostTypes, workflowTypes] =
+    await Promise.all([
+      backendJson(
+        '/api/v1/bookings?status=unconfirmed',
+        bookingListSchema,
+        pendingBookingsRequest
+      ),
+      backendJson(
+        `/api/v1/bookings?status=confirmed&start_date=${monthBounds.start}&end_date=${monthBounds.end}`,
+        bookingListSchema,
+        confirmedBookingsRequest
+      ),
+      backendJson(
+        '/api/v1/gpu-host-types',
+        gpuHostTypeListSchema,
+        gpuHostTypesRequest
+      ),
+      backendJson(
+        '/api/v1/workflow-types',
+        workflowTypeListSchema,
+        workflowTypesRequest
+      ),
+    ])
 
   return {
     pendingBookings: pendingBookings.length,
     confirmedBookingsThisMonth: confirmedBookings.length,
     gpuHostTypesConfigured: gpuHostTypes.length,
+    workflowTypesConfigured: workflowTypes.length,
   }
 }
 
@@ -97,6 +146,7 @@ export default async function AdminDashboardPage() {
   }
 
   const stats = await loadSummaryStats()
+  const adminSections = getAdminSections(stats)
 
   return (
     <main className="container mx-auto max-w-6xl space-y-8 px-4 py-10">
@@ -117,53 +167,14 @@ export default async function AdminDashboardPage() {
                 <CardTitle className="text-xl">{section.title}</CardTitle>
                 <CardDescription>{section.description}</CardDescription>
               </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground text-sm">
+                  {section.summary}
+                </p>
+              </CardContent>
             </Card>
           </a>
         ))}
-      </section>
-
-      <section className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Pending Bookings</CardTitle>
-            <CardDescription>
-              Total booking requests awaiting confirmation.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-semibold">
-              {stats.pendingBookings} pending bookings
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Confirmed This Month</CardTitle>
-            <CardDescription>
-              Bookings confirmed in the current month.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-semibold">
-              {stats.confirmedBookingsThisMonth} confirmed bookings this month
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">GPU Host Types Configured</CardTitle>
-            <CardDescription>
-              Number of GPU host types available in the catalog.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-semibold">
-              {stats.gpuHostTypesConfigured} GPU host types configured
-            </p>
-          </CardContent>
-        </Card>
       </section>
     </main>
   )

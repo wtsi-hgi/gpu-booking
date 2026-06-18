@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
 
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { createInitialBookingFormValues } from '@/lib/booking-state'
@@ -40,6 +41,21 @@ vi.mock('@/lib/server-auth', () => ({
 }))
 
 import NewBookingPage from '@/app/bookings/new/page'
+
+function formatDateInputValue(date: Date) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+
+  return `${year}-${month}-${day}`
+}
+
+function getRelativeDate(baseDate: Date, daysFromBaseDate: number) {
+  const nextDate = new Date(baseDate)
+  nextDate.setDate(nextDate.getDate() + daysFromBaseDate)
+
+  return formatDateInputValue(nextDate)
+}
 
 beforeEach(() => {
   document.body.innerHTML = ''
@@ -122,5 +138,43 @@ describe('new booking page - F2 query prefill', () => {
 
     expect(startDateInput.value).toBe('2026-04-01')
     expect(endDateInput.value).toBe('2026-04-05')
+  })
+
+  it('lets an admin submit a past booking range from the new booking page', async () => {
+    const user = userEvent.setup()
+    const adminPastBookingBaseDate = new Date(2024, 0, 15)
+    const pastStartDate = getRelativeDate(adminPastBookingBaseDate, -2)
+    const pastEndDate = getRelativeDate(adminPastBookingBaseDate, -1)
+
+    mocks.requireCurrentUserMock.mockResolvedValueOnce({
+      email: 'admin@example.com',
+      is_admin: true,
+      auth_mode: 'insecure',
+    })
+
+    render(
+      await NewBookingPage({
+        searchParams: Promise.resolve({
+          start: pastStartDate,
+          end: pastEndDate,
+        }),
+      })
+    )
+
+    await user.selectOptions(screen.getByLabelText('GPU Host Type'), '1')
+    await user.selectOptions(screen.getByLabelText('Host Count'), '1')
+    await user.selectOptions(screen.getByLabelText('Workflow Type'), '1')
+    await user.type(screen.getByLabelText('Cost Code'), 'CC-PAST-ADMIN')
+    await user.click(screen.getByRole('button', { name: 'Create Booking' }))
+
+    await waitFor(() => {
+      expect(mocks.validateBookingMock).toHaveBeenCalledTimes(1)
+      expect(mocks.createBookingMock).toHaveBeenCalledTimes(1)
+    })
+
+    expect(screen.queryByText('Start date must be in the future')).toBeNull()
+    expect(
+      (mocks.createBookingMock.mock.calls[0][1] as FormData).get('start_date')
+    ).toBe(pastStartDate)
   })
 })

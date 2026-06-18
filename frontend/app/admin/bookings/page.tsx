@@ -1,4 +1,5 @@
 import { getBookings, getGpuHostTypes, getWorkflowTypes } from '@/app/actions'
+import { AdminPageHeader } from '@/components/admin-page-header'
 import { AdminBookingPanel } from '@/components/admin-booking-panel'
 import { requireCurrentUser } from '@/lib/server-auth'
 
@@ -24,14 +25,10 @@ export default async function AdminBookingsPage() {
 
   return (
     <main className="container mx-auto max-w-7xl space-y-4 px-4 py-10">
-      <header className="space-y-2">
-        <h1 className="text-3xl font-semibold tracking-tight">
-          Manage Bookings
-        </h1>
-        <p className="text-muted-foreground">
-          Review and edit booking requests across all users.
-        </p>
-      </header>
+      <AdminPageHeader
+        title="Manage Bookings"
+        description="Review and edit booking requests across all users."
+      />
 
       <AdminBookingPanel
         initialBookings={bookings}

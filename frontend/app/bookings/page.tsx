@@ -67,6 +67,7 @@ export default async function BookingsPage() {
         initialBookings={bookings}
         gpuHostTypes={gpuHostTypes}
         currentUserEmail={currentUser.email}
+        currentUserIsAdmin={currentUser.is_admin}
       />
     </main>
   )

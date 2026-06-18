@@ -337,7 +337,11 @@ async def test_create_booking_returns_201_with_unconfirmed_status_and_host_shape
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://testserver") as client:
-        response = await client.post("/api/v1/bookings", json=payload)
+        response = await client.post(
+            "/api/v1/bookings",
+            json=payload,
+            headers={"X-Dev-User": "non-admin@example.com"},
+        )
 
     assert response.status_code == 201
     body = response.json()
@@ -361,10 +365,46 @@ async def test_create_booking_rejects_start_date_in_past() -> None:
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://testserver") as client:
-        response = await client.post("/api/v1/bookings", json=payload)
+        response = await client.post(
+            "/api/v1/bookings",
+            json=payload,
+            headers={"X-Dev-User": "non-admin@example.com"},
+        )
 
     assert response.status_code == 400
     assert response.json() == {"detail": "Start date must be in the future"}
+
+
+@pytest.mark.anyio
+async def test_create_booking_allows_admin_start_date_in_past() -> None:
+    host_type_id, workflow_type_id = await _get_reference_ids()
+    past_start = _date_string(-2)
+    past_end = _date_string(-1)
+    payload = _booking_payload(
+        gpu_host_type_id=host_type_id,
+        workflow_type_id=workflow_type_id,
+        start_date=past_start,
+        end_date=past_end,
+    )
+
+    async with async_session_factory() as session:
+        session.add(Admin(email="admin@example.com"))
+        await session.commit()
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.post(
+            "/api/v1/bookings",
+            json=payload,
+            headers={"X-Dev-User": "admin@example.com"},
+        )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["user_email"] == "admin@example.com"
+    assert body["start_date"] == past_start
+    assert body["end_date"] == past_end
+    assert body["status"] == "unconfirmed"
 
 
 @pytest.mark.anyio

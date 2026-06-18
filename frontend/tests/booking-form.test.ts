@@ -90,7 +90,8 @@ function createAvailability(
 function renderBookingForm(
   initialStartDate?: string,
   initialEndDate?: string,
-  nextGpuHostTypes: GpuHostType[] = gpuHostTypes
+  nextGpuHostTypes: GpuHostType[] = gpuHostTypes,
+  isAdmin = false
 ) {
   return render(
     createElement(BookingForm, {
@@ -98,6 +99,7 @@ function renderBookingForm(
       workflowTypes,
       initialStartDate,
       initialEndDate,
+      isAdmin,
     })
   )
 }
@@ -845,6 +847,32 @@ describe('booking form - F3 acceptance coverage', () => {
     expect(validateBookingMock).not.toHaveBeenCalled()
     expect(createBookingMock).not.toHaveBeenCalled()
     expect(screen.queryByRole('button', { name: 'Confirm' })).toBeNull()
+  })
+
+  it('allows admins to submit a booking whose start date is not in the future', async () => {
+    const user = userEvent.setup()
+    const startDate = getRelativeDate(-2)
+    const endDate = getRelativeDate(-1)
+
+    renderBookingForm(undefined, undefined, gpuHostTypes, true)
+    await fillRequiredFieldsWithDates(user, startDate, endDate)
+
+    await user.click(screen.getByRole('button', { name: 'Create Booking' }))
+
+    await waitFor(() => {
+      expect(validateBookingMock).toHaveBeenCalledTimes(1)
+      expect(createBookingMock).toHaveBeenCalledTimes(1)
+    })
+
+    expect(screen.queryByText('Start date must be in the future')).toBeNull()
+    expect(
+      (validateBookingMock.mock.calls[0][0] as FormData).get('start_date')
+    ).toBe(startDate)
+    expect(
+      getSubmittedBookingFormValues(
+        createBookingMock.mock.calls[0][1] as FormData
+      ).start_date
+    ).toBe(startDate)
   })
 
   it('clears start-date-in-the-future feedback when the form changes', async () => {

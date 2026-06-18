@@ -52,6 +52,7 @@ type BookingFormProps = {
   initialStartDate?: string
   initialEndDate?: string
   initialGpuHostTypeId?: string
+  isAdmin?: boolean
 }
 
 type ValidationFeedback = {
@@ -333,13 +334,14 @@ function getValidationFeedback(result: BookingValidation | null): {
 }
 
 function getClientDateValidationFeedback(
-  formData: FormData
+  formData: FormData,
+  allowPastStartDate = false
 ): FieldValidationFeedback {
   let feedback: FieldValidationFeedback = {}
   const startDate = (formData.get('start_date') ?? '').toString().trim()
   const endDate = (formData.get('end_date') ?? '').toString().trim()
 
-  if (startDate && startDate <= getTodayInputValue()) {
+  if (!allowPastStartDate && startDate && startDate <= getTodayInputValue()) {
     feedback = addValidationFeedback(
       feedback,
       'start_date',
@@ -399,6 +401,7 @@ export function BookingForm({
   initialStartDate,
   initialEndDate,
   initialGpuHostTypeId,
+  isAdmin = false,
 }: BookingFormProps) {
   const router = useRouter()
   const [state, formAction, pending] = useActionState(
@@ -841,8 +844,10 @@ export function BookingForm({
       return
     }
 
-    const nextClientValidationFeedback =
-      getClientDateValidationFeedback(formData)
+    const nextClientValidationFeedback = getClientDateValidationFeedback(
+      formData,
+      isAdmin
+    )
 
     if (Object.keys(nextClientValidationFeedback).length > 0) {
       scheduleScrollRestore()

@@ -48,6 +48,7 @@ type DashboardFixture = {
   pendingCount?: number
   confirmedCount?: number
   gpuHostTypeCount?: number
+  workflowTypeCount?: number
 }
 
 function mockDashboardBackendResponses({
@@ -55,6 +56,7 @@ function mockDashboardBackendResponses({
   pendingCount = 0,
   confirmedCount = 0,
   gpuHostTypeCount = 0,
+  workflowTypeCount = 0,
 }: DashboardFixture) {
   const fetchMock = vi.fn(async (input: string | URL) => {
     const url = new URL(String(input))
@@ -114,6 +116,21 @@ function mockDashboardBackendResponses({
       })
     }
 
+    if (url.pathname === '/api/v1/workflow-types') {
+      const workflowTypes = Array.from(
+        { length: workflowTypeCount },
+        (_, index) => ({
+          id: index + 1,
+          name: `Workflow ${index + 1}`,
+        })
+      )
+
+      return new Response(JSON.stringify(workflowTypes), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      })
+    }
+
     return new Response('Not Found', { status: 404 })
   })
 
@@ -132,6 +149,7 @@ describe('admin dashboard page', () => {
       pendingCount: 2,
       confirmedCount: 3,
       gpuHostTypeCount: 4,
+      workflowTypeCount: 5,
     })
 
     const markup = renderToStaticMarkup(await AdminDashboardPage())
@@ -143,17 +161,24 @@ describe('admin dashboard page', () => {
     expect(markup).not.toContain('href="/admin/memory-options"')
   })
 
-  it('shows pending booking summary for admin users', async () => {
+  it('embeds summary stats in the three clickable management cards', async () => {
     mockDashboardBackendResponses({
       isAdmin: true,
       pendingCount: 5,
       confirmedCount: 1,
       gpuHostTypeCount: 2,
+      workflowTypeCount: 3,
     })
 
     const markup = renderToStaticMarkup(await AdminDashboardPage())
 
     expect(markup).toContain('5 pending bookings')
+    expect(markup).toContain('1 confirmed booking this month')
+    expect(markup).toContain('2 GPU host types configured')
+    expect(markup).toContain('3 workflow types configured')
+    expect(markup).not.toContain('Pending Bookings')
+    expect(markup).not.toContain('Confirmed This Month')
+    expect(markup).not.toContain('GPU Host Types Configured')
   })
 
   it('shows an access denied message for non-admin users', async () => {
