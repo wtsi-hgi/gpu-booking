@@ -546,9 +546,7 @@ export function CalendarView({
     }
 
     const calendarGrid = calendarGridRef.current
-    const selectionPanel = selectionPanelRef.current
-
-    if (calendarGrid === null || selectionPanel === null) {
+    if (calendarGrid === null) {
       return
     }
 
@@ -575,7 +573,6 @@ export function CalendarView({
         : new ResizeObserver(scheduleMeasurement)
 
     resizeObserver?.observe(calendarGrid)
-    resizeObserver?.observe(selectionPanel)
     window.addEventListener('resize', scheduleMeasurement)
     window.addEventListener('orientationchange', scheduleMeasurement)
 

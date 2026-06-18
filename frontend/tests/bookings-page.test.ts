@@ -176,6 +176,64 @@ function mockCalendarSelectionLayout(placement: 'beside' | 'below') {
     })
 }
 
+function mockSynchronousAnimationFrame() {
+  vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+    callback(0)
+    return 1
+  })
+  vi.stubGlobal('cancelAnimationFrame', () => undefined)
+}
+
+function mockResizeObserver() {
+  const observers: TestResizeObserver[] = []
+
+  class TestResizeObserver implements ResizeObserver {
+    private readonly callback: ResizeObserverCallback
+    private readonly observedElements = new Set<Element>()
+
+    constructor(callback: ResizeObserverCallback) {
+      this.callback = callback
+      observers.push(this)
+    }
+
+    observe(element: Element): void {
+      this.observedElements.add(element)
+    }
+
+    unobserve(element: Element): void {
+      this.observedElements.delete(element)
+    }
+
+    disconnect(): void {
+      this.observedElements.clear()
+    }
+
+    getObservedElements(): Element[] {
+      return [...this.observedElements]
+    }
+
+    emitResize(element: Element): void {
+      if (!this.observedElements.has(element)) {
+        return
+      }
+
+      this.callback([], this)
+    }
+  }
+
+  vi.stubGlobal('ResizeObserver', TestResizeObserver)
+
+  return {
+    emitResize: (element: Element) => {
+      for (const observer of observers) {
+        observer.emitResize(element)
+      }
+    },
+    getObservedElements: () =>
+      observers.flatMap((observer) => observer.getObservedElements()),
+  }
+}
+
 describe('bookings page - F1 calendar grid', () => {
   beforeEach(() => {
     vi.useFakeTimers()
@@ -230,6 +288,7 @@ describe('bookings page - F1 calendar grid', () => {
   afterEach(() => {
     cleanup()
     document.documentElement.classList.remove('dark')
+    vi.unstubAllGlobals()
     vi.useRealTimers()
   })
 
@@ -1498,6 +1557,73 @@ describe('bookings page - F1 calendar grid', () => {
       expect(selectionPanel?.getAttribute('data-selection-layout')).toBe(
         'below'
       )
+    } finally {
+      getBoundingClientRectMock.mockRestore()
+    }
+  })
+
+  it('ignores selection panel ResizeObserver notifications while drag content changes', async () => {
+    mocks.getBookingsMock.mockResolvedValueOnce([
+      buildBookingWithOverrides(1, {
+        start_date: '2026-03-10',
+        end_date: '2026-03-10',
+      }),
+      buildBookingWithOverrides(2, {
+        start_date: '2026-03-12',
+        end_date: '2026-03-12',
+        user_email: 'teammate@example.com',
+      }),
+    ])
+    mockSynchronousAnimationFrame()
+    const resizeObserverMock = mockResizeObserver()
+    const getBoundingClientRectMock = mockCalendarSelectionLayout('below')
+    const { default: BookingsPage } = await import('@/app/bookings/page')
+
+    try {
+      render(await BookingsPage())
+
+      const calendarGrid = document.querySelector('[data-calendar-grid="true"]')
+      const selectionPanel = document.querySelector(
+        '[data-selection-panel="true"]'
+      )
+      const startDayCell = document.querySelector('[data-date="2026-03-10"]')
+      const endDayCell = document.querySelector('[data-date="2026-03-12"]')
+
+      expect(calendarGrid).toBeTruthy()
+      expect(selectionPanel).toBeTruthy()
+      expect(startDayCell).toBeTruthy()
+      expect(endDayCell).toBeTruthy()
+
+      const observedElements = resizeObserverMock.getObservedElements()
+      expect(observedElements).toContain(calendarGrid)
+      expect(observedElements).not.toContain(selectionPanel)
+      expect(selectionPanel?.getAttribute('data-selection-layout')).toBe(
+        'below'
+      )
+
+      getBoundingClientRectMock.mockClear()
+
+      fireEvent.mouseDown(startDayCell as Element)
+      expect(selectionPanel?.getAttribute('data-selection-overlap-count')).toBe(
+        '1'
+      )
+
+      fireEvent.mouseEnter(endDayCell as Element)
+      expect(selectionPanel?.getAttribute('data-selection-overlap-count')).toBe(
+        '2'
+      )
+
+      act(() => {
+        resizeObserverMock.emitResize(selectionPanel as Element)
+      })
+
+      expect(getBoundingClientRectMock).not.toHaveBeenCalled()
+
+      act(() => {
+        resizeObserverMock.emitResize(calendarGrid as Element)
+      })
+
+      expect(getBoundingClientRectMock).toHaveBeenCalled()
     } finally {
       getBoundingClientRectMock.mockRestore()
     }
