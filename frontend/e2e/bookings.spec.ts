@@ -347,6 +347,10 @@ test.describe('bookings flows', () => {
     expect(wideGridBox).not.toBeNull()
     expect(widePanelBox).not.toBeNull()
     expect(widePanelBox!.x).toBeGreaterThan(wideGridBox!.x + wideGridBox!.width)
+    await expect(selectionPanel).toHaveAttribute(
+      'data-selection-layout',
+      'beside'
+    )
     await expect(detailsButton).toBeHidden()
 
     await page.setViewportSize({ width: 390, height: 900 })
@@ -357,6 +361,10 @@ test.describe('bookings flows', () => {
     expect(narrowPanelBox).not.toBeNull()
     expect(narrowPanelBox!.y).toBeGreaterThan(
       narrowGridBox!.y + narrowGridBox!.height
+    )
+    await expect(selectionPanel).toHaveAttribute(
+      'data-selection-layout',
+      'below'
     )
     await expect(detailsButton).toBeVisible()
     await expect(

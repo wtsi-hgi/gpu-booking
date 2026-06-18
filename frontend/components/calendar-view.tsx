@@ -1,6 +1,13 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
@@ -61,7 +68,12 @@ type SeededState<T> = {
   data: T
 }
 
+type SelectionPanelLayout = 'unknown' | 'below' | 'beside'
+
 const weekdayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+const layoutTolerancePixels = 1
+const useBrowserLayoutEffect =
+  typeof window === 'undefined' ? useEffect : useLayoutEffect
 
 const monthNameFormatter = new Intl.DateTimeFormat('en-GB', {
   month: 'long',
@@ -375,8 +387,11 @@ export function CalendarView({
   const [dragStartDate, setDragStartDate] = useState<string | null>(null)
   const [dragCurrentDate, setDragCurrentDate] = useState<string | null>(null)
   const [isMonthSelectorOpen, setIsMonthSelectorOpen] = useState(false)
+  const [selectionPanelLayout, setSelectionPanelLayout] =
+    useState<SelectionPanelLayout>('unknown')
   const hasMountedRef = useRef(false)
   const dragMovedRef = useRef(false)
+  const calendarGridRef = useRef<HTMLDivElement>(null)
   const selectionPanelRef = useRef<HTMLDivElement>(null)
   const monthSelectorRef = useRef<HTMLDivElement | null>(null)
 
@@ -476,6 +491,102 @@ export function CalendarView({
       (!currentUserIsAdmin && selectionIncludesPastDate))
   const committedSelectionEndDate =
     dragSelection === null ? selectedRange?.endDate : null
+
+  const measureSelectionPanelPlacement = useCallback(() => {
+    if (activeTab !== 'calendar') {
+      setSelectionPanelLayout((current) =>
+        current === 'unknown' ? current : 'unknown'
+      )
+      return
+    }
+
+    const calendarGrid = calendarGridRef.current
+    const selectionPanel = selectionPanelRef.current
+
+    if (calendarGrid === null || selectionPanel === null) {
+      setSelectionPanelLayout((current) =>
+        current === 'unknown' ? current : 'unknown'
+      )
+      return
+    }
+
+    const gridRect = calendarGrid.getBoundingClientRect()
+    const panelRect = selectionPanel.getBoundingClientRect()
+
+    if (
+      gridRect.width <= 0 ||
+      gridRect.height <= 0 ||
+      panelRect.width <= 0 ||
+      panelRect.height <= 0
+    ) {
+      setSelectionPanelLayout((current) =>
+        current === 'unknown' ? current : 'unknown'
+      )
+      return
+    }
+
+    const nextLayout =
+      panelRect.left >= gridRect.right - layoutTolerancePixels &&
+      panelRect.top < gridRect.bottom - layoutTolerancePixels
+        ? 'beside'
+        : 'below'
+
+    setSelectionPanelLayout((current) =>
+      current === nextLayout ? current : nextLayout
+    )
+  }, [activeTab])
+
+  useBrowserLayoutEffect(measureSelectionPanelPlacement)
+
+  useBrowserLayoutEffect(() => {
+    if (activeTab !== 'calendar') {
+      return
+    }
+
+    const calendarGrid = calendarGridRef.current
+    const selectionPanel = selectionPanelRef.current
+
+    if (calendarGrid === null || selectionPanel === null) {
+      return
+    }
+
+    let animationFrameId: number | null = null
+    const scheduleMeasurement = () => {
+      if (animationFrameId !== null) {
+        window.cancelAnimationFrame(animationFrameId)
+      }
+
+      if (typeof window.requestAnimationFrame !== 'function') {
+        measureSelectionPanelPlacement()
+        return
+      }
+
+      animationFrameId = window.requestAnimationFrame(() => {
+        animationFrameId = null
+        measureSelectionPanelPlacement()
+      })
+    }
+
+    const resizeObserver =
+      typeof ResizeObserver === 'undefined'
+        ? null
+        : new ResizeObserver(scheduleMeasurement)
+
+    resizeObserver?.observe(calendarGrid)
+    resizeObserver?.observe(selectionPanel)
+    window.addEventListener('resize', scheduleMeasurement)
+    window.addEventListener('orientationchange', scheduleMeasurement)
+
+    return () => {
+      if (animationFrameId !== null) {
+        window.cancelAnimationFrame(animationFrameId)
+      }
+
+      resizeObserver?.disconnect()
+      window.removeEventListener('resize', scheduleMeasurement)
+      window.removeEventListener('orientationchange', scheduleMeasurement)
+    }
+  }, [activeTab, measureSelectionPanelPlacement])
 
   const clearSelection = useCallback(() => {
     setSelectedRange(null)
@@ -938,7 +1049,11 @@ export function CalendarView({
                 ))}
               </div>
 
-              <div className="grid grid-cols-7 gap-1" data-calendar-grid="true">
+              <div
+                ref={calendarGridRef}
+                className="grid grid-cols-7 gap-1"
+                data-calendar-grid="true"
+              >
                 {dayCells.map((day) => {
                   const summary = capacityByDate.get(day.dateIso) ?? {
                     total: 0,
@@ -987,7 +1102,9 @@ export function CalendarView({
                           : null,
                         isDragBoundary ? 'ring-primary/30 ring-1' : null,
                         isToday ? 'calendar-today-indicator' : null,
-                        hasSelectionJump ? 'pb-10 xl:pb-2' : null
+                        hasSelectionJump && selectionPanelLayout === 'below'
+                          ? 'pb-10'
+                          : null
                       )}
                       data-day-cell="true"
                       data-date={day.dateIso}
@@ -1085,12 +1202,12 @@ export function CalendarView({
                         </div>
                       ) : null}
 
-                      {hasSelectionJump ? (
+                      {hasSelectionJump && selectionPanelLayout === 'below' ? (
                         <Button
                           type="button"
                           variant="secondary"
                           size="sm"
-                          className="border-primary/15 bg-background/95 absolute right-2 bottom-2 z-10 h-auto rounded-full border px-2.5 py-1 text-[11px] font-semibold shadow-sm backdrop-blur xl:hidden"
+                          className="border-primary/15 bg-background/95 absolute right-2 bottom-2 z-10 h-auto rounded-full border px-2.5 py-1 text-[11px] font-semibold shadow-sm backdrop-blur"
                           aria-label="Jump to selection details"
                           data-selection-jump="true"
                           onMouseDown={(event) => event.stopPropagation()}
@@ -1123,6 +1240,7 @@ export function CalendarView({
               data-selection-overlap-count={
                 selectionDetails?.overlappingBookings.length
               }
+              data-selection-layout={selectionPanelLayout}
               tabIndex={-1}
             >
               <CardHeader className="pb-4">

@@ -139,6 +139,43 @@ function buildDateRange(startDate: string, endDate: string): string[] {
   return dates
 }
 
+function createBoundingRect(
+  x: number,
+  y: number,
+  width: number,
+  height: number
+): DOMRect {
+  return {
+    x,
+    y,
+    width,
+    height,
+    top: y,
+    right: x + width,
+    bottom: y + height,
+    left: x,
+    toJSON: () => ({}),
+  } as DOMRect
+}
+
+function mockCalendarSelectionLayout(placement: 'beside' | 'below') {
+  return vi
+    .spyOn(window.HTMLElement.prototype, 'getBoundingClientRect')
+    .mockImplementation(function (this: HTMLElement) {
+      if (this.getAttribute('data-calendar-grid') === 'true') {
+        return createBoundingRect(24, 220, 900, 620)
+      }
+
+      if (this.getAttribute('data-selection-panel') === 'true') {
+        return placement === 'beside'
+          ? createBoundingRect(948, 220, 352, 500)
+          : createBoundingRect(24, 872, 900, 500)
+      }
+
+      return createBoundingRect(0, 0, 0, 0)
+    })
+}
+
 describe('bookings page - F1 calendar grid', () => {
   beforeEach(() => {
     vi.useFakeTimers()
@@ -1386,39 +1423,87 @@ describe('bookings page - F1 calendar grid', () => {
   })
 
   it('shows a jump-to-details affordance on the committed selection and scrolls to the panel', async () => {
+    const getBoundingClientRectMock = mockCalendarSelectionLayout('below')
     const { default: BookingsPage } = await import('@/app/bookings/page')
-    render(await BookingsPage())
 
-    const startDayCell = document.querySelector('[data-date="2026-03-10"]')
-    const endDayCell = document.querySelector('[data-date="2026-03-14"]')
+    try {
+      render(await BookingsPage())
 
-    expect(startDayCell).toBeTruthy()
-    expect(endDayCell).toBeTruthy()
+      const startDayCell = document.querySelector('[data-date="2026-03-10"]')
+      const endDayCell = document.querySelector('[data-date="2026-03-14"]')
 
-    fireEvent.mouseDown(startDayCell as Element)
-    fireEvent.mouseEnter(endDayCell as Element)
+      expect(startDayCell).toBeTruthy()
+      expect(endDayCell).toBeTruthy()
 
-    expect(
-      screen.queryByRole('button', {
+      fireEvent.mouseDown(startDayCell as Element)
+      fireEvent.mouseEnter(endDayCell as Element)
+
+      expect(
+        screen.queryByRole('button', {
+          name: /jump to selection details/i,
+        })
+      ).toBeNull()
+
+      fireEvent.mouseUp(endDayCell as Element)
+
+      const selectionPanel = document.querySelector(
+        '[data-selection-panel="true"]'
+      )
+      const jumpButton = screen.getByRole('button', {
         name: /jump to selection details/i,
       })
-    ).toBeNull()
 
-    fireEvent.mouseUp(endDayCell as Element)
+      expect(selectionPanel?.getAttribute('data-selection-layout')).toBe(
+        'below'
+      )
+      expect(endDayCell?.contains(jumpButton)).toBe(true)
 
-    const jumpButton = screen.getByRole('button', {
-      name: /jump to selection details/i,
-    })
+      fireEvent.click(jumpButton)
 
-    expect(endDayCell?.contains(jumpButton)).toBe(true)
+      expect(mocks.scrollIntoViewMock).toHaveBeenCalledWith({
+        behavior: 'smooth',
+        block: 'start',
+      })
+      expect(mocks.routerPushMock).not.toHaveBeenCalled()
+    } finally {
+      getBoundingClientRectMock.mockRestore()
+    }
+  })
 
-    fireEvent.click(jumpButton)
+  it('hides the jump-to-details affordance when the selection panel is measured beside the calendar', async () => {
+    const getBoundingClientRectMock = mockCalendarSelectionLayout('beside')
+    const { default: BookingsPage } = await import('@/app/bookings/page')
 
-    expect(mocks.scrollIntoViewMock).toHaveBeenCalledWith({
-      behavior: 'smooth',
-      block: 'start',
-    })
-    expect(mocks.routerPushMock).not.toHaveBeenCalled()
+    try {
+      render(await BookingsPage())
+
+      const startDayCell = document.querySelector('[data-date="2026-03-10"]')
+      const endDayCell = document.querySelector('[data-date="2026-03-14"]')
+
+      expect(startDayCell).toBeTruthy()
+      expect(endDayCell).toBeTruthy()
+
+      fireEvent.mouseDown(startDayCell as Element)
+      fireEvent.mouseEnter(endDayCell as Element)
+      fireEvent.mouseUp(endDayCell as Element)
+
+      const selectionPanel = document.querySelector(
+        '[data-selection-panel="true"]'
+      )
+
+      expect(selectionPanel?.getAttribute('data-selection-layout')).toBe(
+        'beside'
+      )
+      expect(
+        screen.queryByRole('button', {
+          name: /jump to selection details/i,
+        })
+      ).toBeNull()
+      expect(mocks.scrollIntoViewMock).not.toHaveBeenCalled()
+      expect(mocks.routerPushMock).not.toHaveBeenCalled()
+    } finally {
+      getBoundingClientRectMock.mockRestore()
+    }
   })
 
   it('clears the current selection back to the empty state', async () => {
