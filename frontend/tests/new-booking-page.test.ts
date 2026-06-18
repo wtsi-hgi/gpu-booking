@@ -50,9 +50,9 @@ function formatDateInputValue(date: Date) {
   return `${year}-${month}-${day}`
 }
 
-function getRelativeDate(daysFromToday: number) {
-  const nextDate = new Date()
-  nextDate.setDate(nextDate.getDate() + daysFromToday)
+function getRelativeDate(baseDate: Date, daysFromBaseDate: number) {
+  const nextDate = new Date(baseDate)
+  nextDate.setDate(nextDate.getDate() + daysFromBaseDate)
 
   return formatDateInputValue(nextDate)
 }
@@ -142,8 +142,9 @@ describe('new booking page - F2 query prefill', () => {
 
   it('lets an admin submit a past booking range from the new booking page', async () => {
     const user = userEvent.setup()
-    const pastStartDate = getRelativeDate(-2)
-    const pastEndDate = getRelativeDate(-1)
+    const adminPastBookingBaseDate = new Date(2024, 0, 15)
+    const pastStartDate = getRelativeDate(adminPastBookingBaseDate, -2)
+    const pastEndDate = getRelativeDate(adminPastBookingBaseDate, -1)
 
     mocks.requireCurrentUserMock.mockResolvedValueOnce({
       email: 'admin@example.com',
