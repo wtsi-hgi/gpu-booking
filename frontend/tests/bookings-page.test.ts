@@ -665,6 +665,49 @@ describe('bookings page - F1 calendar grid', () => {
     expect(mocks.routerPushMock).not.toHaveBeenCalled()
   })
 
+  it('greys out the selection CTA for normal users when the selected range starts today', async () => {
+    mocks.getCapacityMock.mockResolvedValueOnce([
+      buildCapacity('2026-03-15', 40, 0, 0),
+      buildCapacity('2026-03-16', 40, 0, 0),
+    ])
+
+    const { default: BookingsPage } = await import('@/app/bookings/page')
+    render(await BookingsPage())
+
+    const startDayCell = document.querySelector('[data-date="2026-03-15"]')
+    const endDayCell = document.querySelector('[data-date="2026-03-16"]')
+
+    expect(startDayCell).toBeTruthy()
+    expect(endDayCell).toBeTruthy()
+
+    fireEvent.mouseDown(startDayCell as Element)
+    fireEvent.mouseEnter(endDayCell as Element)
+    fireEvent.mouseUp(endDayCell as Element)
+
+    const selectionPanel = document.querySelector(
+      '[data-selection-panel="true"]'
+    )
+
+    expect(selectionPanel?.getAttribute('data-selection-start')).toBe(
+      '2026-03-15'
+    )
+    expect(selectionPanel?.getAttribute('data-selection-end')).toBe(
+      '2026-03-16'
+    )
+    expect(selectionPanel?.getAttribute('data-selection-available')).toBe('40')
+
+    const selectionButton = screen.getByRole('button', {
+      name: /^Create Booking$/,
+    }) as HTMLButtonElement
+
+    expect(selectionButton.textContent).toBe('Create Booking')
+    expect(selectionButton.disabled).toBe(true)
+
+    fireEvent.click(selectionButton)
+
+    expect(mocks.routerPushMock).not.toHaveBeenCalled()
+  })
+
   it('keeps the selection CTA enabled for admins when the selected range includes a past date', async () => {
     mocks.requireCurrentUserMock.mockResolvedValueOnce({
       email: 'admin@example.com',
@@ -1420,6 +1463,44 @@ describe('bookings page - F1 calendar grid', () => {
         name: /^Create Booking$/,
       })
     ).toBeNull()
+  })
+
+  it('only measures selection panel placement on initial render while dragging', async () => {
+    const getBoundingClientRectMock = mockCalendarSelectionLayout('below')
+    const { default: BookingsPage } = await import('@/app/bookings/page')
+
+    try {
+      render(await BookingsPage())
+
+      const selectionPanel = document.querySelector(
+        '[data-selection-panel="true"]'
+      )
+      expect(selectionPanel?.getAttribute('data-selection-layout')).toBe(
+        'below'
+      )
+
+      getBoundingClientRectMock.mockClear()
+
+      const startDayCell = document.querySelector('[data-date="2026-03-10"]')
+      const middleDayCell = document.querySelector('[data-date="2026-03-12"]')
+      const endDayCell = document.querySelector('[data-date="2026-03-14"]')
+
+      expect(startDayCell).toBeTruthy()
+      expect(middleDayCell).toBeTruthy()
+      expect(endDayCell).toBeTruthy()
+
+      fireEvent.mouseDown(startDayCell as Element)
+      fireEvent.mouseEnter(middleDayCell as Element)
+      fireEvent.mouseEnter(endDayCell as Element)
+      fireEvent.mouseUp(endDayCell as Element)
+
+      expect(getBoundingClientRectMock).not.toHaveBeenCalled()
+      expect(selectionPanel?.getAttribute('data-selection-layout')).toBe(
+        'below'
+      )
+    } finally {
+      getBoundingClientRectMock.mockRestore()
+    }
   })
 
   it('shows a jump-to-details affordance on the committed selection and scrolls to the panel', async () => {

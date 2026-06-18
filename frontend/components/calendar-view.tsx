@@ -483,12 +483,12 @@ export function CalendarView({
     }
   }, [bookings, capacityByDate, displayedSelection])
   const selectionCtaLabel = 'Create Booking'
-  const selectionIncludesPastDate =
-    displayedSelection !== null && displayedSelection.startDate < todayIso
+  const selectionStartsOnOrBeforeToday =
+    displayedSelection !== null && displayedSelection.startDate <= todayIso
   const selectionCtaDisabled =
     selectionDetails !== null &&
     (selectionDetails.tightestAvailability.available <= 0 ||
-      (!currentUserIsAdmin && selectionIncludesPastDate))
+      (!currentUserIsAdmin && selectionStartsOnOrBeforeToday))
   const committedSelectionEndDate =
     dragSelection === null ? selectedRange?.endDate : null
 
@@ -536,7 +536,9 @@ export function CalendarView({
     )
   }, [activeTab])
 
-  useBrowserLayoutEffect(measureSelectionPanelPlacement)
+  useBrowserLayoutEffect(measureSelectionPanelPlacement, [
+    measureSelectionPanelPlacement,
+  ])
 
   useBrowserLayoutEffect(() => {
     if (activeTab !== 'calendar') {
