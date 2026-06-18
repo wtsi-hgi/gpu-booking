@@ -6,10 +6,10 @@ export function Toaster() {
   return (
     <Sonner
       richColors
-      position="top-right"
-      className="toaster group"
+      position="bottom-right"
+      className="toaster group pointer-events-none"
       toastOptions={{
-        className: 'group toast',
+        className: 'group toast pointer-events-none',
       }}
     />
   )
