@@ -1,3 +1,4 @@
+import { mkdir } from 'node:fs/promises'
 import path from 'node:path'
 
 import { expect, test, type Locator, type Page } from '@playwright/test'
@@ -235,6 +236,9 @@ test.describe('admin flows', () => {
       'Booking updated successfully.'
     )
 
+    await mkdir(path.dirname(adminBookingDrawerToastPostfixScreenshotPath), {
+      recursive: true,
+    })
     await page.screenshot({
       fullPage: true,
       path: adminBookingDrawerToastPostfixScreenshotPath,
