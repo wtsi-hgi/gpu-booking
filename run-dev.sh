@@ -41,7 +41,8 @@ dotenv_value() {
   local file="${SCRIPT_DIR}/.env"
   [[ -f "$file" ]] || return 0
   sed -n -E "s/^[[:space:]]*(export[[:space:]]+)?${key}[[:space:]]*=[[:space:]]*(.*)$/\2/p" "$file" |
-    tail -n 1 | tr -d '\r' | sed -E 's/[[:space:]]+$//'
+    tail -n 1 | tr -d '\r' | sed -E 's/[[:space:]]+$//' |
+    sed -E "s/^\"(.*)\"$/\\1/; s/^'(.*)'$/\\1/"
 }
 
 FRONTEND_PORT=${GPU_BOOKING_FRONTEND_PORT:-${FRONTEND_PORT:-$(dotenv_value GPU_BOOKING_FRONTEND_PORT)}}

@@ -293,8 +293,17 @@ describe('run-dev.sh ports and startup failures', { timeout: 30_000 }, () => {
     expect(fromFlags.stdout).toMatch(/localhost:4777/)
   })
 
+  it('accepts quoted .env ports as make run does', () => {
+    const result = runCopy(
+      'GPU_BOOKING_FRONTEND_PORT=\'4123\'\nGPU_BOOKING_BACKEND_PORT="9123"\n'
+    )
+
+    expect(result.stdout).toMatch(/Starting backend on port 9123/)
+    expect(result.stdout).toMatch(/localhost:4123/)
+  })
+
   it('rejects a non-numeric .env port before starting anything', () => {
-    const result = runCopy('GPU_BOOKING_BACKEND_PORT="9123"\n')
+    const result = runCopy('GPU_BOOKING_BACKEND_PORT="91x23"\n')
 
     expect(result.status).toBe(1)
     expect(result.stderr).toMatch(/BACKEND_PORT must be a port number/)
