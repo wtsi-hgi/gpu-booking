@@ -94,6 +94,11 @@ tail -F logs/frontend.log logs/backend.log
 Important:
 - `make run` is a thin wrapper around `./run-dev.sh`.
 - `run-dev.sh` only starts, health-checks, and stops the frontend/backend processes cleanly.
+  If a service fails its health check, it prints the last 20 lines of that service's log.
+- Run directly, `./run-dev.sh` reads only `GPU_BOOKING_FRONTEND_PORT` and
+  `GPU_BOOKING_BACKEND_PORT` from the repo-root `.env`, so it uses the same ports as
+  `make run`. Its `--frontend-port`/`--backend-port` flags, then those variables in
+  the environment, take precedence over `.env`.
 - `run-dev.sh` sets `GPU_BOOKING_BACKEND_URL` for the frontend process so custom backend ports override frontend-local `.env` defaults during dev startup.
 - `run-dev.sh` launches backend via `backend/run_uvicorn.sh`, which uses `backend/.venv`.
 - Installing deps into a different venv (for example repo-root `.venv`) will not satisfy backend runtime dependencies.
@@ -167,9 +172,11 @@ make run
 ```
 
 You can instead put both in the repo-root `.env`, using absolute paths because
-`.env` does not expand `~` or `$(...)`. Set both or neither: `run-dev.sh` and `pnpm dev` exit with an error
-if only one is set or if either file is unreadable. The app never creates a
-certificate for you.
+`.env` does not expand `~` or `$(...)`. Set both or neither: `run-dev.sh` and `pnpm dev` exit with an error,
+naming the variable at fault, if only one is set, either file is unreadable, the
+certificate is not a PEM certificate or has expired, the key is not a PEM private
+key (for example, the certificate given twice), or the key does not match the
+certificate. The app never creates a certificate for you.
 
 With both set:
 
