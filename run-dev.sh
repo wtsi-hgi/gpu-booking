@@ -20,6 +20,9 @@ Examples:
   # custom ports
   $0 --frontend-port 4000 --backend-port 9000
 
+Set GPU_BOOKING_TLS_CERT and GPU_BOOKING_TLS_KEY (both or neither) to serve
+the frontend over HTTPS with that certificate; see README "HTTPS".
+
 Logs are written to ./logs/frontend.log and ./logs/backend.log
 Repo-root .env values are loaded by make before this script runs.
 EOF
@@ -97,6 +100,46 @@ while [[ ${#} -gt 0 ]]; do
   esac
 done
 
+TLS_CERT=${GPU_BOOKING_TLS_CERT:-}
+TLS_KEY=${GPU_BOOKING_TLS_KEY:-}
+FRONTEND_SCHEME="http"
+FRONTEND_HOST="localhost"
+FRONTEND_CURL_ARGS=()
+
+absolute_path() {
+  local path="$1"
+  (cd "$(dirname "$path")" && printf '%s/%s\n' "$(pwd)" "$(basename "$path")")
+}
+
+check_tls_file() {
+  local name="$1"
+  local path="$2"
+  if [[ ! -f "$path" || ! -r "$path" ]]; then
+    echo "Error: ${name} is not a readable file: ${path}" >&2
+    exit 1
+  fi
+}
+
+if [[ -n "$TLS_CERT" || -n "$TLS_KEY" ]]; then
+  if [[ -z "$TLS_CERT" || -z "$TLS_KEY" ]]; then
+    echo "Error: GPU_BOOKING_TLS_CERT and GPU_BOOKING_TLS_KEY must be set together (set both for HTTPS, or neither for plain HTTP)" >&2
+    exit 1
+  fi
+  check_tls_file GPU_BOOKING_TLS_CERT "$TLS_CERT"
+  check_tls_file GPU_BOOKING_TLS_KEY "$TLS_KEY"
+  # The frontend runs from frontend/, so relative paths must be made absolute.
+  TLS_CERT=$(absolute_path "$TLS_CERT")
+  TLS_KEY=$(absolute_path "$TLS_KEY")
+  FRONTEND_SCHEME="https"
+  # The certificate names this host, not localhost, so check it by that name
+  # while still connecting locally.
+  FRONTEND_HOST=$(hostname -f 2>/dev/null || hostname)
+  FRONTEND_CURL_ARGS=(--cacert "$TLS_CERT" --resolve "${FRONTEND_HOST}:${FRONTEND_PORT}:127.0.0.1")
+fi
+
+FRONTEND_ENV="GPU_BOOKING_FRONTEND_PORT=${FRONTEND_PORT} FRONTEND_PORT=${FRONTEND_PORT} GPU_BOOKING_BACKEND_PORT=${BACKEND_PORT} BACKEND_PORT=${BACKEND_PORT} GPU_BOOKING_BACKEND_URL=http://127.0.0.1:${BACKEND_PORT} BACKEND_URL=http://127.0.0.1:${BACKEND_PORT} GPU_BOOKING_TLS_CERT=$(printf '%q' "$TLS_CERT") GPU_BOOKING_TLS_KEY=$(printf '%q' "$TLS_KEY")"
+FRONTEND_URL="${FRONTEND_SCHEME}://${FRONTEND_HOST}:${FRONTEND_PORT}"
+
 echo "Starting local development services..."
 
 mkdir -p logs
@@ -112,12 +155,12 @@ else
 fi
 BACK_PID=$!
 
-echo "Starting frontend on port ${FRONTEND_PORT} (logs: logs/frontend.log)"
+echo "Starting frontend on ${FRONTEND_URL} (logs: logs/frontend.log)"
 if command -v setsid >/dev/null 2>&1; then
-  setsid bash -lc "cd frontend && GPU_BOOKING_FRONTEND_PORT=${FRONTEND_PORT} FRONTEND_PORT=${FRONTEND_PORT} GPU_BOOKING_BACKEND_PORT=${BACKEND_PORT} BACKEND_PORT=${BACKEND_PORT} GPU_BOOKING_BACKEND_URL=http://127.0.0.1:${BACKEND_PORT} BACKEND_URL=http://127.0.0.1:${BACKEND_PORT} pnpm dev" > logs/frontend.log 2>&1 &
+  setsid bash -lc "cd frontend && ${FRONTEND_ENV} pnpm dev" > logs/frontend.log 2>&1 &
   FRONT_KILL_MODE="group"
 else
-  bash -lc "cd frontend && GPU_BOOKING_FRONTEND_PORT=${FRONTEND_PORT} FRONTEND_PORT=${FRONTEND_PORT} GPU_BOOKING_BACKEND_PORT=${BACKEND_PORT} BACKEND_PORT=${BACKEND_PORT} GPU_BOOKING_BACKEND_URL=http://127.0.0.1:${BACKEND_PORT} BACKEND_URL=http://127.0.0.1:${BACKEND_PORT} exec pnpm dev" > logs/frontend.log 2>&1 &
+  bash -lc "cd frontend && ${FRONTEND_ENV} exec pnpm dev" > logs/frontend.log 2>&1 &
   FRONT_KILL_MODE="pid"
 fi
 FRONT_PID=$!
@@ -130,6 +173,8 @@ if command -v curl >/dev/null; then
         local url="$1"
         local name="$2"
     local pid="${3:-}"
+    shift 3
+    # Remaining arguments are extra curl options (e.g. TLS trust settings).
         local max_attempts=60
         local attempt=1
 
@@ -139,7 +184,7 @@ if command -v curl >/dev/null; then
         echo " Failed! $name process exited early (PID $pid)."
         return 1
       fi
-            if curl -s -o /dev/null -w "%{http_code}" "$url" | grep -q "200"; then
+            if curl -s -o /dev/null -w "%{http_code}" "$@" "$url" | grep -q "200"; then
                 echo " Ready!"
                 return 0
             fi
@@ -152,13 +197,14 @@ if command -v curl >/dev/null; then
     }
 
     wait_for_url "http://localhost:${BACKEND_PORT}/api/v1/health" "Backend" "${BACK_PID}"
-    wait_for_url "http://localhost:${FRONTEND_PORT}/api/health" "Frontend" "${FRONT_PID}"
+    wait_for_url "${FRONTEND_URL}/api/health" "Frontend" "${FRONT_PID}" ${FRONTEND_CURL_ARGS[@]+"${FRONTEND_CURL_ARGS[@]}"}
     # Warm up the main page so the first browser visit is fast
-    wait_for_url "http://localhost:${FRONTEND_PORT}/" "Frontend (Warmup)" "${FRONT_PID}"
+    wait_for_url "${FRONTEND_URL}/" "Frontend (Warmup)" "${FRONT_PID}" ${FRONTEND_CURL_ARGS[@]+"${FRONTEND_CURL_ARGS[@]}"}
 else
     echo "curl not found, skipping health checks."
 fi
 
+echo "Frontend URL: ${FRONTEND_URL}/"
 echo "Tail logs with: tail -F logs/frontend.log logs/backend.log"
 
 # Wait until signals are received; sleep in a loop so trap can fire.

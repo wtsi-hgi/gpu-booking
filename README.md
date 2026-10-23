@@ -108,6 +108,7 @@ The app runs with defaults, but these are commonly set:
 - `GPU_BOOKING_AUTH_MODE` (`insecure` by default, `oidc` in production)
 - `GPU_BOOKING_DATABASE_URL`
 - `GPU_BOOKING_INITIAL_ADMIN_EMAILS`
+- `GPU_BOOKING_TLS_CERT` / `GPU_BOOKING_TLS_KEY` (optional; serve the dev frontend over HTTPS, see [HTTPS](#https))
 - backend auth and app settings from `backend/.env.example`
 
 Historical unprefixed names such as `FRONTEND_PORT`, `BACKEND_PORT`, `BACKEND_URL`,
@@ -153,6 +154,76 @@ Frontend OIDC settings:
 - `GPU_BOOKING_OIDC_SCOPES` (optional, defaults to `openid profile email`)
 
 Backend accepts both historical `OKTA_*`/`OIDC_*` names and corresponding `GPU_BOOKING_*` aliases for issuer, audience, and client settings.
+
+## HTTPS
+
+By default the dev frontend serves plain HTTP. If your browser forces HTTPS for
+the host (for example through HSTS), give the frontend a certificate and key:
+
+```bash
+export GPU_BOOKING_TLS_CERT=~/.config/devtls/$(hostname -f).crt
+export GPU_BOOKING_TLS_KEY=~/.config/devtls/$(hostname -f).key
+make run
+```
+
+You can instead put both in the repo-root `.env`, using absolute paths because
+`.env` does not expand `~` or `$(...)`. Set both or neither: `run-dev.sh` and `pnpm dev` exit with an error
+if only one is set or if either file is unreadable. The app never creates a
+certificate for you.
+
+With both set:
+
+- `pnpm dev` runs `next dev --experimental-https` with that key and certificate.
+- `run-dev.sh` health-checks `https://$(hostname -f):<port>` using the
+  certificate as the trusted CA, and prints that URL. The certificate must name
+  that host.
+- The backend stays on plain HTTP; only the frontend server talks to it.
+
+This applies to development only. `pnpm start` (production) still serves plain
+HTTP; terminate TLS at the reverse proxy or load balancer in front of it.
+
+### Creating a self-signed certificate macOS will trust
+
+macOS (and so Safari and Chrome on a Mac) rejects a server certificate unless it:
+
+- lists every host name you use in `subjectAltName` (the CN is ignored);
+- is valid for at most 825 days;
+- has `extendedKeyUsage` `serverAuth`;
+- has `basicConstraints` `CA:FALSE`.
+
+For example:
+
+```bash
+host=$(hostname -f)
+mkdir -p ~/.config/devtls && chmod 700 ~/.config/devtls
+openssl req -x509 -newkey rsa:2048 -nodes -sha256 -days 825 \
+  -keyout ~/.config/devtls/$host.key -out ~/.config/devtls/$host.crt \
+  -subj "/CN=$host" \
+  -addext "subjectAltName=DNS:$host" \
+  -addext "basicConstraints=critical,CA:FALSE" \
+  -addext "keyUsage=critical,digitalSignature,keyEncipherment" \
+  -addext "extendedKeyUsage=serverAuth"
+chmod 600 ~/.config/devtls/$host.key
+```
+
+Copy the `.crt` (never the key) to the Mac, open it in Keychain Access, and set
+it to "Always Trust" for SSL.
+
+### HTTPS with OIDC (Okta)
+
+Without `GPU_BOOKING_OIDC_REDIRECT_URI`, the frontend derives the OIDC callback
+from the request URL, which under `next dev -H 0.0.0.0` is
+`https://0.0.0.0:<port>`, not the host name in your browser. Set both URIs
+explicitly to the public HTTPS URL, and register the same values in Okta:
+
+```bash
+GPU_BOOKING_OIDC_REDIRECT_URI=https://<host>:<port>/auth/callback
+GPU_BOOKING_OIDC_POST_LOGOUT_REDIRECT_URI=https://<host>:<port>/
+```
+
+Okta only accepts `https` redirect URIs, apart from `http://localhost`. A
+self-signed certificate works because Okta only redirects the browser to the app
+and never connects to it.
 
 ## Running tests and checks
 
