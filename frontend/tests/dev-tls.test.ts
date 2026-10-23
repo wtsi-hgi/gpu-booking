@@ -1,5 +1,13 @@
 import { spawnSync } from 'node:child_process'
-import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  chmodSync,
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 
@@ -12,13 +20,43 @@ const repoRoot = path.resolve(__dirname, '..', '..')
 let dir: string
 let cert: string
 let key: string
+let otherKey: string
+
+// Writes a self-signed certificate and its key into dir, as `name`.crt/.key.
+function makeCertPair(name: string): [string, string] {
+  const certPath = path.join(dir, `${name}.crt`)
+  const keyPath = path.join(dir, `${name}.key`)
+  const result = spawnSync(
+    'openssl',
+    [
+      'req',
+      '-x509',
+      '-newkey',
+      'ec',
+      '-pkeyopt',
+      'ec_paramgen_curve:P-256',
+      '-nodes',
+      '-days',
+      '30',
+      '-subj',
+      '/CN=localhost',
+      '-keyout',
+      keyPath,
+      '-out',
+      certPath,
+    ],
+    { encoding: 'utf8' }
+  )
+  if (result.status !== 0) {
+    throw new Error(`openssl failed: ${result.stderr}`)
+  }
+  return [certPath, keyPath]
+}
 
 beforeEach(() => {
   dir = mkdtempSync(path.join(tmpdir(), 'gpu-booking-dev-tls-'))
-  cert = path.join(dir, 'host.crt')
-  key = path.join(dir, 'host.key')
-  writeFileSync(cert, 'cert')
-  writeFileSync(key, 'key')
+  ;[cert, key] = makeCertPair('host')
+  ;[, otherKey] = makeCertPair('other')
 })
 
 afterEach(() => {
@@ -33,7 +71,7 @@ describe('devTlsArgs', () => {
     ).toEqual([])
   })
 
-  it('returns next dev experimental-https args for a readable pair', () => {
+  it('returns next dev experimental-https args for a valid matching pair', () => {
     expect(
       devTlsArgs({ GPU_BOOKING_TLS_CERT: cert, GPU_BOOKING_TLS_KEY: key })
     ).toEqual([
@@ -72,6 +110,38 @@ describe('devTlsArgs', () => {
         devTlsArgs({ GPU_BOOKING_TLS_CERT: cert, GPU_BOOKING_TLS_KEY: key })
       ).toThrow(/GPU_BOOKING_TLS_KEY is not a readable file/)
     }
+  })
+
+  it('rejects a key that does not match the certificate', () => {
+    expect(() =>
+      devTlsArgs({ GPU_BOOKING_TLS_CERT: cert, GPU_BOOKING_TLS_KEY: otherKey })
+    ).toThrow(
+      /GPU_BOOKING_TLS_KEY \(.*other\.key\) does not match the certificate/
+    )
+  })
+
+  it('rejects the certificate given as the key', () => {
+    expect(() =>
+      devTlsArgs({ GPU_BOOKING_TLS_CERT: cert, GPU_BOOKING_TLS_KEY: cert })
+    ).toThrow(
+      /GPU_BOOKING_TLS_KEY \(.*host\.crt\) is not a PEM private key; did you point it at the certificate\?/
+    )
+  })
+
+  it('rejects the key given as the certificate', () => {
+    expect(() =>
+      devTlsArgs({ GPU_BOOKING_TLS_CERT: key, GPU_BOOKING_TLS_KEY: key })
+    ).toThrow(/GPU_BOOKING_TLS_CERT \(.*host\.key\) is not a PEM X\.509/)
+  })
+
+  it('rejects an expired certificate', () => {
+    const later = new Date(Date.now() + 31 * 24 * 60 * 60 * 1000)
+    expect(() =>
+      devTlsArgs(
+        { GPU_BOOKING_TLS_CERT: cert, GPU_BOOKING_TLS_KEY: key },
+        later
+      )
+    ).toThrow(/GPU_BOOKING_TLS_CERT \(.*host\.crt\) expired on /)
   })
 })
 
@@ -123,6 +193,120 @@ describe('TLS misconfiguration fails before any server starts', () => {
 
     expect(result.status).toBe(1)
     expect(result.stderr).toMatch(/must be set together/)
+    expect(result.stdout).not.toMatch(/Starting backend/)
+  })
+
+  it('run-dev.sh exits with a clear error when the key is the certificate', () => {
+    const result = spawnSync(path.join(repoRoot, 'run-dev.sh'), [], {
+      cwd: dir,
+      env: {
+        ...process.env,
+        GPU_BOOKING_TLS_CERT: cert,
+        GPU_BOOKING_TLS_KEY: cert,
+      },
+      encoding: 'utf8',
+    })
+
+    expect(result.status).toBe(1)
+    expect(result.stderr).toMatch(
+      /GPU_BOOKING_TLS_KEY \(.*host\.crt\) is not a PEM private key; did you point it at the certificate\?/
+    )
+    expect(result.stdout).not.toMatch(/Starting backend/)
+  })
+})
+
+// Each run-dev.sh run waits a second or two for the fake backend to exit.
+describe('run-dev.sh ports and startup failures', { timeout: 30_000 }, () => {
+  // A copy of run-dev.sh beside a fake backend that logs a message and exits,
+  // so the script fails its first readiness wait without starting servers.
+  function runCopy(
+    dotenv: string,
+    env: Record<string, string> = {},
+    args: string[] = []
+  ) {
+    const root = path.join(dir, 'repo')
+    mkdirSync(path.join(root, 'backend'), { recursive: true })
+    copyFileSync(
+      path.join(repoRoot, 'run-dev.sh'),
+      path.join(root, 'run-dev.sh')
+    )
+    const backend = path.join(root, 'backend', 'run_uvicorn.sh')
+    writeFileSync(
+      backend,
+      '#!/usr/bin/env bash\necho "fake backend failed on port $GPU_BOOKING_BACKEND_PORT"\nexit 1\n'
+    )
+    chmodSync(backend, 0o755)
+    writeFileSync(path.join(root, '.env'), dotenv)
+    const baseEnv: Record<string, string | undefined> = { ...process.env }
+    for (const name of [
+      'GPU_BOOKING_FRONTEND_PORT',
+      'GPU_BOOKING_BACKEND_PORT',
+      'FRONTEND_PORT',
+      'BACKEND_PORT',
+      'GPU_BOOKING_TLS_CERT',
+      'GPU_BOOKING_TLS_KEY',
+    ]) {
+      delete baseEnv[name]
+    }
+    return spawnSync(path.join(root, 'run-dev.sh'), args, {
+      cwd: root,
+      env: { ...baseEnv, ...env },
+      encoding: 'utf8',
+      timeout: 30_000,
+    })
+  }
+
+  it('reads ports from the repo-root .env and shows the failing log', () => {
+    const result = runCopy(
+      'OTHER=$(touch pwned)\nGPU_BOOKING_FRONTEND_PORT=4123\nexport GPU_BOOKING_BACKEND_PORT=9123\r\n'
+    )
+
+    expect(result.stdout).toMatch(/Starting backend on port 9123/)
+    expect(result.stdout).toMatch(
+      /Starting frontend on http:\/\/localhost:4123/
+    )
+    expect(result.stdout).toMatch(/Backend process exited early/)
+    expect(result.stdout).toMatch(/Last 20 lines of logs\/backend\.log:/)
+    expect(result.stdout).toMatch(/fake backend failed on port 9123/)
+    expect(result.status).not.toBe(0)
+    expect(existsSync(path.join(dir, 'repo', 'pwned'))).toBe(false)
+  })
+
+  it('lets the environment and flags override .env ports', () => {
+    const dotenv =
+      'GPU_BOOKING_FRONTEND_PORT=4123\nGPU_BOOKING_BACKEND_PORT=9123\n'
+
+    const fromEnv = runCopy(dotenv, {
+      GPU_BOOKING_FRONTEND_PORT: '4555',
+      GPU_BOOKING_BACKEND_PORT: '9555',
+    })
+    expect(fromEnv.stdout).toMatch(/Starting backend on port 9555/)
+    expect(fromEnv.stdout).toMatch(/localhost:4555/)
+
+    const fromFlags = runCopy(dotenv, { GPU_BOOKING_BACKEND_PORT: '9555' }, [
+      '--frontend-port',
+      '4777',
+      '--backend-port',
+      '9777',
+    ])
+    expect(fromFlags.stdout).toMatch(/Starting backend on port 9777/)
+    expect(fromFlags.stdout).toMatch(/localhost:4777/)
+  })
+
+  it('accepts quoted .env ports as make run does', () => {
+    const result = runCopy(
+      'GPU_BOOKING_FRONTEND_PORT=\'4123\'\nGPU_BOOKING_BACKEND_PORT="9123"\n'
+    )
+
+    expect(result.stdout).toMatch(/Starting backend on port 9123/)
+    expect(result.stdout).toMatch(/localhost:4123/)
+  })
+
+  it('rejects a non-numeric .env port before starting anything', () => {
+    const result = runCopy('GPU_BOOKING_BACKEND_PORT="91x23"\n')
+
+    expect(result.status).toBe(1)
+    expect(result.stderr).toMatch(/BACKEND_PORT must be a port number/)
     expect(result.stdout).not.toMatch(/Starting backend/)
   })
 })

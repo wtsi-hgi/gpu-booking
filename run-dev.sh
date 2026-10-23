@@ -11,6 +11,10 @@ Starts frontend and backend in development mode.
 Options:
   -f, --frontend-port PORT   Port for frontend dev server (default: 3000)
   -b, --backend-port PORT    Port for backend uvicorn server (default: 8000)
+
+Port precedence: these options, then GPU_BOOKING_FRONTEND_PORT /
+GPU_BOOKING_BACKEND_PORT in the environment, then the same keys in the
+repo-root .env, then the defaults.
   -h, --help                 Show this help
 
 Examples:
@@ -24,12 +28,27 @@ Set GPU_BOOKING_TLS_CERT and GPU_BOOKING_TLS_KEY (both or neither) to serve
 the frontend over HTTPS with that certificate; see README "HTTPS".
 
 Logs are written to ./logs/frontend.log and ./logs/backend.log
-Repo-root .env values are loaded by make before this script runs.
+`make run` loads every repo-root .env value; run directly, this script only
+reads the two port keys from it.
 EOF
 }
 
-FRONTEND_PORT=${GPU_BOOKING_FRONTEND_PORT:-${FRONTEND_PORT:-3000}}
-BACKEND_PORT=${GPU_BOOKING_BACKEND_PORT:-${BACKEND_PORT:-8000}}
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+
+# Print the last value of KEY in the repo-root .env, without evaluating the file.
+dotenv_value() {
+  local key="$1"
+  local file="${SCRIPT_DIR}/.env"
+  [[ -f "$file" ]] || return 0
+  sed -n -E "s/^[[:space:]]*(export[[:space:]]+)?${key}[[:space:]]*=[[:space:]]*(.*)$/\2/p" "$file" |
+    tail -n 1 | tr -d '\r' | sed -E 's/[[:space:]]+$//' |
+    sed -E "s/^\"(.*)\"$/\\1/; s/^'(.*)'$/\\1/"
+}
+
+FRONTEND_PORT=${GPU_BOOKING_FRONTEND_PORT:-${FRONTEND_PORT:-$(dotenv_value GPU_BOOKING_FRONTEND_PORT)}}
+BACKEND_PORT=${GPU_BOOKING_BACKEND_PORT:-${BACKEND_PORT:-$(dotenv_value GPU_BOOKING_BACKEND_PORT)}}
+FRONTEND_PORT=${FRONTEND_PORT:-3000}
+BACKEND_PORT=${BACKEND_PORT:-8000}
 FRONT_PID=""
 BACK_PID=""
 FRONT_KILL_MODE="pid"
@@ -111,22 +130,21 @@ absolute_path() {
   (cd "$(dirname "$path")" && printf '%s/%s\n' "$(pwd)" "$(basename "$path")")
 }
 
-check_tls_file() {
-  local name="$1"
-  local path="$2"
-  if [[ ! -f "$path" || ! -r "$path" ]]; then
-    echo "Error: ${name} is not a readable file: ${path}" >&2
+for port_var in FRONTEND_PORT BACKEND_PORT; do
+  if [[ ! "${!port_var}" =~ ^[0-9]+$ ]]; then
+    echo "Error: ${port_var} must be a port number, got: ${!port_var}" >&2
     exit 1
   fi
-}
+done
 
 if [[ -n "$TLS_CERT" || -n "$TLS_KEY" ]]; then
-  if [[ -z "$TLS_CERT" || -z "$TLS_KEY" ]]; then
-    echo "Error: GPU_BOOKING_TLS_CERT and GPU_BOOKING_TLS_KEY must be set together (set both for HTTPS, or neither for plain HTTP)" >&2
+  # Same checks pnpm dev makes (pair set, readable, parsable, matching,
+  # unexpired), run before anything starts so mistakes fail fast.
+  if ! command -v node >/dev/null 2>&1; then
+    echo "Error: node is required to check GPU_BOOKING_TLS_CERT/GPU_BOOKING_TLS_KEY" >&2
     exit 1
   fi
-  check_tls_file GPU_BOOKING_TLS_CERT "$TLS_CERT"
-  check_tls_file GPU_BOOKING_TLS_KEY "$TLS_KEY"
+  node "${SCRIPT_DIR}/frontend/scripts/dev-tls.mjs" || exit 1
   # The frontend runs from frontend/, so relative paths must be made absolute.
   TLS_CERT=$(absolute_path "$TLS_CERT")
   TLS_KEY=$(absolute_path "$TLS_KEY")
@@ -169,11 +187,19 @@ echo "Frontend PID: ${FRONT_PID}, Backend PID: ${BACK_PID}"
 
 # Wait for services to be ready
 if command -v curl >/dev/null; then
+    show_log_tail() {
+        local log="$1"
+        [[ -f "$log" ]] || return 0
+        echo "Last 20 lines of ${log}:"
+        tail -n 20 "$log" | sed 's/^/  /'
+    }
+
     wait_for_url() {
         local url="$1"
         local name="$2"
     local pid="${3:-}"
-    shift 3
+    local log="${4:-}"
+    shift 4
     # Remaining arguments are extra curl options (e.g. TLS trust settings).
         local max_attempts=60
         local attempt=1
@@ -182,6 +208,7 @@ if command -v curl >/dev/null; then
         while [ $attempt -le $max_attempts ]; do
       if [[ -n "$pid" ]] && ! kill -0 "$pid" 2>/dev/null; then
         echo " Failed! $name process exited early (PID $pid)."
+        show_log_tail "$log"
         return 1
       fi
             if curl -s -o /dev/null -w "%{http_code}" "$@" "$url" | grep -q "200"; then
@@ -193,13 +220,14 @@ if command -v curl >/dev/null; then
             attempt=$((attempt + 1))
         done
         echo " Timeout!"
+        show_log_tail "$log"
         return 1
     }
 
-    wait_for_url "http://localhost:${BACKEND_PORT}/api/v1/health" "Backend" "${BACK_PID}"
-    wait_for_url "${FRONTEND_URL}/api/health" "Frontend" "${FRONT_PID}" ${FRONTEND_CURL_ARGS[@]+"${FRONTEND_CURL_ARGS[@]}"}
+    wait_for_url "http://localhost:${BACKEND_PORT}/api/v1/health" "Backend" "${BACK_PID}" logs/backend.log
+    wait_for_url "${FRONTEND_URL}/api/health" "Frontend" "${FRONT_PID}" logs/frontend.log ${FRONTEND_CURL_ARGS[@]+"${FRONTEND_CURL_ARGS[@]}"}
     # Warm up the main page so the first browser visit is fast
-    wait_for_url "${FRONTEND_URL}/" "Frontend (Warmup)" "${FRONT_PID}" ${FRONTEND_CURL_ARGS[@]+"${FRONTEND_CURL_ARGS[@]}"}
+    wait_for_url "${FRONTEND_URL}/" "Frontend (Warmup)" "${FRONT_PID}" logs/frontend.log ${FRONTEND_CURL_ARGS[@]+"${FRONTEND_CURL_ARGS[@]}"}
 else
     echo "curl not found, skipping health checks."
 fi
