@@ -42,6 +42,14 @@ and admin save/reload. All new admin fixtures use fixed 2028 dates to avoid
 filling capacity in the shared calendar tests. Inspect
 `.tmp/agent/technical-leads-after.png`.
 
+The workflow GPU advisory uses the file's `inference_interactive_gpu_types`
+labels. The fixture designates H200 with surrounding spaces and lowercase
+text. Inference and interactive selections with H100 must immediately warn;
+H200, training and missing selections must clear the advisory. Mismatched
+create and admin saves must persist through reload. Inspect
+`.tmp/agent/workflow-gpu-warning-after.png` and
+`.tmp/agent/workflow-gpu-warning-admin-after.png`.
+
 ## Gotchas
 
 Duration includes both endpoints; a same-day booking is one day. Event dates

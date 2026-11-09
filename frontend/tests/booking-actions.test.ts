@@ -77,6 +77,7 @@ describe('booking data actions', () => {
       cost_codes: ['CC-001'],
       project_pis: ['Dr Example PI'],
       technical_leads: ['Example Lead'],
+      inference_interactive_gpu_types: ['H200'],
     }
     vi.mocked(backendJson).mockResolvedValueOnce(options)
     expect(await getBookingOptions()).toEqual(options)

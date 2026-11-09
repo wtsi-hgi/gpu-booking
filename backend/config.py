@@ -15,14 +15,20 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class BookingOptions(BaseModel):
-    """Suggestions published by the deployment's external reference-data export."""
+    """Reference data published by the deployment's external file export."""
 
     model_config = ConfigDict(strict=True, extra="forbid")
     cost_codes: list[str] = Field(default_factory=list)
     project_pis: list[str] = Field(default_factory=list)
     technical_leads: list[str] = Field(default_factory=list)
+    inference_interactive_gpu_types: list[str] = Field(default_factory=list)
 
-    @field_validator("cost_codes", "project_pis", "technical_leads")
+    @field_validator(
+        "cost_codes",
+        "project_pis",
+        "technical_leads",
+        "inference_interactive_gpu_types",
+    )
     @classmethod
     def normalize_suggestions(cls, values: list[str]) -> list[str]:
         """Trim values and remove duplicates while preserving exported order."""
@@ -116,7 +122,7 @@ class Settings(BaseSettings):
 
     @cached_property
     def booking_options(self) -> BookingOptions:
-        """Load suggestions once per backend process; restart to refresh them."""
+        """Load reference data once per backend process; restart to refresh it."""
         if self.booking_options_file is None:
             return BookingOptions(cost_codes=[])
         try:
@@ -133,7 +139,8 @@ class Settings(BaseSettings):
             raise ValueError(
                 "Invalid GPU_BOOKING_BOOKING_OPTIONS_FILE "
                 f"'{self.booking_options_file}'. Expected a JSON object with optional "
-                "cost_codes, project_pis and technical_leads lists of "
+                "cost_codes, project_pis, technical_leads and "
+                "inference_interactive_gpu_types lists of "
                 "non-empty strings. "
                 "Unknown fields are not allowed."
             ) from None

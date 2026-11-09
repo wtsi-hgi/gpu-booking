@@ -44,6 +44,9 @@ export default async function AdminBookingsPage() {
         costCodes={bookingOptions.cost_codes}
         projectPis={bookingOptions.project_pis}
         technicalLeads={bookingOptions.technical_leads}
+        inferenceInteractiveGpuTypes={
+          bookingOptions.inference_interactive_gpu_types
+        }
       />
     </main>
   )

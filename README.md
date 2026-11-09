@@ -142,15 +142,17 @@ Set this variable in the backend environment or `backend/.env`:
 GPU_BOOKING_BOOKING_OPTIONS_FILE=/etc/gpu-booking/booking-options.json
 ```
 
-The file schema is an object with optional `cost_codes`, `project_pis` and
-`technical_leads` lists of non-empty strings. Each omitted or empty list gives
-no suggestions for that field. This example contains synthetic values:
+The file schema is an object with optional `cost_codes`, `project_pis`,
+`technical_leads` and `inference_interactive_gpu_types` lists of non-empty
+strings. Each omitted or empty suggestion list gives no suggestions for that
+field. This example contains synthetic values:
 
 ```json
 {
   "cost_codes": ["CC-EXAMPLE-001", "CC-EXAMPLE-002"],
   "project_pis": ["Dr Example PI One", "Dr Example PI Two"],
-  "technical_leads": ["Example Technical Lead One", "Example Technical Lead Two"]
+  "technical_leads": ["Example Technical Lead One", "Example Technical Lead Two"],
+  "inference_interactive_gpu_types": ["H200"]
 }
 ```
 
@@ -176,6 +178,19 @@ policy. Publish only approved names in `project_pis` and `technical_leads`,
 never credentials or raw LDAP records. The app has no LDAP package or runtime
 directory connection. The suggestions do not restrict which PI or technical
 lead names users can enter.
+
+Use `inference_interactive_gpu_types` to designate GPU type labels for
+inference or interactive workflows. Labels match the catalog's `gpu_type`
+after trimming whitespace and ignoring case, across every host shape with
+that GPU type. The app does not infer suitability from hardware names. An
+omitted or empty list means no GPU types are designated.
+
+When the selected workflow name contains the word `inference` or
+`interactive`, ignoring case, create and admin edit forms immediately warn
+if the selected GPU type is not designated. Choosing a designated type, a
+different workflow category or an empty selection clears the advisory.
+The warning allows booking and saving without an extra confirmation. Existing
+capacity checks and their warning confirmations still apply.
 
 ### Authentication mode (important)
 

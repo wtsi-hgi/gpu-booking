@@ -44,13 +44,19 @@ describe('booking contracts', () => {
       cost_codes: [],
       project_pis: [],
       technical_leads: [],
+      inference_interactive_gpu_types: [],
     }
     expect(bookingOptionsSchema.parse(emptyOptions)).toEqual(emptyOptions)
     expect(
       bookingOptionsSchema.parse({ ...emptyOptions, cost_codes: ['CC-001'] })
         .cost_codes
     ).toEqual(['CC-001'])
-    for (const key of ['cost_codes', 'project_pis', 'technical_leads']) {
+    for (const key of [
+      'cost_codes',
+      'project_pis',
+      'technical_leads',
+      'inference_interactive_gpu_types',
+    ]) {
       for (const invalid of [undefined, 'not-a-list', [42], [' ']]) {
         expect(
           bookingOptionsSchema.safeParse({ ...emptyOptions, [key]: invalid })
@@ -62,6 +68,7 @@ describe('booking contracts', () => {
       ...emptyOptions,
       project_pis: ['Dr Example PI Équipe'],
       technical_leads: ['Example Lead 外部'],
+      inference_interactive_gpu_types: ['H200'],
     }
     expect(bookingOptionsSchema.parse(unicodeOptions)).toEqual(unicodeOptions)
   })

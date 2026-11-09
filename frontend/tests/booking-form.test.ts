@@ -251,6 +251,68 @@ describe('booking form - F3 acceptance coverage', () => {
     getHostTypeAvailabilityMock.mockResolvedValue(createAvailability())
   })
 
+  it.each([
+    { name: 'INFERENCE workloads', designated: undefined, warns: true },
+    { name: 'Interactive workloads', designated: [], warns: true },
+    { name: 'Batch / Inference', designated: ['H200'], warns: true },
+    { name: 'interactive session', designated: [' h100 '], warns: false },
+    { name: 'Inference workloads', designated: ['H100'], warns: false },
+    { name: 'Training', designated: [], warns: false },
+    { name: 'Noninteractive training', designated: [], warns: false },
+    { name: 'Preinference preparation', designated: [], warns: false },
+  ])(
+    'renders the GPU advisory for $name with designation $designated',
+    ({ name, designated, warns }) => {
+      render(
+        createElement(BookingForm, {
+          gpuHostTypes,
+          workflowTypes: [{ id: 1, name }],
+          inferenceInteractiveGpuTypes: designated,
+        })
+      )
+      changeFieldValue('GPU Host Type', '1')
+      changeFieldValue('Workflow Type', '1')
+      const warning = screen.queryByText(
+        /not designated for inference or interactive workflows/i
+      )
+      expect(Boolean(warning)).toBe(warns)
+      if (warning) {
+        expect(warning.getAttribute('role')).toBe('status')
+        expect(
+          screen
+            .getByLabelText('Workflow Type')
+            .getAttribute('aria-describedby')
+        ).toBe(warning.id)
+        expect(
+          screen.getByLabelText('Workflow Type').getAttribute('aria-invalid')
+        ).not.toBe('true')
+      }
+    }
+  )
+
+  it('creates a mismatched workflow without adding a confirmation step', async () => {
+    render(
+      createElement(BookingForm, {
+        gpuHostTypes,
+        workflowTypes: [{ id: 1, name: 'Interactive workloads' }],
+        initialStartDate: '2028-08-17',
+        initialEndDate: '2028-08-18',
+        isAdmin: true,
+      })
+    )
+    changeFieldValue('GPU Host Type', '1')
+    changeFieldValue('Host Count', '1')
+    changeFieldValue('Workflow Type', '1')
+    changeFieldValue('Cost Code', 'CC-WORKFLOW')
+    expect(
+      screen.getByText(/not designated for inference or interactive workflows/i)
+    ).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Create Booking' }))
+    await waitFor(() => expect(createBookingMock).toHaveBeenCalledTimes(1))
+    expect(validateBookingMock).toHaveBeenCalledTimes(1)
+    expect(screen.queryByRole('button', { name: 'Confirm' })).toBeNull()
+  })
+
   it('does not render a separate Validate button', () => {
     renderBookingForm()
 

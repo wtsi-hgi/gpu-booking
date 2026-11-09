@@ -10,6 +10,28 @@ from main import app
 
 
 @pytest.mark.anyio
+async def test_inference_interactive_gpu_options_from_export(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Publish designated GPU types from the existing optional file export."""
+    export = tmp_path / "booking-options.json"
+    export.write_text('{"inference_interactive_gpu_types":[" A100 ","L40S"]}')
+    monkeypatch.setenv("GPU_BOOKING_BOOKING_OPTIONS_FILE", str(export))
+    monkeypatch.setattr(reference_data, "settings", Settings(_env_file=None))
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://testserver"
+    ) as client:
+        response = await client.get("/api/v1/booking-options")
+    assert response.status_code == 200
+    assert response.json() == {
+        "cost_codes": [],
+        "project_pis": [],
+        "technical_leads": [],
+        "inference_interactive_gpu_types": ["A100", "L40S"],
+    }
+
+
+@pytest.mark.anyio
 async def test_technical_lead_options_from_export(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -34,6 +56,7 @@ async def test_technical_lead_options_from_export(
             "Example Technical Lead One",
             "Example Technical Lead Équipe",
         ],
+        "inference_interactive_gpu_types": [],
     }
 
 
@@ -55,6 +78,7 @@ async def test_project_pi_options_from_export(
         "cost_codes": [],
         "project_pis": ["Dr Example PI One", "Dr Example PI Two"],
         "technical_leads": [],
+        "inference_interactive_gpu_types": [],
     }
 
 
@@ -79,6 +103,7 @@ async def test_booking_options_endpoint(
         "cost_codes": ["CC-001", "CC-002"] if configured else [],
         "project_pis": [],
         "technical_leads": [],
+        "inference_interactive_gpu_types": [],
     }
 
 

@@ -46,7 +46,9 @@ Read the log's test totals and assertions. Screenshots from the command above
 are `.tmp/agent/calendar-week-start-after.png`,
 `.tmp/agent/booking-days-after.png`, `.tmp/agent/cost-codes-after.png`,
 `.tmp/agent/project-pis-after.png` and
-`.tmp/agent/technical-leads-after.png`. Routine test screenshots stay in
+`.tmp/agent/technical-leads-after.png`,
+`.tmp/agent/workflow-gpu-warning-after.png` and
+`.tmp/agent/workflow-gpu-warning-admin-after.png`. Routine screenshots stay in
 `.tmp/agent/`; archive selected bugfix evidence separately so reruns cannot
 change tracked evidence. On failure, screenshots, traces and videos are under
 `.tmp/agent/playwright/test-results/`.

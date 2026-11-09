@@ -46,11 +46,13 @@ import {
   type BookingFormValueName,
   type BookingFormValues,
 } from '@/lib/booking-state'
+import { getWorkflowGpuWarning } from '@/lib/booking-workflow-warning'
 
 type BookingFormProps = {
   costCodes?: string[]
   projectPis?: string[]
   technicalLeads?: string[]
+  inferenceInteractiveGpuTypes?: string[]
   gpuHostTypes: GpuHostType[]
   workflowTypes: WorkflowType[]
   initialStartDate?: string
@@ -408,6 +410,7 @@ export function BookingForm({
   costCodes = [],
   projectPis = [],
   technicalLeads = [],
+  inferenceInteractiveGpuTypes = [],
   gpuHostTypes,
   workflowTypes,
   initialStartDate,
@@ -452,6 +455,14 @@ export function BookingForm({
     return initialValues
   })
 
+  const workflowGpuWarning = getWorkflowGpuWarning(
+    gpuHostTypes.find((type) => String(type.id) === formValues.gpu_host_type_id)
+      ?.gpu_type,
+    workflowTypes.find(
+      (type) => String(type.id) === formValues.workflow_type_id
+    )?.name,
+    inferenceInteractiveGpuTypes
+  )
   const { fieldFeedback: validationResultFieldFeedback, genericBlockMessage } =
     getValidationFeedback(validationResult)
   const fieldValidationFeedback = mergeValidationFeedback(
@@ -1084,6 +1095,9 @@ export function BookingForm({
                   className="border-input bg-background ring-offset-background focus-visible:ring-ring h-10 w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
                   value={formValues.workflow_type_id}
                   onChange={handleFieldChange('workflow_type_id')}
+                  aria-describedby={
+                    workflowGpuWarning ? 'workflow-gpu-warning' : undefined
+                  }
                   aria-invalid={
                     Boolean(fieldErrors.workflow_type_id) ||
                     hasBlockingValidation('workflow_type_id')
@@ -1102,6 +1116,15 @@ export function BookingForm({
                   </p>
                 )}
                 {renderValidationFeedback('workflow_type_id')}
+                {workflowGpuWarning && (
+                  <p
+                    id="workflow-gpu-warning"
+                    role="status"
+                    className="bg-secondary text-secondary-foreground rounded-md border px-3 py-2 text-sm"
+                  >
+                    {workflowGpuWarning}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-1">

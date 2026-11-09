@@ -97,6 +97,7 @@ def test_booking_options_unset(monkeypatch: pytest.MonkeyPatch) -> None:
         "cost_codes": [],
         "project_pis": [],
         "technical_leads": [],
+        "inference_interactive_gpu_types": [],
     }
 
 
@@ -111,6 +112,7 @@ def test_booking_options_omitted_list(
         "cost_codes": [],
         "project_pis": [],
         "technical_leads": [],
+        "inference_interactive_gpu_types": [],
     }
 
 
@@ -124,7 +126,7 @@ def test_booking_options_file_snapshot(
         '"project_pis":[" Dr Example PI Équipe ","Dr Example PI One",'
         '"Dr Example PI Équipe"],'
         '"technical_leads":[" Example Lead Équipe ","Example Lead One",'
-        '"Example Lead Équipe"]}',
+        '"Example Lead Équipe"],"inference_interactive_gpu_types":[" H200 ","H200"]}',
         encoding="utf-8",
     )
     monkeypatch.setenv("GPU_BOOKING_BOOKING_OPTIONS_FILE", str(export))
@@ -138,6 +140,7 @@ def test_booking_options_file_snapshot(
         "Example Lead Équipe",
         "Example Lead One",
     ]
+    assert settings.booking_options.inference_interactive_gpu_types == ["H200"]
     export.write_text('{"cost_codes":["CC-003"]}')
     assert settings.booking_options.cost_codes == ["CC-002", "CC-001"]
     assert settings.booking_options.project_pis == [
@@ -148,6 +151,10 @@ def test_booking_options_file_snapshot(
         "Example Lead Équipe",
         "Example Lead One",
     ]
+    assert settings.booking_options.inference_interactive_gpu_types == ["H200"]
+    assert (
+        Settings(_env_file=None).booking_options.inference_interactive_gpu_types == []
+    )
     assert Settings(_env_file=None).booking_options.cost_codes == ["CC-003"]
     assert Settings(_env_file=None).booking_options.project_pis == []
     assert Settings(_env_file=None).booking_options.technical_leads == []
@@ -170,6 +177,10 @@ def test_booking_options_file_snapshot(
         '{"technical_leads":[123]}',
         '{"technical_leads":[null]}',
         '{"technical_leads":["  "]}',
+        '{"inference_interactive_gpu_types":"secret-value"}',
+        '{"inference_interactive_gpu_types":[123]}',
+        '{"inference_interactive_gpu_types":[null]}',
+        '{"inference_interactive_gpu_types":["  "]}',
         '{"cost_codes":[],"unknown":"secret-value"}',
     ],
 )

@@ -2,6 +2,146 @@ import { expect, test } from '@playwright/test'
 
 import { createBooking, getBookingRow, gotoPath, switchUser } from './helpers'
 
+test.describe('workflow GPU advisory', () => {
+  test('warns immediately for inference on an undesignated GPU when creating', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 1000 })
+    await gotoPath(page, '/bookings/new?start=2028-08-17&end=2028-08-18')
+    const gpu = page.getByLabel('GPU Host Type')
+    const workflow = page.getByLabel('Workflow Type')
+    const warning = page.getByText(
+      /not designated for inference or interactive workflows/i
+    )
+    await expect(warning).not.toBeVisible()
+    await workflow.selectOption({ label: 'Inference workloads' })
+    await expect(warning).not.toBeVisible()
+    for (const label of ['Inference workloads', 'Interactive workloads']) {
+      await workflow.selectOption({ label })
+      await gpu.selectOption({ label: '8 GPU H100' })
+      await expect(warning).toBeVisible()
+      await expect(workflow).not.toHaveAttribute('aria-invalid', 'true')
+      await expect(gpu).not.toHaveAttribute('aria-invalid', 'true')
+      await gpu.selectOption({ label: '8 GPU H200' })
+      await expect(warning).not.toBeVisible()
+    }
+    await gpu.selectOption({ label: '8 GPU H100' })
+    await workflow.selectOption({
+      label: 'HPC training, one server per task/job',
+    })
+    await expect(warning).not.toBeVisible()
+    await workflow.selectOption('')
+    await expect(warning).not.toBeVisible()
+    await workflow.selectOption({ label: 'Inference workloads' })
+    await gpu.selectOption('')
+    await expect(warning).not.toBeVisible()
+    await gpu.selectOption({ label: '8 GPU H100' })
+    await expect(warning).toBeVisible()
+    await page.screenshot({
+      path: '../.tmp/agent/workflow-gpu-warning-after.png',
+    })
+    await page.emulateMedia({ colorScheme: 'dark' })
+    await expect(page.locator('html')).toHaveClass(/dark/)
+    await expect(warning).toBeVisible()
+    await page.screenshot({
+      path: '../.tmp/agent/workflow-gpu-warning-dark-after.png',
+    })
+    await page.emulateMedia({ colorScheme: 'light' })
+    await expect(page.locator('html')).not.toHaveClass(/dark/)
+    await page.getByLabel('Host Count').selectOption('1')
+    await page.getByLabel('Cost Code').fill('CC-WORKFLOW')
+    await page.getByLabel('Project Name').fill('PW Workflow GPU Warning Create')
+    await page.getByRole('button', { name: 'Create Booking' }).click()
+    const confirm = page.getByRole('button', { name: 'Confirm', exact: true })
+    await expect
+      .poll(
+        async () =>
+          new URL(page.url()).pathname === '/bookings' ||
+          (await confirm.isVisible())
+      )
+      .toBe(true)
+    if (await confirm.isVisible()) {
+      await expect(
+        page.getByText('Review warnings before confirming.').locator('..')
+      ).not.toContainText('not designated')
+      await confirm.click()
+    }
+    await expect(page).toHaveURL(/\/bookings$/)
+    await switchUser(page, 'admin@example.com', true)
+    await gotoPath(page, '/admin/bookings')
+    await page.getByLabel('Search').fill('PW Workflow GPU Warning Create')
+    await page.locator('[data-booking-row="true"]').click()
+    const panel = page.getByTestId('admin-booking-side-panel')
+    await expect(
+      panel.getByLabel('GPU Host Type').locator('option:checked')
+    ).toHaveText('8 GPU H100')
+    await expect(
+      panel.getByLabel('Workflow Type').locator('option:checked')
+    ).toHaveText('Inference workloads')
+    await expect(
+      panel.getByText(/not designated for inference or interactive workflows/i)
+    ).toBeVisible()
+  })
+
+  test('warns immediately for interactive on an undesignated GPU in admin editing', async ({
+    page,
+    request,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 1000 })
+    const booking = await createBooking(
+      request,
+      'workflow-warning@example.com',
+      {
+        projectName: 'PW Workflow GPU Warning Admin',
+        workflowName: 'Interactive workloads',
+        startDate: '2028-08-17',
+        endDate: '2028-08-18',
+      }
+    )
+    await gotoPath(page, '/bookings')
+    await switchUser(page, 'admin@example.com', true)
+    await gotoPath(page, '/admin/bookings')
+    await page.getByLabel('Search').fill('PW Workflow GPU Warning Admin')
+    await getBookingRow(page, booking.id).click()
+    const panel = page.getByTestId('admin-booking-side-panel')
+    const workflow = panel.getByLabel('Workflow Type')
+    const gpu = panel.getByLabel('GPU Host Type')
+    const warning = panel.getByText(
+      /not designated for inference or interactive workflows/i
+    )
+    await expect(warning).toBeVisible()
+    for (const label of ['Inference workloads', 'Interactive workloads']) {
+      await workflow.selectOption({ label })
+      await expect(warning).toBeVisible()
+      await gpu.selectOption({ label: '8 GPU H200' })
+      await expect(warning).not.toBeVisible()
+      await gpu.selectOption({ label: '8 GPU H100' })
+      await expect(warning).toBeVisible()
+    }
+    await workflow.selectOption({
+      label: 'HPC training, one server per task/job',
+    })
+    await expect(warning).not.toBeVisible()
+    await workflow.selectOption({ label: 'Inference workloads' })
+    await expect(warning).toBeVisible()
+    await expect(workflow).not.toHaveAttribute('aria-invalid', 'true')
+    await expect(gpu).not.toHaveAttribute('aria-invalid', 'true')
+    await page.screenshot({
+      path: '../.tmp/agent/workflow-gpu-warning-admin-after.png',
+    })
+    await panel.getByRole('button', { name: 'Save', exact: true }).click()
+    await expect(page.getByText('Booking updated successfully.')).toBeVisible()
+    await page.reload()
+    await page.getByLabel('Search').fill('PW Workflow GPU Warning Admin')
+    await getBookingRow(page, booking.id).click()
+    await expect(workflow.locator('option:checked')).toHaveText(
+      'Inference workloads'
+    )
+    await expect(gpu.locator('option:checked')).toHaveText('8 GPU H100')
+    await expect(warning).toBeVisible()
+  })
+})
+
 test('calendar weeks begin on Monday with dates aligned to headings', async ({
   page,
 }) => {

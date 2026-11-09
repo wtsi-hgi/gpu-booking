@@ -119,6 +119,7 @@ beforeEach(() => {
     cost_codes: [],
     project_pis: [],
     technical_leads: [],
+    inference_interactive_gpu_types: [],
   })
   mocks.getCapacityMock.mockResolvedValue([
     {
@@ -148,6 +149,40 @@ afterEach(() => {
 })
 
 describe('admin bookings page - H2 acceptance tests', () => {
+  it('uses exported GPU designations on the admin page and updates the advisory while editing', async () => {
+    mocks.getWorkflowTypesMock.mockResolvedValue([
+      { id: 1, name: 'INTERACTIVE workloads' },
+      { id: 2, name: 'Training' },
+    ])
+    mocks.getGpuHostTypesMock.mockResolvedValue([
+      ...gpuHostTypes,
+      { ...gpuHostTypes[0], id: 2, gpu_type: ' H200 ' },
+    ])
+    mocks.getBookingOptionsMock.mockResolvedValue({
+      cost_codes: [],
+      project_pis: [],
+      technical_leads: [],
+      inference_interactive_gpu_types: ['h200'],
+    })
+    render(await AdminBookingsPage())
+    fireEvent.click(document.querySelector('[data-booking-id="1"]') as Element)
+    const panel = within(screen.getByTestId('admin-booking-side-panel'))
+    const message = /not designated for inference or interactive workflows/i
+    expect(panel.getByText(message).getAttribute('role')).toBe('status')
+    fireEvent.change(panel.getByLabelText('GPU Host Type'), {
+      target: { value: '2' },
+    })
+    expect(panel.queryByText(message)).toBeNull()
+    fireEvent.change(panel.getByLabelText('GPU Host Type'), {
+      target: { value: '1' },
+    })
+    expect(panel.getByText(message)).toBeTruthy()
+    fireEvent.change(panel.getByLabelText('Workflow Type'), {
+      target: { value: '2' },
+    })
+    expect(panel.queryByText(message)).toBeNull()
+  })
+
   it('synchronises admin booking days, preserves event dates and blocks invalid duration', async () => {
     renderPanel(
       buildBooking({ start_date: '2028-02-28', end_date: '2028-02-29' })

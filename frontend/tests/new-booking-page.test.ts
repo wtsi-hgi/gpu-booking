@@ -83,6 +83,7 @@ beforeEach(() => {
     cost_codes: [],
     project_pis: [],
     technical_leads: [],
+    inference_interactive_gpu_types: [],
   })
 
   mocks.createBookingMock.mockResolvedValue({

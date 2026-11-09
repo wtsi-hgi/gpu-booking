@@ -21,12 +21,14 @@ import type { GpuHostType, WorkflowType } from '@/lib/admin-contracts'
 import { formatGpuHostTypeLabel } from '@/lib/admin-contracts'
 import type { BookingResponse } from '@/lib/booking-contracts'
 import { getBookingDays, getBookingEndDate } from '@/lib/booking-dates'
+import { getWorkflowGpuWarning } from '@/lib/booking-workflow-warning'
 import { formatUtcDateTime } from '@/lib/utils'
 
 type AdminBookingPanelProps = {
   costCodes?: string[]
   projectPis?: string[]
   technicalLeads?: string[]
+  inferenceInteractiveGpuTypes?: string[]
   initialBookings: BookingResponse[]
   gpuHostTypes: GpuHostType[]
   workflowTypes: WorkflowType[]
@@ -57,6 +59,7 @@ type SelectProps = {
   value: string
   onChange: (value: string) => void
   options: Array<{ label: string; value: string | number }>
+  describedBy?: string
 }
 
 const CAPACITY_CONSUMING_STATUSES = new Set(['confirmed', 'tentative', 'spot'])
@@ -112,7 +115,14 @@ function Field({
   )
 }
 
-function SelectField({ id, name, value, onChange, options }: SelectProps) {
+function SelectField({
+  id,
+  name,
+  value,
+  onChange,
+  options,
+  describedBy,
+}: SelectProps) {
   return (
     <select
       id={id}
@@ -120,6 +130,7 @@ function SelectField({ id, name, value, onChange, options }: SelectProps) {
       className="border-input bg-background h-10 w-full rounded-md border px-3 text-sm"
       value={value}
       onChange={(event) => onChange(event.target.value)}
+      aria-describedby={describedBy}
     >
       {options.map((option) => (
         <option key={String(option.value)} value={option.value}>
@@ -134,6 +145,7 @@ export function AdminBookingPanel({
   costCodes = [],
   projectPis = [],
   technicalLeads = [],
+  inferenceInteractiveGpuTypes = [],
   initialBookings,
   gpuHostTypes,
   workflowTypes,
@@ -144,6 +156,13 @@ export function AdminBookingPanel({
   )
   const [draft, setDraft] = useState<BookingDraft | null>(null)
   const [capacityWarning, setCapacityWarning] = useState<string | null>(null)
+  const workflowGpuWarning = getWorkflowGpuWarning(
+    gpuHostTypes.find((type) => String(type.id) === draft?.gpu_host_type_id)
+      ?.gpu_type,
+    workflowTypes.find((type) => String(type.id) === draft?.workflow_type_id)
+      ?.name,
+    inferenceInteractiveGpuTypes
+  )
 
   const selectedBooking = useMemo(
     () => bookings.find((booking) => booking.id === selectedBookingId) ?? null,
@@ -388,11 +407,25 @@ export function AdminBookingPanel({
                   name="workflow_type_id"
                   value={draft.workflow_type_id}
                   onChange={(value) => updateDraft('workflow_type_id', value)}
+                  describedBy={
+                    workflowGpuWarning
+                      ? 'admin-workflow-gpu-warning'
+                      : undefined
+                  }
                   options={workflowTypes.map((workflowType) => ({
                     label: workflowType.name,
                     value: workflowType.id,
                   }))}
                 />
+                {workflowGpuWarning && (
+                  <p
+                    id="admin-workflow-gpu-warning"
+                    role="status"
+                    className="bg-secondary text-secondary-foreground rounded-md border px-3 py-2 text-sm"
+                  >
+                    {workflowGpuWarning}
+                  </p>
+                )}
               </Field>
 
               <Field id="start_date" label="Start Date">
