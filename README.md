@@ -163,21 +163,45 @@ startup with an error. Use an absolute path; relative paths resolve from the
 backend's working directory. Replace the file and restart the backend to
 refresh suggestions. Reload the form to fetch the refreshed values.
 
-Generate this file outside the app using your site's approved LSF config
-export process. The app does not parse LSF config or connect to LSF at runtime;
-the export command depends on your site's config and access arrangements.
-Publish the exported JSON atomically to avoid partial writes, and grant the
-backend read access. Include only suggestions suitable for all app users;
-`GET /api/v1/booking-options` exposes these suggestions as public reference
-data. Do not include credentials or other private LSF configuration.
+Generate the file from the repository root with the standalone exporter.
+It needs the backend Python environment, the `ldapsearch` executable, read
+access to `lsb.users`, and network access to Sanger's LDAP service:
 
-For PI and technical lead suggestions, export approved display values from
-LDAP with an external site-specific process. Choose the query, filters and
-display attributes outside the app; they depend on your directory and access
-policy. Publish only approved names in `project_pis` and `technical_leads`,
-never credentials or raw LDAP records. The app has no LDAP package or runtime
-directory connection. The suggestions do not restrict which PI or technical
-lead names users can enter.
+```bash
+backend/.venv/bin/python backend/export_booking_options.py \
+  --lsb-users /software/lsf-farm22/conf/lsbatch/farm22/configdir/lsb.users \
+  --output /etc/gpu-booking/booking-options.json \
+  --inference-interactive-gpu-type H200
+```
+
+The output directory must already exist and be writable. `--output` defaults
+to the exported `GPU_BOOKING_BOOKING_OPTIONS_FILE` environment variable.
+The exporter selects `s` followed by digits from LSF `UserGroup` sections,
+matching the site's GPU cost-code rule. It resolves LDAP group
+`sangerProjectPI` references to people's `displayName`, falling back to `cn`.
+Names and cost codes are deduplicated and sorted. LDAP queries use anonymous
+LDAPS and paged results. `--ldap-uri`, `--group-base` and `--people-base`
+override the Sanger defaults; see `--help` for all options.
+
+Technical lead suggestions are empty unless `--technical-lead-filter` supplies
+an LDAP filter selecting people under `--people-base`. For example, use
+`--technical-lead-filter '(uid=sb10)'` to select one person, or `'(uid=*)'`
+to select all people with a UID. Choose a filter appropriate for the people
+you want to suggest. Repeat `--inference-interactive-gpu-type` for each
+designated GPU type. Omitting it exports an empty designation list. Each run
+replaces the entire file, so supply these options on every refresh.
+
+The exporter validates the JSON using the app's schema and publishes it
+atomically. Failed reads, incomplete LDAP queries, unresolved PI references
+and validation errors leave the existing file untouched. New files have mode
+0644; replacements preserve existing permission bits but belong to the user
+running the export. Grant the backend read access and restart it to refresh
+suggestions.
+
+Include only suggestions suitable for all app users;
+`GET /api/v1/booking-options` exposes them as public reference data. The app
+does not read LSF configuration or connect to LDAP at runtime. Suggestions
+do not restrict which PI or technical lead names users can enter.
 
 Use `inference_interactive_gpu_types` to designate GPU type labels for
 inference or interactive workflows. Labels match the catalog's `gpu_type`
