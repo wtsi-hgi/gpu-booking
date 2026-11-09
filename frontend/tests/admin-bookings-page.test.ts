@@ -158,6 +158,36 @@ describe('admin bookings page - H2 acceptance tests', () => {
     ).toBeTruthy()
   })
 
+  it.each([
+    ['2028-06-12T23:45:00.123456', '12 Jun 2028, 23:45'],
+    ['2028-06-12T23:45:00Z', '12 Jun 2028, 23:45'],
+    ['2028-09-12T23:45:00Z', '12 Sep 2028, 23:45'],
+    ['2028-06-12T02:15:00+05:30', '11 Jun 2028, 20:45'],
+    ['2028-06-12T23:45:00-04:00', '13 Jun 2028, 03:45'],
+    ['2028-06-12T02:15:00+0530', '11 Jun 2028, 20:45'],
+    ['invalid-timestamp', 'invalid-timestamp'],
+    ['', '—'],
+    [null, '—'],
+  ])(
+    'renders timestamp %s in UTC in the table and drawer',
+    (timestamp, expected) => {
+      renderPanel(
+        buildBooking({
+          created_at: timestamp ?? '',
+          admin_modified_at: timestamp,
+        })
+      )
+
+      const row = document.querySelector('[data-booking-id="1"]') as Element
+      expect(row.querySelectorAll('td')[8].textContent).toBe(expected)
+      expect(row.querySelectorAll('td')[11].textContent).toBe(expected)
+      fireEvent.click(row)
+      expect(
+        screen.getByTestId('admin-booking-side-panel').textContent
+      ).toContain(`Last Modified At: ${expected}`)
+    }
+  )
+
   it('opens side panel with host fields, status dropdown, and admin notes when row clicked', async () => {
     renderPanel()
 
