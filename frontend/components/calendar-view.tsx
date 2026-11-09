@@ -70,7 +70,7 @@ type SeededState<T> = {
 
 type SelectionPanelLayout = 'unknown' | 'below' | 'beside'
 
-const weekdayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+const weekdayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 const layoutTolerancePixels = 1
 const useBrowserLayoutEffect =
   typeof window === 'undefined' ? useEffect : useLayoutEffect
@@ -118,7 +118,7 @@ function getTodayUtc(): Date {
 }
 
 function buildMonthCells(monthStart: Date): DayCell[] {
-  const firstWeekday = monthStart.getUTCDay()
+  const firstWeekday = (monthStart.getUTCDay() + 6) % 7
   const monthEnd = endOfMonthUtc(monthStart)
   const daysInMonth = monthEnd.getUTCDate()
   const totalCells = 42
