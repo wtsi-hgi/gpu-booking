@@ -36,6 +36,12 @@ names, external Unicode names and empty values. Each value must persist after
 save/reload. Inspect
 `.tmp/agent/project-pis-after.png`.
 
+Technical Lead uses the same file's `technical_leads` list on both forms.
+The spec checks configured, external Unicode and empty values through create
+and admin save/reload. All new admin fixtures use fixed 2028 dates to avoid
+filling capacity in the shared calendar tests. Inspect
+`.tmp/agent/technical-leads-after.png`.
+
 ## Gotchas
 
 Duration includes both endpoints; a same-day booking is one day. Event dates

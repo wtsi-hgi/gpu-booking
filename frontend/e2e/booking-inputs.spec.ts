@@ -350,3 +350,115 @@ test.describe('configured project PI suggestions', () => {
     }
   })
 })
+
+test.describe('configured technical lead suggestions', () => {
+  test('offers technical leads on create and saves configured, external or empty values', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 1000 })
+    for (const lead of [
+      'Example Technical Lead One',
+      'External Lead Create 外部',
+      '',
+    ]) {
+      const projectName = `PW Lead Create ${lead || 'No Lead'}`
+      await gotoPath(page, '/bookings/new?start=2028-06-01&end=2028-06-02')
+      const technicalLead = page.getByLabel('Technical Lead', { exact: true })
+      await expect(technicalLead).toBeVisible()
+      if (!(await technicalLead.getAttribute('list'))) {
+        await page.screenshot({
+          path: '../.tmp/agent/technical-leads-before.png',
+        })
+      }
+      await expect
+        .poll(() =>
+          technicalLead.evaluate((element: HTMLInputElement) =>
+            Array.from(element.list?.options ?? [], (option) => option.value)
+          )
+        )
+        .toEqual([
+          'Example Technical Lead One',
+          'Example Technical Lead Équipe',
+        ])
+      await technicalLead.fill(lead)
+      if (lead === 'Example Technical Lead One') {
+        await page.screenshot({
+          path: '../.tmp/agent/technical-leads-after.png',
+        })
+      }
+      await page
+        .getByLabel('GPU Host Type')
+        .selectOption({ label: '8 GPU H100' })
+      await page.getByLabel('Host Count').selectOption('1')
+      await page
+        .getByLabel('Workflow Type')
+        .selectOption({ label: 'Inference workloads' })
+      await page.getByLabel('Cost Code').fill('CC-EXAMPLE-001')
+      await page.getByLabel('Project Name').fill(projectName)
+      await page.getByRole('button', { name: 'Create Booking' }).click()
+      const confirm = page.getByRole('button', { name: 'Confirm', exact: true })
+      await expect
+        .poll(
+          async () =>
+            new URL(page.url()).pathname === '/bookings' ||
+            (await confirm.isVisible())
+        )
+        .toBe(true)
+      if (await confirm.isVisible()) {
+        await confirm.click()
+      }
+      await expect(page).toHaveURL(/\/bookings$/)
+      await switchUser(page, 'admin@example.com', true)
+      await gotoPath(page, '/admin/bookings')
+      await page.getByLabel('Search').fill(projectName)
+      await page.locator('[data-booking-row="true"]').click()
+      await expect(
+        page
+          .getByTestId('admin-booking-side-panel')
+          .getByLabel('Technical Lead')
+      ).toHaveValue(lead)
+    }
+  })
+
+  test('offers technical leads in admin editing and preserves configured, external or empty values', async ({
+    page,
+    request,
+  }) => {
+    const booking = await createBooking(request, 'technical-lead@example.com', {
+      projectName: 'PW Technical Lead Admin',
+      technicalLead: 'Existing External Lead',
+      startDate: '2028-06-05',
+      endDate: '2028-06-06',
+    })
+    await gotoPath(page, '/bookings')
+    await switchUser(page, 'admin@example.com', true)
+    await gotoPath(page, '/admin/bookings')
+    await page.getByLabel('Search').fill('PW Technical Lead Admin')
+    await getBookingRow(page, booking.id).click()
+    const panel = page.getByTestId('admin-booking-side-panel')
+    const technicalLead = panel.getByLabel('Technical Lead', { exact: true })
+    await expect(technicalLead).toHaveValue('Existing External Lead')
+    await expect
+      .poll(() =>
+        technicalLead.evaluate((element: HTMLInputElement) =>
+          Array.from(element.list?.options ?? [], (option) => option.value)
+        )
+      )
+      .toEqual(['Example Technical Lead One', 'Example Technical Lead Équipe'])
+    for (const lead of [
+      'Example Technical Lead Équipe',
+      'External Lead Admin 外部',
+      '',
+    ]) {
+      await technicalLead.fill(lead)
+      await panel.getByRole('button', { name: 'Save', exact: true }).click()
+      await expect(
+        page.getByText('Booking updated successfully.')
+      ).toBeVisible()
+      await page.reload()
+      await page.getByLabel('Search').fill('PW Technical Lead Admin')
+      await getBookingRow(page, booking.id).click()
+      await expect(technicalLead).toHaveValue(lead)
+    }
+  })
+})

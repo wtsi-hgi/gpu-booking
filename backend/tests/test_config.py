@@ -96,6 +96,7 @@ def test_booking_options_unset(monkeypatch: pytest.MonkeyPatch) -> None:
     assert Settings(_env_file=None).booking_options.model_dump() == {
         "cost_codes": [],
         "project_pis": [],
+        "technical_leads": [],
     }
 
 
@@ -109,6 +110,7 @@ def test_booking_options_omitted_list(
     assert Settings(_env_file=None).booking_options.model_dump() == {
         "cost_codes": [],
         "project_pis": [],
+        "technical_leads": [],
     }
 
 
@@ -120,7 +122,9 @@ def test_booking_options_file_snapshot(
     export.write_text(
         '{"cost_codes":[" CC-002 ","CC-001","CC-002"],'
         '"project_pis":[" Dr Example PI Équipe ","Dr Example PI One",'
-        '"Dr Example PI Équipe"]}',
+        '"Dr Example PI Équipe"],'
+        '"technical_leads":[" Example Lead Équipe ","Example Lead One",'
+        '"Example Lead Équipe"]}',
         encoding="utf-8",
     )
     monkeypatch.setenv("GPU_BOOKING_BOOKING_OPTIONS_FILE", str(export))
@@ -130,14 +134,23 @@ def test_booking_options_file_snapshot(
         "Dr Example PI Équipe",
         "Dr Example PI One",
     ]
+    assert settings.booking_options.technical_leads == [
+        "Example Lead Équipe",
+        "Example Lead One",
+    ]
     export.write_text('{"cost_codes":["CC-003"]}')
     assert settings.booking_options.cost_codes == ["CC-002", "CC-001"]
     assert settings.booking_options.project_pis == [
         "Dr Example PI Équipe",
         "Dr Example PI One",
     ]
+    assert settings.booking_options.technical_leads == [
+        "Example Lead Équipe",
+        "Example Lead One",
+    ]
     assert Settings(_env_file=None).booking_options.cost_codes == ["CC-003"]
     assert Settings(_env_file=None).booking_options.project_pis == []
+    assert Settings(_env_file=None).booking_options.technical_leads == []
 
 
 @pytest.mark.parametrize(
@@ -153,6 +166,10 @@ def test_booking_options_file_snapshot(
         '{"project_pis":[123]}',
         '{"project_pis":[null]}',
         '{"project_pis":["  "]}',
+        '{"technical_leads":"secret-value"}',
+        '{"technical_leads":[123]}',
+        '{"technical_leads":[null]}',
+        '{"technical_leads":["  "]}',
         '{"cost_codes":[],"unknown":"secret-value"}',
     ],
 )

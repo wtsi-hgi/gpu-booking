@@ -43,9 +43,10 @@ changed behaviour through rendered controls, not direct database writes.
 ## Evidence And Cleanup
 
 Read the log's test totals and assertions. Screenshots from the command above
-are `.tmp/agent/calendar-week-start-after.png` and
-`.tmp/agent/booking-days-after.png`, plus `.tmp/agent/cost-codes-after.png`
-and `.tmp/agent/project-pis-after.png`. Routine test screenshots stay in
+are `.tmp/agent/calendar-week-start-after.png`,
+`.tmp/agent/booking-days-after.png`, `.tmp/agent/cost-codes-after.png`,
+`.tmp/agent/project-pis-after.png` and
+`.tmp/agent/technical-leads-after.png`. Routine test screenshots stay in
 `.tmp/agent/`; archive selected bugfix evidence separately so reruns cannot
 change tracked evidence. On failure, screenshots, traces and videos are under
 `.tmp/agent/playwright/test-results/`.

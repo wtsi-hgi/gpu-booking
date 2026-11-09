@@ -63,6 +63,7 @@ export default async function NewBookingPage({
         workflowTypes={workflowTypes}
         costCodes={bookingOptions.cost_codes}
         projectPis={bookingOptions.project_pis}
+        technicalLeads={bookingOptions.technical_leads}
         initialStartDate={startDate}
         initialEndDate={endDate}
         initialGpuHostTypeId={gpuHostTypeId}

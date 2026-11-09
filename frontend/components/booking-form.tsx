@@ -50,6 +50,7 @@ import {
 type BookingFormProps = {
   costCodes?: string[]
   projectPis?: string[]
+  technicalLeads?: string[]
   gpuHostTypes: GpuHostType[]
   workflowTypes: WorkflowType[]
   initialStartDate?: string
@@ -406,6 +407,7 @@ function hasUnsavedFormChanges(
 export function BookingForm({
   costCodes = [],
   projectPis = [],
+  technicalLeads = [],
   gpuHostTypes,
   workflowTypes,
   initialStartDate,
@@ -1261,10 +1263,16 @@ export function BookingForm({
                 <Input
                   id="technical_lead"
                   name="technical_lead"
+                  list="booking-technical-leads"
                   type="text"
                   value={formValues.technical_lead}
                   onChange={handleFieldChange('technical_lead')}
                 />
+                <datalist id="booking-technical-leads">
+                  {technicalLeads.map((lead) => (
+                    <option key={lead} value={lead} />
+                  ))}
+                </datalist>
               </div>
 
               <div className="space-y-1">

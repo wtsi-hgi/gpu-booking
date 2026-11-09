@@ -4,5 +4,9 @@
     "Dr Example PI One",
     "Dr Example PI Two",
     "Dr Example PI Équipe"
+  ],
+  "technical_leads": [
+    "Example Technical Lead One",
+    "Example Technical Lead Équipe"
   ]
 }

@@ -26,6 +26,7 @@ import { formatUtcDateTime } from '@/lib/utils'
 type AdminBookingPanelProps = {
   costCodes?: string[]
   projectPis?: string[]
+  technicalLeads?: string[]
   initialBookings: BookingResponse[]
   gpuHostTypes: GpuHostType[]
   workflowTypes: WorkflowType[]
@@ -132,6 +133,7 @@ function SelectField({ id, name, value, onChange, options }: SelectProps) {
 export function AdminBookingPanel({
   costCodes = [],
   projectPis = [],
+  technicalLeads = [],
   initialBookings,
   gpuHostTypes,
   workflowTypes,
@@ -509,11 +511,17 @@ export function AdminBookingPanel({
                 <Input
                   id="technical_lead"
                   name="technical_lead"
+                  list="admin-booking-technical-leads"
                   value={draft.technical_lead}
                   onChange={(event) =>
                     updateDraft('technical_lead', event.target.value)
                   }
                 />
+                <datalist id="admin-booking-technical-leads">
+                  {technicalLeads.map((lead) => (
+                    <option key={lead} value={lead} />
+                  ))}
+                </datalist>
               </Field>
 
               <Field id="event_start_date" label="Event Start Date">

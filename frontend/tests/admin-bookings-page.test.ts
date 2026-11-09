@@ -118,6 +118,7 @@ beforeEach(() => {
   mocks.getBookingOptionsMock.mockResolvedValue({
     cost_codes: [],
     project_pis: [],
+    technical_leads: [],
   })
   mocks.getCapacityMock.mockResolvedValue([
     {
