@@ -1,10 +1,10 @@
-import { describe, expect, it } from 'vitest'
+import { assert, describe, expect, it } from 'vitest'
 
 import config from '../playwright.config'
 
 describe('playwright frontend web server config', () => {
   it('uses direct frontend startup without forced webpack or workspace sync copy', () => {
-    expect(Array.isArray(config.webServer)).toBe(true)
+    assert(Array.isArray(config.webServer))
 
     const frontendServer = config.webServer?.[1]
     expect(frontendServer).toBeDefined()
@@ -19,6 +19,7 @@ describe('playwright frontend web server config', () => {
   })
 
   it('runs backend e2e against an isolated scratch SQLite database', () => {
+    assert(Array.isArray(config.webServer))
     const backendServer = config.webServer?.[0]
     expect(backendServer).toBeDefined()
 

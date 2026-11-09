@@ -6,7 +6,7 @@ import { ThemeProvider } from '@/components/theme-provider'
 import { UserSwitch } from '@/components/user-switch'
 import { Toaster } from '@/components/ui/toaster'
 import { TooltipProvider } from '@/components/ui/tooltip'
-import { toAuthState } from '@/lib/auth-state'
+import { toAuthState, type AuthState } from '@/lib/auth-state'
 import { hasFrontendOidcConfig } from '@/lib/oidc'
 import { getOptionalCurrentUser } from '@/lib/server-auth'
 
@@ -29,7 +29,7 @@ export default async function RootLayout({
   children: React.ReactNode
 }) {
   const currentUser = await getOptionalCurrentUser()
-  const initialAuthState = currentUser
+  const initialAuthState: AuthState = currentUser
     ? toAuthState(currentUser)
     : {
         email: '',
