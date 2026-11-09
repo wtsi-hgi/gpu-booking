@@ -1,5 +1,11 @@
 import { z } from 'zod'
 
+export const bookingOptionsSchema = z.object({
+  cost_codes: z.array(z.string().trim().min(1)),
+})
+
+export type BookingOptions = z.infer<typeof bookingOptionsSchema>
+
 export const bookingStatusSchema = z.enum([
   'unconfirmed',
   'confirmed',

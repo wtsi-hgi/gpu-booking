@@ -49,6 +49,13 @@ export default defineConfig({
         GPU_BOOKING_BACKEND_PORT: String(backendPort),
         GPU_BOOKING_DATABASE_URL: `sqlite+aiosqlite:////${databasePath.replace(/^\//, '')}`,
         GPU_BOOKING_INITIAL_ADMIN_EMAILS: 'admin@example.com',
+        GPU_BOOKING_BOOKING_OPTIONS_FILE: path.join(
+          repoRoot,
+          'frontend',
+          'e2e',
+          'fixtures',
+          'booking-options.json'
+        ),
         AUTH_MODE: 'insecure',
         BACKEND_PORT: String(backendPort),
         DATABASE_URL: `sqlite+aiosqlite:////${databasePath.replace(/^\//, '')}`,

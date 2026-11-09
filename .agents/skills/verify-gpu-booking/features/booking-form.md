@@ -23,6 +23,13 @@ confirmation, and successful creation. Run
 `e2e/admin-past-booking-repro.spec.ts` for an administrator's past booking.
 Inspect `.tmp/agent/booking-days-after.png`.
 
+The same spec also runs configured cost code suggestions through the backend's
+JSON file and both create/admin forms. The synthetic fixture is
+`frontend/e2e/fixtures/booking-options.json`, passed to the backend with
+`GPU_BOOKING_BOOKING_OPTIONS_FILE`. Configured suggestions must appear while
+other manually entered codes remain valid and persist after save/reload.
+Inspect `.docs/bugfixes/evidence/261109-cost-codes-after.png`.
+
 ## Gotchas
 
 Duration includes both endpoints; a same-day booking is one day. Event dates

@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createInitialBookingFormValues } from '@/lib/booking-state'
 
 const mocks = vi.hoisted(() => ({
+  getBookingOptionsMock: vi.fn(),
   getGpuHostTypesMock: vi.fn(),
   requireCurrentUserMock: vi.fn(),
   getWorkflowTypesMock: vi.fn(),
@@ -29,6 +30,7 @@ vi.mock('sonner', () => ({
 }))
 
 vi.mock('@/app/actions', () => ({
+  getBookingOptions: mocks.getBookingOptionsMock,
   getGpuHostTypes: mocks.getGpuHostTypesMock,
   getWorkflowTypes: mocks.getWorkflowTypesMock,
   createBooking: mocks.createBookingMock,
@@ -77,6 +79,7 @@ beforeEach(() => {
     },
   ])
   mocks.getWorkflowTypesMock.mockResolvedValue([{ id: 1, name: 'Training' }])
+  mocks.getBookingOptionsMock.mockResolvedValue({ cost_codes: [] })
 
   mocks.createBookingMock.mockResolvedValue({
     status: 'idle',

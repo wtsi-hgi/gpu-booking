@@ -24,6 +24,7 @@ import { getBookingDays, getBookingEndDate } from '@/lib/booking-dates'
 import { formatUtcDateTime } from '@/lib/utils'
 
 type AdminBookingPanelProps = {
+  costCodes?: string[]
   initialBookings: BookingResponse[]
   gpuHostTypes: GpuHostType[]
   workflowTypes: WorkflowType[]
@@ -128,6 +129,7 @@ function SelectField({ id, name, value, onChange, options }: SelectProps) {
 }
 
 export function AdminBookingPanel({
+  costCodes = [],
   initialBookings,
   gpuHostTypes,
   workflowTypes,
@@ -482,11 +484,17 @@ export function AdminBookingPanel({
                 <Input
                   id="project_grant_number"
                   name="project_grant_number"
+                  list="admin-booking-cost-codes"
                   value={draft.project_grant_number}
                   onChange={(event) =>
                     updateDraft('project_grant_number', event.target.value)
                   }
                 />
+                <datalist id="admin-booking-cost-codes">
+                  {costCodes.map((code) => (
+                    <option key={code} value={code} />
+                  ))}
+                </datalist>
               </Field>
 
               <Field id="technical_lead" label="Technical Lead">

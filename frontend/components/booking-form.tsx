@@ -48,6 +48,7 @@ import {
 } from '@/lib/booking-state'
 
 type BookingFormProps = {
+  costCodes?: string[]
   gpuHostTypes: GpuHostType[]
   workflowTypes: WorkflowType[]
   initialStartDate?: string
@@ -402,6 +403,7 @@ function hasUnsavedFormChanges(
 }
 
 export function BookingForm({
+  costCodes = [],
   gpuHostTypes,
   workflowTypes,
   initialStartDate,
@@ -1108,11 +1110,17 @@ export function BookingForm({
                 <Input
                   id="project_grant_number"
                   name="project_grant_number"
+                  list="booking-cost-codes"
                   type="text"
                   value={formValues.project_grant_number}
                   onChange={handleFieldChange('project_grant_number')}
                   aria-invalid={Boolean(fieldErrors.project_grant_number)}
                 />
+                <datalist id="booking-cost-codes">
+                  {costCodes.map((code) => (
+                    <option key={code} value={code} />
+                  ))}
+                </datalist>
                 {fieldErrors.project_grant_number && (
                   <p className="text-destructive text-sm">
                     {fieldErrors.project_grant_number}

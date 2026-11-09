@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   bookingListSchema,
+  bookingOptionsSchema,
   bookingResponseSchema,
   bookingValidationSchema,
   capacityWarningSchema,
@@ -38,6 +39,22 @@ const fullBookingPayload = {
 }
 
 describe('booking contracts', () => {
+  it('validates suggestion lists from the backend', () => {
+    expect(bookingOptionsSchema.parse({ cost_codes: [] })).toEqual({
+      cost_codes: [],
+    })
+    expect(
+      bookingOptionsSchema.parse({ cost_codes: ['CC-001'] }).cost_codes
+    ).toEqual(['CC-001'])
+    for (const payload of [
+      {},
+      { cost_codes: 'CC-001' },
+      { cost_codes: [42] },
+      { cost_codes: [' '] },
+    ]) {
+      expect(bookingOptionsSchema.safeParse(payload).success).toBe(false)
+    }
+  })
   it('parses valid booking response payloads', () => {
     expect(bookingResponseSchema.parse(fullBookingPayload)).toEqual(
       fullBookingPayload

@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 
-import { getBookingRow, gotoPath, switchUser } from './helpers'
+import { createBooking, getBookingRow, gotoPath, switchUser } from './helpers'
 
 test('calendar weeks begin on Monday with dates aligned to headings', async ({
   page,
@@ -148,5 +148,98 @@ test.describe('booking duration', () => {
       '2029-01-02'
     )
     await expect(panel.getByLabel('Number of Days')).toHaveValue('3')
+  })
+})
+
+test.describe('configured cost code suggestions', () => {
+  test('offers configured cost codes on the create form and accepts another code', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 1000 })
+    await gotoPath(page, '/bookings/new?start=2028-04-01&end=2028-04-02')
+    const costCode = page.getByLabel('Cost Code', { exact: true })
+    await expect(costCode).toBeVisible()
+    if (!(await costCode.getAttribute('list'))) {
+      await page.screenshot({
+        path: '../.docs/bugfixes/evidence/261109-cost-codes-before.png',
+      })
+    }
+    await expect
+      .poll(() =>
+        costCode.evaluate((element: HTMLInputElement) =>
+          Array.from(element.list?.options ?? [], (option) => option.value)
+        )
+      )
+      .toEqual(['CC-EXAMPLE-001', 'CC-EXAMPLE-002'])
+    await costCode.fill('CC-EXAMPLE-001')
+    await expect(costCode).toHaveValue('CC-EXAMPLE-001')
+    await page.screenshot({
+      path: '../.docs/bugfixes/evidence/261109-cost-codes-after.png',
+    })
+    await costCode.fill('CC-EXTERNAL-CREATE')
+    await page.getByLabel('GPU Host Type').selectOption({ label: '8 GPU H100' })
+    await page.getByLabel('Host Count').selectOption('1')
+    await page
+      .getByLabel('Workflow Type')
+      .selectOption({ label: 'Inference workloads' })
+    await page.getByLabel('Project Name').fill('PW Cost Code Create')
+    await page.getByRole('button', { name: 'Create Booking' }).click()
+    const confirm = page.getByRole('button', { name: 'Confirm', exact: true })
+    await expect
+      .poll(
+        async () =>
+          new URL(page.url()).pathname === '/bookings' ||
+          (await confirm.isVisible())
+      )
+      .toBe(true)
+    if (await confirm.isVisible()) {
+      await confirm.click()
+    }
+    await expect(page).toHaveURL(/\/bookings$/)
+    await switchUser(page, 'admin@example.com', true)
+    await gotoPath(page, '/admin/bookings')
+    await page.getByLabel('Search').fill('PW Cost Code Create')
+    await page.locator('[data-booking-row="true"]').click()
+    await expect(
+      page.getByTestId('admin-booking-side-panel').getByLabel('Cost Code')
+    ).toHaveValue('CC-EXTERNAL-CREATE')
+  })
+
+  test('offers configured cost codes in admin editing and preserves another code', async ({
+    page,
+    request,
+  }) => {
+    const booking = await createBooking(request, 'cost-code@example.com', {
+      projectName: 'PW Cost Code Admin',
+      projectGrantNumber: 'CC-EXAMPLE-001',
+    })
+    await gotoPath(page, '/bookings')
+    await switchUser(page, 'admin@example.com', true)
+    await gotoPath(page, '/admin/bookings')
+    await page.getByLabel('Search').fill('PW Cost Code Admin')
+    await getBookingRow(page, booking.id).click()
+    const panel = page.getByTestId('admin-booking-side-panel')
+    const costCode = panel.getByLabel('Cost Code', { exact: true })
+    await expect
+      .poll(() =>
+        costCode.evaluate((element: HTMLInputElement) =>
+          Array.from(element.list?.options ?? [], (option) => option.value)
+        )
+      )
+      .toEqual(['CC-EXAMPLE-001', 'CC-EXAMPLE-002'])
+    await costCode.fill('CC-EXAMPLE-002')
+    await panel.getByRole('button', { name: 'Save', exact: true }).click()
+    await expect(page.getByText('Booking updated successfully.')).toBeVisible()
+    await page.reload()
+    await page.getByLabel('Search').fill('PW Cost Code Admin')
+    await getBookingRow(page, booking.id).click()
+    await expect(costCode).toHaveValue('CC-EXAMPLE-002')
+    await costCode.fill('CC-EXTERNAL-ADMIN')
+    await panel.getByRole('button', { name: 'Save', exact: true }).click()
+    await expect(page.getByText('Booking updated successfully.')).toBeVisible()
+    await page.reload()
+    await page.getByLabel('Search').fill('PW Cost Code Admin')
+    await getBookingRow(page, booking.id).click()
+    await expect(costCode).toHaveValue('CC-EXTERNAL-ADMIN')
   })
 })

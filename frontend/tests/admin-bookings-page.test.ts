@@ -17,6 +17,7 @@ import type { GpuHostType, WorkflowType } from '@/lib/admin-contracts'
 import type { BookingResponse } from '@/lib/booking-contracts'
 
 const mocks = vi.hoisted(() => ({
+  getBookingOptionsMock: vi.fn(),
   getBookingsMock: vi.fn(),
   getGpuHostTypesMock: vi.fn(),
   requireCurrentUserMock: vi.fn(),
@@ -28,6 +29,7 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('@/app/actions', () => ({
+  getBookingOptions: mocks.getBookingOptionsMock,
   getBookings: mocks.getBookingsMock,
   getGpuHostTypes: mocks.getGpuHostTypesMock,
   getWorkflowTypes: mocks.getWorkflowTypesMock,
@@ -113,6 +115,7 @@ beforeEach(() => {
   mocks.getBookingsMock.mockResolvedValue([buildBooking()])
   mocks.getGpuHostTypesMock.mockResolvedValue(gpuHostTypes)
   mocks.getWorkflowTypesMock.mockResolvedValue(workflowTypes)
+  mocks.getBookingOptionsMock.mockResolvedValue({ cost_codes: [] })
   mocks.getCapacityMock.mockResolvedValue([
     {
       date: '2026-04-01',

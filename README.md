@@ -113,6 +113,7 @@ The app runs with defaults, but these are commonly set:
 - `GPU_BOOKING_AUTH_MODE` (`insecure` by default, `oidc` in production)
 - `GPU_BOOKING_DATABASE_URL`
 - `GPU_BOOKING_INITIAL_ADMIN_EMAILS`
+- `GPU_BOOKING_BOOKING_OPTIONS_FILE` (optional JSON booking suggestions)
 - `GPU_BOOKING_TLS_CERT` / `GPU_BOOKING_TLS_KEY` (optional; serve the dev frontend over HTTPS, see [HTTPS](#https))
 - backend auth and app settings from `backend/.env.example`
 
@@ -125,6 +126,44 @@ With `make run`, the backend process starts in `backend/`, so the local SQLite
 file is generated as `backend/gpu_booking.db`. That file and its SQLite sidecars
 are ignored by git; delete them to reset local state, or set
 `GPU_BOOKING_DATABASE_URL` to another SQLite or service database URL.
+
+### Cost code suggestions
+
+Create and admin edit forms offer cost codes from an optional UTF-8 JSON file.
+When creating a booking, Cost Code remains required. Both forms accept
+manually entered values, including values absent from the file. With no file
+configured, it works as free text.
+
+Set this variable in the backend environment or `backend/.env`:
+
+```bash
+GPU_BOOKING_BOOKING_OPTIONS_FILE=/etc/gpu-booking/booking-options.json
+```
+
+The file schema is an object with an optional `cost_codes` list of non-empty
+strings. An omitted or empty list gives no suggestions. This example contains
+synthetic values:
+
+```json
+{
+  "cost_codes": ["CC-EXAMPLE-001", "CC-EXAMPLE-002"]
+}
+```
+
+The backend trims surrounding whitespace and removes duplicates in export
+order. It rejects unknown keys and validates and reads the file once at
+startup. Missing, unreadable, invalid JSON or invalid schema files stop
+startup with an error. Use an absolute path; relative paths resolve from the
+backend's working directory. Replace the file and restart the backend to
+refresh suggestions. Reload the form to fetch the refreshed values.
+
+Generate this file outside the app using your site's approved LSF config
+export process. The app does not parse LSF config or connect to LSF at runtime;
+the export command depends on your site's config and access arrangements.
+Publish the exported JSON atomically to avoid partial writes, and grant the
+backend read access. Include only cost codes suitable for all app users;
+`GET /api/v1/booking-options` exposes these suggestions as public reference
+data. Do not include credentials or other private LSF configuration.
 
 ### Authentication mode (important)
 
