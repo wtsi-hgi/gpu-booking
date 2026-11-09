@@ -20,6 +20,7 @@ import {
 import type { GpuHostType, WorkflowType } from '@/lib/admin-contracts'
 import { formatGpuHostTypeLabel } from '@/lib/admin-contracts'
 import type { BookingResponse } from '@/lib/booking-contracts'
+import { getBookingDays, getBookingEndDate } from '@/lib/booking-dates'
 import { formatUtcDateTime } from '@/lib/utils'
 
 type AdminBookingPanelProps = {
@@ -36,6 +37,7 @@ type BookingDraft = {
   workflow_type_id: string
   start_date: string
   end_date: string
+  number_of_days: string
   alt_email: string
   project_name: string
   project_pi: string
@@ -75,6 +77,7 @@ function createDraft(booking: BookingResponse): BookingDraft {
     workflow_type_id: String(booking.workflow_type_id),
     start_date: toInputDate(booking.start_date),
     end_date: toInputDate(booking.end_date),
+    number_of_days: getBookingDays(booking.start_date, booking.end_date),
     reservation_name: booking.reservation_name ?? '',
     alt_email: booking.alt_email ?? '',
     project_name: booking.project_name ?? '',
@@ -258,7 +261,18 @@ export function AdminBookingPanel({
     key: K,
     value: BookingDraft[K]
   ) {
-    setDraft((current) => (current ? { ...current, [key]: value } : current))
+    setDraft((current) => {
+      if (!current) {
+        return current
+      }
+      const next = { ...current, [key]: value }
+      if (key === 'number_of_days') {
+        next.end_date = getBookingEndDate(next.start_date, value)
+      } else if (key === 'start_date' || key === 'end_date') {
+        next.number_of_days = getBookingDays(next.start_date, next.end_date)
+      }
+      return next
+    })
     setCapacityWarning(null)
   }
 
@@ -380,6 +394,9 @@ export function AdminBookingPanel({
                   id="start_date"
                   name="start_date"
                   type="date"
+                  required
+                  min="0001-01-01"
+                  max="9999-12-31"
                   value={draft.start_date}
                   onChange={(event) =>
                     updateDraft('start_date', event.target.value)
@@ -392,11 +409,39 @@ export function AdminBookingPanel({
                   id="end_date"
                   name="end_date"
                   type="date"
+                  required
+                  min="0001-01-01"
+                  max="9999-12-31"
                   value={draft.end_date}
                   onChange={(event) =>
                     updateDraft('end_date', event.target.value)
                   }
                 />
+              </Field>
+
+              <Field id="number_of_days" label="Number of Days">
+                <Input
+                  id="number_of_days"
+                  name="number_of_days"
+                  type="number"
+                  min={1}
+                  max={
+                    getBookingDays(draft.start_date, '9999-12-31') || undefined
+                  }
+                  step={1}
+                  required
+                  value={draft.number_of_days}
+                  aria-describedby="number_of_days_help"
+                  onChange={(event) =>
+                    updateDraft('number_of_days', event.target.value)
+                  }
+                />
+                <p
+                  id="number_of_days_help"
+                  className="text-muted-foreground text-xs"
+                >
+                  Includes both start and end dates.
+                </p>
               </Field>
 
               <Field id="alt_email" label="Alternate Email">

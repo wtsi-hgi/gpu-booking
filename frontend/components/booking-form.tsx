@@ -36,6 +36,7 @@ import type {
   BookingValidation,
   HostTypeAvailability,
 } from '@/lib/booking-contracts'
+import { getBookingDays, getBookingEndDate } from '@/lib/booking-dates'
 import {
   buildRequiredFieldErrors,
   createInitialBookingFormValues,
@@ -110,6 +111,11 @@ function buildFormValues(
   if (!nextValues.event_end_date && nextValues.end_date) {
     nextValues.event_end_date = nextValues.end_date
   }
+
+  nextValues.number_of_days = getBookingDays(
+    nextValues.start_date,
+    nextValues.end_date
+  )
 
   return nextValues
 }
@@ -603,6 +609,26 @@ export function BookingForm({
           ...current,
           host_count: constrainHostCountValue(nextValue, selectedHostCountMax),
         }))
+        return
+      }
+
+      if (field === 'number_of_days') {
+        setFormValues((current) => ({
+          ...current,
+          number_of_days: nextValue,
+          end_date: getBookingEndDate(current.start_date, nextValue),
+        }))
+        return
+      }
+
+      if (field === 'start_date' || field === 'end_date') {
+        setFormValues((current) => {
+          const next = { ...current, [field]: nextValue }
+          return {
+            ...next,
+            number_of_days: getBookingDays(next.start_date, next.end_date),
+          }
+        })
         return
       }
 
@@ -1102,6 +1128,8 @@ export function BookingForm({
                   id="start_date"
                   name="start_date"
                   type="date"
+                  min="0001-01-01"
+                  max="9999-12-31"
                   value={formValues.start_date}
                   onChange={handleFieldChange('start_date')}
                   aria-invalid={
@@ -1125,6 +1153,8 @@ export function BookingForm({
                   id="end_date"
                   name="end_date"
                   type="date"
+                  min="0001-01-01"
+                  max="9999-12-31"
                   value={formValues.end_date}
                   onChange={handleFieldChange('end_date')}
                   aria-invalid={
@@ -1138,6 +1168,35 @@ export function BookingForm({
                   </p>
                 )}
                 {renderValidationFeedback('end_date')}
+              </div>
+
+              <div className="space-y-1">
+                <label htmlFor="number_of_days" className="text-sm font-medium">
+                  Number of Days
+                </label>
+                <Input
+                  id="number_of_days"
+                  name="number_of_days"
+                  type="number"
+                  min={1}
+                  max={
+                    getBookingDays(formValues.start_date, '9999-12-31') ||
+                    undefined
+                  }
+                  step={1}
+                  required={Boolean(
+                    getBookingDays(formValues.start_date, formValues.end_date)
+                  )}
+                  value={formValues.number_of_days}
+                  onChange={handleFieldChange('number_of_days')}
+                  aria-describedby="number_of_days_help"
+                />
+                <p
+                  id="number_of_days_help"
+                  className="text-muted-foreground text-xs"
+                >
+                  Includes both start and end dates.
+                </p>
               </div>
 
               <div className="space-y-1">

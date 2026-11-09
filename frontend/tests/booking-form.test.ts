@@ -267,6 +267,92 @@ describe('booking form - F3 acceptance coverage', () => {
     ).toBeNull()
   })
 
+  it.each([
+    ['2028-02-28', '2028-02-29', '2', '3', '2028-03-01'],
+    ['2028-12-31', '2028-12-31', '1', '2', '2029-01-01'],
+    ['2028-03-11', '2028-03-13', '3', '2', '2028-03-12'],
+    ['9999-12-30', '9999-12-31', '2', '1', '9999-12-30'],
+    ['0001-01-01', '0001-01-01', '1', '2', '0001-01-02'],
+  ])(
+    'synchronises rendered booking dates for %s through %s',
+    (start, end, count, nextCount, nextEnd) => {
+      renderBookingForm(start, end, gpuHostTypes, true)
+      expect(
+        (screen.getByLabelText('Number of Days') as HTMLInputElement).value
+      ).toBe(count)
+      changeFieldValue('Number of Days', nextCount)
+      expect(
+        (screen.getByLabelText('End Date') as HTMLInputElement).value
+      ).toBe(nextEnd)
+      changeFieldValue('End Date', end)
+      expect(
+        (screen.getByLabelText('Number of Days') as HTMLInputElement).value
+      ).toBe(count)
+    }
+  )
+
+  it.each(['', '0', '-1', '1.5', '999999999999999999999'])(
+    'rejects invalid day count %s without submitting stale dates',
+    async (count) => {
+      const user = userEvent.setup()
+      renderBookingForm()
+      const start = getRelativeDate(2)
+      fillRequiredFieldsByChange(start, getRelativeDate(4))
+      changeFieldValue('Project Name', 'Keep my draft')
+      changeFieldValue('Number of Days', count)
+      expect(
+        (screen.getByLabelText('End Date') as HTMLInputElement).value
+      ).toBe('')
+      await user.click(screen.getByRole('button', { name: 'Create Booking' }))
+      expect(validateBookingMock).not.toHaveBeenCalled()
+      expect(createBookingMock).not.toHaveBeenCalled()
+      expect(
+        (screen.getByLabelText('Project Name') as HTMLInputElement).value
+      ).toBe('Keep my draft')
+      changeFieldValue('Number of Days', '2')
+      expect(
+        (screen.getByLabelText('Number of Days') as HTMLInputElement).value
+      ).toBe('2')
+      await waitFor(() =>
+        expect(getHostTypeAvailabilityMock).toHaveBeenLastCalledWith(
+          start,
+          getRelativeDate(3)
+        )
+      )
+    }
+  )
+
+  it('clears duration for invalid dates and prevents duration overflow past year 9999', () => {
+    renderBookingForm('9999-12-31', '9999-12-31', gpuHostTypes, true)
+    changeFieldValue('Number of Days', '2')
+    expect((screen.getByLabelText('End Date') as HTMLInputElement).value).toBe(
+      ''
+    )
+    changeFieldValue('Start Date', '')
+    changeFieldValue('Number of Days', '3')
+    expect((screen.getByLabelText('End Date') as HTMLInputElement).value).toBe(
+      ''
+    )
+    changeFieldValue('Start Date', '2028-03-02')
+    changeFieldValue('End Date', '2028-03-01')
+    expect(
+      (screen.getByLabelText('Number of Days') as HTMLInputElement).value
+    ).toBe('')
+  })
+
+  it('asks before discarding an invalid duration edit', async () => {
+    const user = userEvent.setup()
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false)
+    renderBookingForm('2028-02-28', '2028-02-29')
+    changeFieldValue('Number of Days', '0')
+    await user.click(screen.getByRole('button', { name: 'Close form' }))
+    expect(confirmSpy).toHaveBeenCalledWith(
+      'Discard changes to this booking request?'
+    )
+    expect(routerPushMock).not.toHaveBeenCalled()
+    confirmSpy.mockRestore()
+  })
+
   it('groups required booking fields at the top of the form', () => {
     const { container } = renderBookingForm()
 
@@ -281,6 +367,7 @@ describe('booking form - F3 acceptance coverage', () => {
       'Cost Code',
       'Start Date',
       'End Date',
+      'Number of Days',
       'Project Name',
       'PI/Lead',
       'Alternate Email',
@@ -1075,56 +1162,60 @@ describe('booking form - F3 acceptance coverage', () => {
     })
   })
 
-  it('clears warning confirmation state when the form changes and revalidates on the next submit', async () => {
-    const user = userEvent.setup()
-    const warningMessage =
-      'Proposed booking exceeds 40% per-user capacity on 2026-04-10'
+  it.each(['Host Count', 'Number of Days'])(
+    'clears warning confirmation when %s changes and revalidates on submit',
+    async (field) => {
+      const user = userEvent.setup()
+      const warningMessage =
+        'Proposed booking exceeds 40% per-user capacity on 2026-04-10'
 
-    validateBookingMock.mockResolvedValueOnce({
-      valid: true,
-      warnings: [
-        {
-          rule: 'user_capacity_40_percent',
-          message: warningMessage,
-          severity: 'warning',
-        },
-      ],
-      blocked: false,
-      block_reason: null,
-    })
+      validateBookingMock.mockResolvedValueOnce({
+        valid: true,
+        warnings: [
+          {
+            rule: 'user_capacity_40_percent',
+            message: warningMessage,
+            severity: 'warning',
+          },
+        ],
+        blocked: false,
+        block_reason: null,
+      })
 
-    renderBookingForm()
-    await fillRequiredFields(user)
-    await user.click(screen.getByRole('button', { name: 'Create Booking' }))
+      renderBookingForm()
+      await fillRequiredFields(user)
+      await user.click(screen.getByRole('button', { name: 'Create Booking' }))
 
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Confirm' })).toBeTruthy()
-      expect(screen.getAllByText(warningMessage)).toHaveLength(2)
-    })
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: 'Confirm' })).toBeTruthy()
+        expect(screen.getAllByText(warningMessage)).toHaveLength(2)
+      })
 
-    const hostCountSelect = screen.getByLabelText(
-      'Host Count'
-    ) as HTMLSelectElement
-    await user.selectOptions(hostCountSelect, '3')
+      if (field === 'Host Count') {
+        await user.selectOptions(screen.getByLabelText(field), '3')
+      } else {
+        changeFieldValue(field, '4')
+      }
 
-    await waitFor(() => {
-      expect(screen.queryByRole('button', { name: 'Confirm' })).toBeNull()
-      expect(
-        screen.getByRole('button', { name: 'Create Booking' })
-      ).toBeTruthy()
-      expect(
-        screen.queryByText('Review warnings before confirming.')
-      ).toBeNull()
-      expect(screen.queryByText(warningMessage)).toBeNull()
-    })
+      await waitFor(() => {
+        expect(screen.queryByRole('button', { name: 'Confirm' })).toBeNull()
+        expect(
+          screen.getByRole('button', { name: 'Create Booking' })
+        ).toBeTruthy()
+        expect(
+          screen.queryByText('Review warnings before confirming.')
+        ).toBeNull()
+        expect(screen.queryByText(warningMessage)).toBeNull()
+      })
 
-    await user.click(screen.getByRole('button', { name: 'Create Booking' }))
+      await user.click(screen.getByRole('button', { name: 'Create Booking' }))
 
-    await waitFor(() => {
-      expect(validateBookingMock).toHaveBeenCalledTimes(2)
-      expect(createBookingMock).toHaveBeenCalledTimes(1)
-    })
-  })
+      await waitFor(() => {
+        expect(validateBookingMock).toHaveBeenCalledTimes(2)
+        expect(createBookingMock).toHaveBeenCalledTimes(1)
+      })
+    }
+  )
 
   it('ignores stale warning responses after the form changes during validation', async () => {
     const user = userEvent.setup()

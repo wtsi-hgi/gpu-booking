@@ -141,6 +141,34 @@ afterEach(() => {
 })
 
 describe('admin bookings page - H2 acceptance tests', () => {
+  it('synchronises admin booking days, preserves event dates and blocks invalid duration', async () => {
+    renderPanel(
+      buildBooking({ start_date: '2028-02-28', end_date: '2028-02-29' })
+    )
+    fireEvent.click(document.querySelector('[data-booking-id="1"]') as Element)
+    const panel = within(screen.getByTestId('admin-booking-side-panel'))
+    const days = panel.getByLabelText('Number of Days') as HTMLInputElement
+    const start = panel.getByLabelText('Start Date') as HTMLInputElement
+    const end = panel.getByLabelText('End Date') as HTMLInputElement
+    expect(days.value).toBe('2')
+    fireEvent.change(days, { target: { value: '3' } })
+    expect(end.value).toBe('2028-03-01')
+    fireEvent.change(start, { target: { value: '2028-02-29' } })
+    expect(days.value).toBe('2')
+    fireEvent.change(end, { target: { value: '2028-02-29' } })
+    expect(days.value).toBe('1')
+    fireEvent.change(days, { target: { value: '1.5' } })
+    expect(end.value).toBe('')
+    expect(days.checkValidity()).toBe(false)
+    expect(end.checkValidity()).toBe(false)
+    expect(
+      (panel.getByLabelText('Event Start Date') as HTMLInputElement).value
+    ).toBe('2026-03-30')
+    expect(
+      (panel.getByLabelText('Event End Date') as HTMLInputElement).value
+    ).toBe('2026-04-04')
+  })
+
   it('shows full booking table with admin columns for admin users', async () => {
     render(await AdminBookingsPage())
 
