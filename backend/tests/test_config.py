@@ -93,7 +93,10 @@ def test_settings_support_legacy_environment_variable_names(monkeypatch) -> None
 def test_booking_options_unset(monkeypatch: pytest.MonkeyPatch) -> None:
     """Keep deployments without an export file usable."""
     monkeypatch.delenv("GPU_BOOKING_BOOKING_OPTIONS_FILE", raising=False)
-    assert Settings(_env_file=None).booking_options.cost_codes == []
+    assert Settings(_env_file=None).booking_options.model_dump() == {
+        "cost_codes": [],
+        "project_pis": [],
+    }
 
 
 def test_booking_options_omitted_list(
@@ -103,7 +106,10 @@ def test_booking_options_omitted_list(
     export = tmp_path / "booking-options.json"
     export.write_text("{}")
     monkeypatch.setenv("GPU_BOOKING_BOOKING_OPTIONS_FILE", str(export))
-    assert Settings(_env_file=None).booking_options.cost_codes == []
+    assert Settings(_env_file=None).booking_options.model_dump() == {
+        "cost_codes": [],
+        "project_pis": [],
+    }
 
 
 def test_booking_options_file_snapshot(
@@ -111,13 +117,27 @@ def test_booking_options_file_snapshot(
 ) -> None:
     """Read the environment path once and normalize suggestions in export order."""
     export = tmp_path / "booking-options.json"
-    export.write_text('{"cost_codes":[" CC-002 ","CC-001","CC-002"]}')
+    export.write_text(
+        '{"cost_codes":[" CC-002 ","CC-001","CC-002"],'
+        '"project_pis":[" Dr Example PI Équipe ","Dr Example PI One",'
+        '"Dr Example PI Équipe"]}',
+        encoding="utf-8",
+    )
     monkeypatch.setenv("GPU_BOOKING_BOOKING_OPTIONS_FILE", str(export))
     settings = Settings(_env_file=None)
     assert settings.booking_options.cost_codes == ["CC-002", "CC-001"]
+    assert settings.booking_options.project_pis == [
+        "Dr Example PI Équipe",
+        "Dr Example PI One",
+    ]
     export.write_text('{"cost_codes":["CC-003"]}')
     assert settings.booking_options.cost_codes == ["CC-002", "CC-001"]
+    assert settings.booking_options.project_pis == [
+        "Dr Example PI Équipe",
+        "Dr Example PI One",
+    ]
     assert Settings(_env_file=None).booking_options.cost_codes == ["CC-003"]
+    assert Settings(_env_file=None).booking_options.project_pis == []
 
 
 @pytest.mark.parametrize(
@@ -129,6 +149,10 @@ def test_booking_options_file_snapshot(
         '{"cost_codes":[123]}',
         '{"cost_codes":[null]}',
         '{"cost_codes":["  "]}',
+        '{"project_pis":"secret-value"}',
+        '{"project_pis":[123]}',
+        '{"project_pis":[null]}',
+        '{"project_pis":["  "]}',
         '{"cost_codes":[],"unknown":"secret-value"}',
     ],
 )

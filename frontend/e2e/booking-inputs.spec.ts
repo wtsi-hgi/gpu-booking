@@ -161,7 +161,7 @@ test.describe('configured cost code suggestions', () => {
     await expect(costCode).toBeVisible()
     if (!(await costCode.getAttribute('list'))) {
       await page.screenshot({
-        path: '../.docs/bugfixes/evidence/261109-cost-codes-before.png',
+        path: '../.tmp/agent/cost-codes-before.png',
       })
     }
     await expect
@@ -174,7 +174,7 @@ test.describe('configured cost code suggestions', () => {
     await costCode.fill('CC-EXAMPLE-001')
     await expect(costCode).toHaveValue('CC-EXAMPLE-001')
     await page.screenshot({
-      path: '../.docs/bugfixes/evidence/261109-cost-codes-after.png',
+      path: '../.tmp/agent/cost-codes-after.png',
     })
     await costCode.fill('CC-EXTERNAL-CREATE')
     await page.getByLabel('GPU Host Type').selectOption({ label: '8 GPU H100' })
@@ -241,5 +241,112 @@ test.describe('configured cost code suggestions', () => {
     await page.getByLabel('Search').fill('PW Cost Code Admin')
     await getBookingRow(page, booking.id).click()
     await expect(costCode).toHaveValue('CC-EXTERNAL-ADMIN')
+  })
+})
+
+test.describe('configured project PI suggestions', () => {
+  test('offers PI suggestions on create and saves configured or external PIs', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 1000 })
+    for (const pi of ['Dr Example PI One', 'External PI Create 外部', '']) {
+      const projectName = `PW PI Create ${pi || 'No PI'}`
+      await gotoPath(page, '/bookings/new?start=2028-05-01&end=2028-05-02')
+      const projectPi = page.getByLabel('PI/Lead', { exact: true })
+      await expect(projectPi).toBeVisible()
+      if (!(await projectPi.getAttribute('list'))) {
+        await page.screenshot({
+          path: '../.tmp/agent/project-pis-before.png',
+        })
+      }
+      await expect
+        .poll(() =>
+          projectPi.evaluate((element: HTMLInputElement) =>
+            Array.from(element.list?.options ?? [], (option) => option.value)
+          )
+        )
+        .toEqual([
+          'Dr Example PI One',
+          'Dr Example PI Two',
+          'Dr Example PI Équipe',
+        ])
+      await projectPi.fill(pi)
+      if (pi === 'Dr Example PI One') {
+        await page.screenshot({
+          path: '../.tmp/agent/project-pis-after.png',
+        })
+      }
+      await page
+        .getByLabel('GPU Host Type')
+        .selectOption({ label: '8 GPU H100' })
+      await page.getByLabel('Host Count').selectOption('1')
+      await page
+        .getByLabel('Workflow Type')
+        .selectOption({ label: 'Inference workloads' })
+      await page.getByLabel('Cost Code').fill('CC-EXAMPLE-001')
+      await page.getByLabel('Project Name').fill(projectName)
+      await page.getByRole('button', { name: 'Create Booking' }).click()
+      const confirm = page.getByRole('button', { name: 'Confirm', exact: true })
+      await expect
+        .poll(
+          async () =>
+            new URL(page.url()).pathname === '/bookings' ||
+            (await confirm.isVisible())
+        )
+        .toBe(true)
+      if (await confirm.isVisible()) {
+        await confirm.click()
+      }
+      await expect(page).toHaveURL(/\/bookings$/)
+      await switchUser(page, 'admin@example.com', true)
+      await gotoPath(page, '/admin/bookings')
+      await page.getByLabel('Search').fill(projectName)
+      await page.locator('[data-booking-row="true"]').click()
+      await expect(
+        page.getByTestId('admin-booking-side-panel').getByLabel('Project PI')
+      ).toHaveValue(pi)
+    }
+  })
+
+  test('offers PI suggestions in admin editing and preserves configured or external PIs', async ({
+    page,
+    request,
+  }) => {
+    const booking = await createBooking(request, 'project-pi@example.com', {
+      projectName: 'PW Project PI Admin',
+      projectPi: 'Existing External PI',
+      startDate: '2028-05-05',
+      endDate: '2028-05-06',
+    })
+    await gotoPath(page, '/bookings')
+    await switchUser(page, 'admin@example.com', true)
+    await gotoPath(page, '/admin/bookings')
+    await page.getByLabel('Search').fill('PW Project PI Admin')
+    await getBookingRow(page, booking.id).click()
+    const panel = page.getByTestId('admin-booking-side-panel')
+    const projectPi = panel.getByLabel('Project PI', { exact: true })
+    await expect(projectPi).toHaveValue('Existing External PI')
+    await expect
+      .poll(() =>
+        projectPi.evaluate((element: HTMLInputElement) =>
+          Array.from(element.list?.options ?? [], (option) => option.value)
+        )
+      )
+      .toEqual([
+        'Dr Example PI One',
+        'Dr Example PI Two',
+        'Dr Example PI Équipe',
+      ])
+    for (const pi of ['Dr Example PI Équipe', 'External PI Admin 外部', '']) {
+      await projectPi.fill(pi)
+      await panel.getByRole('button', { name: 'Save', exact: true }).click()
+      await expect(
+        page.getByText('Booking updated successfully.')
+      ).toBeVisible()
+      await page.reload()
+      await page.getByLabel('Search').fill('PW Project PI Admin')
+      await getBookingRow(page, booking.id).click()
+      await expect(projectPi).toHaveValue(pi)
+    }
   })
 })

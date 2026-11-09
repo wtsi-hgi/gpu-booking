@@ -79,7 +79,10 @@ beforeEach(() => {
     },
   ])
   mocks.getWorkflowTypesMock.mockResolvedValue([{ id: 1, name: 'Training' }])
-  mocks.getBookingOptionsMock.mockResolvedValue({ cost_codes: [] })
+  mocks.getBookingOptionsMock.mockResolvedValue({
+    cost_codes: [],
+    project_pis: [],
+  })
 
   mocks.createBookingMock.mockResolvedValue({
     status: 'idle',

@@ -19,14 +19,15 @@ class BookingOptions(BaseModel):
 
     model_config = ConfigDict(strict=True, extra="forbid")
     cost_codes: list[str] = Field(default_factory=list)
+    project_pis: list[str] = Field(default_factory=list)
 
-    @field_validator("cost_codes")
+    @field_validator("cost_codes", "project_pis")
     @classmethod
-    def normalize_cost_codes(cls, values: list[str]) -> list[str]:
+    def normalize_suggestions(cls, values: list[str]) -> list[str]:
         """Trim values and remove duplicates while preserving exported order."""
         values = [value.strip() for value in values]
         if any(not value for value in values):
-            raise ValueError("Cost codes must be non-empty strings")
+            raise ValueError("Suggestions must be non-empty strings")
         return list(dict.fromkeys(values))
 
 
@@ -131,7 +132,7 @@ class Settings(BaseSettings):
             raise ValueError(
                 "Invalid GPU_BOOKING_BOOKING_OPTIONS_FILE "
                 f"'{self.booking_options_file}'. Expected a JSON object with optional "
-                "cost_codes: a list of non-empty strings. "
+                "cost_codes and project_pis lists of non-empty strings. "
                 "Unknown fields are not allowed."
             ) from None
 

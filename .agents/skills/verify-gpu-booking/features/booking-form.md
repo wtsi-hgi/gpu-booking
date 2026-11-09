@@ -28,7 +28,13 @@ JSON file and both create/admin forms. The synthetic fixture is
 `frontend/e2e/fixtures/booking-options.json`, passed to the backend with
 `GPU_BOOKING_BOOKING_OPTIONS_FILE`. Configured suggestions must appear while
 other manually entered codes remain valid and persist after save/reload.
-Inspect `.docs/bugfixes/evidence/261109-cost-codes-after.png`.
+Inspect `.tmp/agent/cost-codes-after.png`.
+
+PI suggestions use the same file's `project_pis` list. The spec checks
+PI/Lead on creation and Project PI in admin editing, including configured
+names, external Unicode names and empty values. Each value must persist after
+save/reload. Inspect
+`.tmp/agent/project-pis-after.png`.
 
 ## Gotchas
 

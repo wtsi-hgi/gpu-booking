@@ -1,3 +1,8 @@
 {
-  "cost_codes": ["CC-EXAMPLE-001", "CC-EXAMPLE-002"]
+  "cost_codes": ["CC-EXAMPLE-001", "CC-EXAMPLE-002"],
+  "project_pis": [
+    "Dr Example PI One",
+    "Dr Example PI Two",
+    "Dr Example PI Équipe"
+  ]
 }

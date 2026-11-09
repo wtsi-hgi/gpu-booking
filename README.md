@@ -127,9 +127,11 @@ file is generated as `backend/gpu_booking.db`. That file and its SQLite sidecars
 are ignored by git; delete them to reset local state, or set
 `GPU_BOOKING_DATABASE_URL` to another SQLite or service database URL.
 
-### Cost code suggestions
+### Booking suggestions
 
-Create and admin edit forms offer cost codes from an optional UTF-8 JSON file.
+Create and admin edit forms offer cost codes and PIs from an optional UTF-8
+JSON file. PI/Lead (Project PI in admin editing) stays optional and accepts
+external names, including Unicode text.
 When creating a booking, Cost Code remains required. Both forms accept
 manually entered values, including values absent from the file. With no file
 configured, it works as free text.
@@ -140,13 +142,14 @@ Set this variable in the backend environment or `backend/.env`:
 GPU_BOOKING_BOOKING_OPTIONS_FILE=/etc/gpu-booking/booking-options.json
 ```
 
-The file schema is an object with an optional `cost_codes` list of non-empty
-strings. An omitted or empty list gives no suggestions. This example contains
-synthetic values:
+The file schema is an object with optional `cost_codes` and `project_pis`
+lists of non-empty strings. Each omitted or empty list gives no suggestions
+for that field. This example contains synthetic values:
 
 ```json
 {
-  "cost_codes": ["CC-EXAMPLE-001", "CC-EXAMPLE-002"]
+  "cost_codes": ["CC-EXAMPLE-001", "CC-EXAMPLE-002"],
+  "project_pis": ["Dr Example PI One", "Dr Example PI Two"]
 }
 ```
 
@@ -161,9 +164,16 @@ Generate this file outside the app using your site's approved LSF config
 export process. The app does not parse LSF config or connect to LSF at runtime;
 the export command depends on your site's config and access arrangements.
 Publish the exported JSON atomically to avoid partial writes, and grant the
-backend read access. Include only cost codes suitable for all app users;
+backend read access. Include only suggestions suitable for all app users;
 `GET /api/v1/booking-options` exposes these suggestions as public reference
 data. Do not include credentials or other private LSF configuration.
+
+For PI suggestions, export approved display values from LDAP with an external
+site-specific process. Choose the query, filters and display attributes
+outside the app; they depend on your directory and access policy. Publish
+only the approved names in `project_pis`, never credentials or raw LDAP
+records. The app has no LDAP package or runtime directory connection. The
+suggestions do not restrict which PI names users can enter.
 
 ### Authentication mode (important)
 

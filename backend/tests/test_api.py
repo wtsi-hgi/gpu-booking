@@ -10,6 +10,26 @@ from main import app
 
 
 @pytest.mark.anyio
+async def test_project_pi_options_from_export(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Expose PI suggestions supplied by an external directory export."""
+    export = tmp_path / "booking-options.json"
+    export.write_text('{"project_pis":["Dr Example PI One","Dr Example PI Two"]}')
+    monkeypatch.setenv("GPU_BOOKING_BOOKING_OPTIONS_FILE", str(export))
+    monkeypatch.setattr(reference_data, "settings", Settings(_env_file=None))
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://testserver"
+    ) as client:
+        response = await client.get("/api/v1/booking-options")
+    assert response.status_code == 200
+    assert response.json() == {
+        "cost_codes": [],
+        "project_pis": ["Dr Example PI One", "Dr Example PI Two"],
+    }
+
+
+@pytest.mark.anyio
 @pytest.mark.parametrize("configured", [False, True])
 async def test_booking_options_endpoint(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, configured: bool
@@ -26,7 +46,10 @@ async def test_booking_options_endpoint(
     ) as client:
         response = await client.get("/api/v1/booking-options")
     assert response.status_code == 200
-    assert response.json() == {"cost_codes": ["CC-001", "CC-002"] if configured else []}
+    assert response.json() == {
+        "cost_codes": ["CC-001", "CC-002"] if configured else [],
+        "project_pis": [],
+    }
 
 
 @pytest.mark.anyio

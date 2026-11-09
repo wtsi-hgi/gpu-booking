@@ -115,7 +115,10 @@ beforeEach(() => {
   mocks.getBookingsMock.mockResolvedValue([buildBooking()])
   mocks.getGpuHostTypesMock.mockResolvedValue(gpuHostTypes)
   mocks.getWorkflowTypesMock.mockResolvedValue(workflowTypes)
-  mocks.getBookingOptionsMock.mockResolvedValue({ cost_codes: [] })
+  mocks.getBookingOptionsMock.mockResolvedValue({
+    cost_codes: [],
+    project_pis: [],
+  })
   mocks.getCapacityMock.mockResolvedValue([
     {
       date: '2026-04-01',

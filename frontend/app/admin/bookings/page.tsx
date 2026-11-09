@@ -42,6 +42,7 @@ export default async function AdminBookingsPage() {
         gpuHostTypes={gpuHostTypes}
         workflowTypes={workflowTypes}
         costCodes={bookingOptions.cost_codes}
+        projectPis={bookingOptions.project_pis}
       />
     </main>
   )

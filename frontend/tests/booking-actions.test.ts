@@ -73,8 +73,9 @@ describe('booking data actions', () => {
   })
 
   it('fetches deployment booking suggestions through the validated backend client', async () => {
-    vi.mocked(backendJson).mockResolvedValueOnce({ cost_codes: ['CC-001'] })
-    expect(await getBookingOptions()).toEqual({ cost_codes: ['CC-001'] })
+    const options = { cost_codes: ['CC-001'], project_pis: ['Dr Example PI'] }
+    vi.mocked(backendJson).mockResolvedValueOnce(options)
+    expect(await getBookingOptions()).toEqual(options)
     expect(backendJson).toHaveBeenCalledWith(
       '/api/v1/booking-options',
       bookingOptionsSchema

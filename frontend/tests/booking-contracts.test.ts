@@ -40,20 +40,34 @@ const fullBookingPayload = {
 
 describe('booking contracts', () => {
   it('validates suggestion lists from the backend', () => {
-    expect(bookingOptionsSchema.parse({ cost_codes: [] })).toEqual({
+    expect(
+      bookingOptionsSchema.parse({ cost_codes: [], project_pis: [] })
+    ).toEqual({
       cost_codes: [],
+      project_pis: [],
     })
     expect(
-      bookingOptionsSchema.parse({ cost_codes: ['CC-001'] }).cost_codes
+      bookingOptionsSchema.parse({ cost_codes: ['CC-001'], project_pis: [] })
+        .cost_codes
     ).toEqual(['CC-001'])
     for (const payload of [
       {},
-      { cost_codes: 'CC-001' },
-      { cost_codes: [42] },
-      { cost_codes: [' '] },
+      { cost_codes: 'CC-001', project_pis: [] },
+      { cost_codes: [42], project_pis: [] },
+      { cost_codes: [' '], project_pis: [] },
+      { cost_codes: [] },
+      { cost_codes: [], project_pis: 'Dr Example PI' },
+      { cost_codes: [], project_pis: [42] },
+      { cost_codes: [], project_pis: [' '] },
     ]) {
       expect(bookingOptionsSchema.safeParse(payload).success).toBe(false)
     }
+    expect(
+      bookingOptionsSchema.parse({
+        cost_codes: [],
+        project_pis: ['Dr Example PI Équipe'],
+      }).project_pis
+    ).toEqual(['Dr Example PI Équipe'])
   })
   it('parses valid booking response payloads', () => {
     expect(bookingResponseSchema.parse(fullBookingPayload)).toEqual(
