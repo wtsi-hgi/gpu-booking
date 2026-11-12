@@ -10,7 +10,7 @@ import {
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createElement } from 'react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { BookingForm } from '@/components/booking-form'
 import type { GpuHostType, WorkflowType } from '@/lib/admin-contracts'
@@ -209,8 +209,9 @@ function createDomRect(top: number, height: number): DOMRect {
 }
 
 describe('booking form - F3 acceptance coverage', () => {
+  afterEach(cleanup)
+
   beforeEach(() => {
-    cleanup()
     document.body.innerHTML = ''
     vi.clearAllMocks()
 

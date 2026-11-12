@@ -12,8 +12,9 @@ Select a row to open the admin drawer.
 
 ## How To Drive It
 
-Run the parent skill's Launch And Drive command. The regression creates a
-booking through the API, updates admin notes through the API, and navigates a
+Run the parent skill's UTC timestamp regression command. The regression
+creates a booking through the API, updates admin notes through the API, and
+navigates a
 New York browser to the real admin page at 1440x1000. It searches the fixture,
 checks both table timestamps, opens the drawer, and checks modification time.
 Expected UTC values derive from the API response with an explicit UTC zone.
