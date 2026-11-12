@@ -1,7 +1,41 @@
 """Application configuration using pydantic-settings."""
 
-from pydantic import AliasChoices, Field
+from functools import cached_property
+from pathlib import Path
+
+from pydantic import (
+    AliasChoices,
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationError,
+    field_validator,
+)
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class BookingOptions(BaseModel):
+    """Reference data published by the deployment's external file export."""
+
+    model_config = ConfigDict(strict=True, extra="forbid")
+    cost_codes: list[str] = Field(default_factory=list)
+    project_pis: list[str] = Field(default_factory=list)
+    technical_leads: list[str] = Field(default_factory=list)
+    inference_interactive_gpu_types: list[str] = Field(default_factory=list)
+
+    @field_validator(
+        "cost_codes",
+        "project_pis",
+        "technical_leads",
+        "inference_interactive_gpu_types",
+    )
+    @classmethod
+    def normalize_suggestions(cls, values: list[str]) -> list[str]:
+        """Trim values and remove duplicates while preserving exported order."""
+        values = [value.strip() for value in values]
+        if any(not value for value in values):
+            raise ValueError("Suggestions must be non-empty strings")
+        return list(dict.fromkeys(values))
 
 
 class Settings(BaseSettings):
@@ -83,6 +117,33 @@ class Settings(BaseSettings):
         default="sqlite+aiosqlite:///./gpu_booking.db",
         validation_alias=AliasChoices("DATABASE_URL", "GPU_BOOKING_DATABASE_URL"),
     )
+
+    booking_options_file: Path | None = None
+
+    @cached_property
+    def booking_options(self) -> BookingOptions:
+        """Load reference data once per backend process; restart to refresh it."""
+        if self.booking_options_file is None:
+            return BookingOptions(cost_codes=[])
+        try:
+            contents = self.booking_options_file.read_text(encoding="utf-8")
+        except (OSError, UnicodeError):
+            raise ValueError(
+                "Cannot read GPU_BOOKING_BOOKING_OPTIONS_FILE "
+                f"'{self.booking_options_file}'. "
+                "Check the path, permissions and UTF-8 encoding."
+            ) from None
+        try:
+            return BookingOptions.model_validate_json(contents)
+        except ValidationError:
+            raise ValueError(
+                "Invalid GPU_BOOKING_BOOKING_OPTIONS_FILE "
+                f"'{self.booking_options_file}'. Expected a JSON object with optional "
+                "cost_codes, project_pis, technical_leads and "
+                "inference_interactive_gpu_types lists of "
+                "non-empty strings. "
+                "Unknown fields are not allowed."
+            ) from None
 
     # Admin
     initial_admin_emails: str = Field(

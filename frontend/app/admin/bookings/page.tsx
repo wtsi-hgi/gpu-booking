@@ -1,4 +1,9 @@
-import { getBookings, getGpuHostTypes, getWorkflowTypes } from '@/app/actions'
+import {
+  getBookingOptions,
+  getBookings,
+  getGpuHostTypes,
+  getWorkflowTypes,
+} from '@/app/actions'
 import { AdminPageHeader } from '@/components/admin-page-header'
 import { AdminBookingPanel } from '@/components/admin-booking-panel'
 import { requireCurrentUser } from '@/lib/server-auth'
@@ -17,11 +22,13 @@ export default async function AdminBookingsPage() {
     )
   }
 
-  const [bookings, gpuHostTypes, workflowTypes] = await Promise.all([
-    getBookings(),
-    getGpuHostTypes(),
-    getWorkflowTypes(),
-  ])
+  const [bookings, gpuHostTypes, workflowTypes, bookingOptions] =
+    await Promise.all([
+      getBookings(),
+      getGpuHostTypes(),
+      getWorkflowTypes(),
+      getBookingOptions(),
+    ])
 
   return (
     <main className="container mx-auto max-w-7xl space-y-4 px-4 py-10">
@@ -34,6 +41,12 @@ export default async function AdminBookingsPage() {
         initialBookings={bookings}
         gpuHostTypes={gpuHostTypes}
         workflowTypes={workflowTypes}
+        costCodes={bookingOptions.cost_codes}
+        projectPis={bookingOptions.project_pis}
+        technicalLeads={bookingOptions.technical_leads}
+        inferenceInteractiveGpuTypes={
+          bookingOptions.inference_interactive_gpu_types
+        }
       />
     </main>
   )

@@ -1,3 +1,5 @@
+import { getBookingDays } from '@/lib/booking-dates'
+
 export const requiredBookingFields = [
   'gpu_host_type_id',
   'host_count',
@@ -18,6 +20,7 @@ export type BookingFormValueName =
   | 'technical_lead'
   | 'event_start_date'
   | 'event_end_date'
+  | 'number_of_days'
 
 export type BookingFormValues = Record<BookingFormValueName, string>
 
@@ -41,7 +44,7 @@ export type BookingFormState = {
 export function createInitialBookingFormValues(
   overrides: Partial<BookingFormValues> = {}
 ): BookingFormValues {
-  return {
+  const values = {
     gpu_host_type_id: '',
     host_count: '',
     workflow_type_id: '',
@@ -54,7 +57,12 @@ export function createInitialBookingFormValues(
     technical_lead: '',
     event_start_date: '',
     event_end_date: '',
+    number_of_days: '',
     ...overrides,
+  }
+  return {
+    ...values,
+    number_of_days: getBookingDays(values.start_date, values.end_date),
   }
 }
 

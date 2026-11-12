@@ -12,10 +12,17 @@ from api.schemas import (
     GpuHostTypeResponse,
     WorkflowTypeResponse,
 )
+from config import BookingOptions, settings
 from db.engine import get_session
 from db.models import GpuHostType, WorkflowType
 
 router = APIRouter()
+
+
+@router.get("/booking-options", response_model=BookingOptions)
+async def get_booking_options() -> BookingOptions:
+    """Return deployment-provided booking suggestions."""
+    return settings.booking_options
 
 
 @router.get("/gpu-host-types", response_model=list[GpuHostTypeResponse])

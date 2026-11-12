@@ -1,4 +1,8 @@
-import { getGpuHostTypes, getWorkflowTypes } from '@/app/actions'
+import {
+  getBookingOptions,
+  getGpuHostTypes,
+  getWorkflowTypes,
+} from '@/app/actions'
 import { BookingForm } from '@/components/booking-form'
 import { requireCurrentUser } from '@/lib/server-auth'
 
@@ -46,9 +50,10 @@ export default async function NewBookingPage({
     : undefined
 
   const user = await requireCurrentUser('/bookings/new')
-  const [gpuHostTypes, workflowTypes] = await Promise.all([
+  const [gpuHostTypes, workflowTypes, bookingOptions] = await Promise.all([
     getGpuHostTypes(),
     getWorkflowTypes(),
+    getBookingOptions(),
   ])
 
   return (
@@ -56,6 +61,12 @@ export default async function NewBookingPage({
       <BookingForm
         gpuHostTypes={gpuHostTypes}
         workflowTypes={workflowTypes}
+        costCodes={bookingOptions.cost_codes}
+        projectPis={bookingOptions.project_pis}
+        technicalLeads={bookingOptions.technical_leads}
+        inferenceInteractiveGpuTypes={
+          bookingOptions.inference_interactive_gpu_types
+        }
         initialStartDate={startDate}
         initialEndDate={endDate}
         initialGpuHostTypeId={gpuHostTypeId}

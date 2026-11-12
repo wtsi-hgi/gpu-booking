@@ -20,9 +20,15 @@ import {
 import type { GpuHostType, WorkflowType } from '@/lib/admin-contracts'
 import { formatGpuHostTypeLabel } from '@/lib/admin-contracts'
 import type { BookingResponse } from '@/lib/booking-contracts'
+import { getBookingDays, getBookingEndDate } from '@/lib/booking-dates'
+import { getWorkflowGpuWarning } from '@/lib/booking-workflow-warning'
 import { formatUtcDateTime } from '@/lib/utils'
 
 type AdminBookingPanelProps = {
+  costCodes?: string[]
+  projectPis?: string[]
+  technicalLeads?: string[]
+  inferenceInteractiveGpuTypes?: string[]
   initialBookings: BookingResponse[]
   gpuHostTypes: GpuHostType[]
   workflowTypes: WorkflowType[]
@@ -36,6 +42,7 @@ type BookingDraft = {
   workflow_type_id: string
   start_date: string
   end_date: string
+  number_of_days: string
   alt_email: string
   project_name: string
   project_pi: string
@@ -52,6 +59,7 @@ type SelectProps = {
   value: string
   onChange: (value: string) => void
   options: Array<{ label: string; value: string | number }>
+  describedBy?: string
 }
 
 const CAPACITY_CONSUMING_STATUSES = new Set(['confirmed', 'tentative', 'spot'])
@@ -75,6 +83,7 @@ function createDraft(booking: BookingResponse): BookingDraft {
     workflow_type_id: String(booking.workflow_type_id),
     start_date: toInputDate(booking.start_date),
     end_date: toInputDate(booking.end_date),
+    number_of_days: getBookingDays(booking.start_date, booking.end_date),
     reservation_name: booking.reservation_name ?? '',
     alt_email: booking.alt_email ?? '',
     project_name: booking.project_name ?? '',
@@ -106,7 +115,14 @@ function Field({
   )
 }
 
-function SelectField({ id, name, value, onChange, options }: SelectProps) {
+function SelectField({
+  id,
+  name,
+  value,
+  onChange,
+  options,
+  describedBy,
+}: SelectProps) {
   return (
     <select
       id={id}
@@ -114,6 +130,7 @@ function SelectField({ id, name, value, onChange, options }: SelectProps) {
       className="border-input bg-background h-10 w-full rounded-md border px-3 text-sm"
       value={value}
       onChange={(event) => onChange(event.target.value)}
+      aria-describedby={describedBy}
     >
       {options.map((option) => (
         <option key={String(option.value)} value={option.value}>
@@ -125,6 +142,10 @@ function SelectField({ id, name, value, onChange, options }: SelectProps) {
 }
 
 export function AdminBookingPanel({
+  costCodes = [],
+  projectPis = [],
+  technicalLeads = [],
+  inferenceInteractiveGpuTypes = [],
   initialBookings,
   gpuHostTypes,
   workflowTypes,
@@ -135,6 +156,13 @@ export function AdminBookingPanel({
   )
   const [draft, setDraft] = useState<BookingDraft | null>(null)
   const [capacityWarning, setCapacityWarning] = useState<string | null>(null)
+  const workflowGpuWarning = getWorkflowGpuWarning(
+    gpuHostTypes.find((type) => String(type.id) === draft?.gpu_host_type_id)
+      ?.gpu_type,
+    workflowTypes.find((type) => String(type.id) === draft?.workflow_type_id)
+      ?.name,
+    inferenceInteractiveGpuTypes
+  )
 
   const selectedBooking = useMemo(
     () => bookings.find((booking) => booking.id === selectedBookingId) ?? null,
@@ -258,7 +286,18 @@ export function AdminBookingPanel({
     key: K,
     value: BookingDraft[K]
   ) {
-    setDraft((current) => (current ? { ...current, [key]: value } : current))
+    setDraft((current) => {
+      if (!current) {
+        return current
+      }
+      const next = { ...current, [key]: value }
+      if (key === 'number_of_days') {
+        next.end_date = getBookingEndDate(next.start_date, value)
+      } else if (key === 'start_date' || key === 'end_date') {
+        next.number_of_days = getBookingDays(next.start_date, next.end_date)
+      }
+      return next
+    })
     setCapacityWarning(null)
   }
 
@@ -368,11 +407,25 @@ export function AdminBookingPanel({
                   name="workflow_type_id"
                   value={draft.workflow_type_id}
                   onChange={(value) => updateDraft('workflow_type_id', value)}
+                  describedBy={
+                    workflowGpuWarning
+                      ? 'admin-workflow-gpu-warning'
+                      : undefined
+                  }
                   options={workflowTypes.map((workflowType) => ({
                     label: workflowType.name,
                     value: workflowType.id,
                   }))}
                 />
+                {workflowGpuWarning && (
+                  <p
+                    id="admin-workflow-gpu-warning"
+                    role="status"
+                    className="bg-secondary text-secondary-foreground rounded-md border px-3 py-2 text-sm"
+                  >
+                    {workflowGpuWarning}
+                  </p>
+                )}
               </Field>
 
               <Field id="start_date" label="Start Date">
@@ -380,6 +433,9 @@ export function AdminBookingPanel({
                   id="start_date"
                   name="start_date"
                   type="date"
+                  required
+                  min="0001-01-01"
+                  max="9999-12-31"
                   value={draft.start_date}
                   onChange={(event) =>
                     updateDraft('start_date', event.target.value)
@@ -392,11 +448,39 @@ export function AdminBookingPanel({
                   id="end_date"
                   name="end_date"
                   type="date"
+                  required
+                  min="0001-01-01"
+                  max="9999-12-31"
                   value={draft.end_date}
                   onChange={(event) =>
                     updateDraft('end_date', event.target.value)
                   }
                 />
+              </Field>
+
+              <Field id="number_of_days" label="Number of Days">
+                <Input
+                  id="number_of_days"
+                  name="number_of_days"
+                  type="number"
+                  min={1}
+                  max={
+                    getBookingDays(draft.start_date, '9999-12-31') || undefined
+                  }
+                  step={1}
+                  required
+                  value={draft.number_of_days}
+                  aria-describedby="number_of_days_help"
+                  onChange={(event) =>
+                    updateDraft('number_of_days', event.target.value)
+                  }
+                />
+                <p
+                  id="number_of_days_help"
+                  className="text-muted-foreground text-xs"
+                >
+                  Includes both start and end dates.
+                </p>
               </Field>
 
               <Field id="alt_email" label="Alternate Email">
@@ -426,33 +510,51 @@ export function AdminBookingPanel({
                 <Input
                   id="project_pi"
                   name="project_pi"
+                  list="admin-booking-project-pis"
                   value={draft.project_pi}
                   onChange={(event) =>
                     updateDraft('project_pi', event.target.value)
                   }
                 />
+                <datalist id="admin-booking-project-pis">
+                  {projectPis.map((pi) => (
+                    <option key={pi} value={pi} />
+                  ))}
+                </datalist>
               </Field>
 
               <Field id="project_grant_number" label="Cost Code">
                 <Input
                   id="project_grant_number"
                   name="project_grant_number"
+                  list="admin-booking-cost-codes"
                   value={draft.project_grant_number}
                   onChange={(event) =>
                     updateDraft('project_grant_number', event.target.value)
                   }
                 />
+                <datalist id="admin-booking-cost-codes">
+                  {costCodes.map((code) => (
+                    <option key={code} value={code} />
+                  ))}
+                </datalist>
               </Field>
 
               <Field id="technical_lead" label="Technical Lead">
                 <Input
                   id="technical_lead"
                   name="technical_lead"
+                  list="admin-booking-technical-leads"
                   value={draft.technical_lead}
                   onChange={(event) =>
                     updateDraft('technical_lead', event.target.value)
                   }
                 />
+                <datalist id="admin-booking-technical-leads">
+                  {technicalLeads.map((lead) => (
+                    <option key={lead} value={lead} />
+                  ))}
+                </datalist>
               </Field>
 
               <Field id="event_start_date" label="Event Start Date">

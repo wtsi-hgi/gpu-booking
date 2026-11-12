@@ -28,6 +28,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Application lifespan context manager for startup/shutdown events."""
 
     configure_logging()
+    # Validate configured reference data before accepting requests.
+    _ = settings.booking_options
     logger.info(
         "Starting %s", settings.app_name, extra={"version": settings.app_version}
     )

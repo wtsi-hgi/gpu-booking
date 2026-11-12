@@ -5,6 +5,7 @@ import {
   cancelBooking,
   createBooking,
   getBookings,
+  getBookingOptions,
   getCapacity,
   getHostTypeAvailability,
   validateBooking,
@@ -12,6 +13,7 @@ import {
 import { backendJson } from '@/lib/backend-client'
 import {
   bookingListSchema,
+  bookingOptionsSchema,
   bookingResponseSchema,
   bookingValidationSchema,
   dailyCapacityListSchema,
@@ -68,6 +70,21 @@ function buildRequiredFormData() {
 describe('booking data actions', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+  })
+
+  it('fetches deployment booking suggestions through the validated backend client', async () => {
+    const options = {
+      cost_codes: ['CC-001'],
+      project_pis: ['Dr Example PI'],
+      technical_leads: ['Example Lead'],
+      inference_interactive_gpu_types: ['H200'],
+    }
+    vi.mocked(backendJson).mockResolvedValueOnce(options)
+    expect(await getBookingOptions()).toEqual(options)
+    expect(backendJson).toHaveBeenCalledWith(
+      '/api/v1/booking-options',
+      bookingOptionsSchema
+    )
   })
 
   it('builds getCapacity query params with gpu_host_type_id and uses capacity schema', async () => {

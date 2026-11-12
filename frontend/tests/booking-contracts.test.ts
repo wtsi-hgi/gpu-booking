@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   bookingListSchema,
+  bookingOptionsSchema,
   bookingResponseSchema,
   bookingValidationSchema,
   capacityWarningSchema,
@@ -38,6 +39,39 @@ const fullBookingPayload = {
 }
 
 describe('booking contracts', () => {
+  it('validates suggestion lists from the backend', () => {
+    const emptyOptions = {
+      cost_codes: [],
+      project_pis: [],
+      technical_leads: [],
+      inference_interactive_gpu_types: [],
+    }
+    expect(bookingOptionsSchema.parse(emptyOptions)).toEqual(emptyOptions)
+    expect(
+      bookingOptionsSchema.parse({ ...emptyOptions, cost_codes: ['CC-001'] })
+        .cost_codes
+    ).toEqual(['CC-001'])
+    for (const key of [
+      'cost_codes',
+      'project_pis',
+      'technical_leads',
+      'inference_interactive_gpu_types',
+    ]) {
+      for (const invalid of [undefined, 'not-a-list', [42], [' ']]) {
+        expect(
+          bookingOptionsSchema.safeParse({ ...emptyOptions, [key]: invalid })
+            .success
+        ).toBe(false)
+      }
+    }
+    const unicodeOptions = {
+      ...emptyOptions,
+      project_pis: ['Dr Example PI Équipe'],
+      technical_leads: ['Example Lead 外部'],
+      inference_interactive_gpu_types: ['H200'],
+    }
+    expect(bookingOptionsSchema.parse(unicodeOptions)).toEqual(unicodeOptions)
+  })
   it('parses valid booking response payloads', () => {
     expect(bookingResponseSchema.parse(fullBookingPayload)).toEqual(
       fullBookingPayload

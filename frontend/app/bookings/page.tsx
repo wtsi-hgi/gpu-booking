@@ -7,7 +7,7 @@ function toDateParam(value: Date): string {
 }
 
 function getCalendarGridBounds(monthStart: Date) {
-  const firstWeekday = monthStart.getUTCDay()
+  const firstWeekday = (monthStart.getUTCDay() + 6) % 7
   const start = new Date(
     Date.UTC(
       monthStart.getUTCFullYear(),

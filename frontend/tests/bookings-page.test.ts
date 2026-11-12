@@ -440,13 +440,13 @@ describe('bookings page - F1 calendar grid', () => {
     expect(screen.getByText('2026')).toBeTruthy()
 
     expect(mocks.getCapacityMock).toHaveBeenCalledWith(
-      '2026-02-01',
-      '2026-03-14',
+      '2026-01-26',
+      '2026-03-08',
       undefined
     )
     expect(mocks.getBookingsMock).toHaveBeenCalledWith(
-      '2026-02-01',
-      '2026-03-14',
+      '2026-01-26',
+      '2026-03-08',
       undefined
     )
   })
@@ -528,8 +528,8 @@ describe('bookings page - F1 calendar grid', () => {
     expect(confirmedAfter?.style.width).toBe('50%')
 
     expect(mocks.getCapacityMock).toHaveBeenCalledWith(
-      '2026-03-01',
-      '2026-04-11',
+      '2026-02-23',
+      '2026-04-05',
       1
     )
   })
@@ -915,12 +915,12 @@ describe('bookings page - F1 calendar grid', () => {
     render(await BookingsPage())
 
     expect(mocks.getCapacityMock).toHaveBeenCalledWith(
-      '2026-03-01',
-      '2026-04-11'
+      '2026-02-23',
+      '2026-04-05'
     )
     expect(mocks.getBookingsMock).toHaveBeenCalledWith(
-      '2026-03-01',
-      '2026-04-11'
+      '2026-02-23',
+      '2026-04-05'
     )
 
     const adjacentDayCell = document.querySelector('[data-date="2026-04-01"]')
@@ -965,7 +965,7 @@ describe('bookings page - F1 calendar grid', () => {
   })
 
   it('reveals the next month while dragging past the visible grid without duplicating overlap days', async () => {
-    const initialCapacity = buildDateRange('2026-03-31', '2026-04-11').map(
+    const initialCapacity = buildDateRange('2026-03-31', '2026-04-05').map(
       (date) => buildCapacity(date, 40, 0, 0)
     )
     const extendedCapacity = buildDateRange('2026-03-31', '2026-04-18').map(
@@ -973,14 +973,14 @@ describe('bookings page - F1 calendar grid', () => {
     )
 
     mocks.getCapacityMock.mockImplementation(async (_startDate, endDate) => {
-      if (endDate === '2026-05-09') {
+      if (endDate === '2026-05-10') {
         return extendedCapacity
       }
 
       return initialCapacity
     })
     mocks.getBookingsMock.mockImplementation(async (_startDate, endDate) => {
-      if (endDate === '2026-05-09') {
+      if (endDate === '2026-05-10') {
         return [
           buildBookingWithOverrides(2, {
             start_date: '2026-04-16',
@@ -999,7 +999,7 @@ describe('bookings page - F1 calendar grid', () => {
 
     const startDayCell = document.querySelector('[data-date="2026-03-31"]')
     const initialLastVisibleDayCell = document.querySelector(
-      '[data-date="2026-04-11"]'
+      '[data-date="2026-04-05"]'
     )
 
     expect(startDayCell).toBeTruthy()
@@ -1016,7 +1016,7 @@ describe('bookings page - F1 calendar grid', () => {
     expect(document.querySelectorAll('[data-date="2026-04-01"]')).toHaveLength(
       1
     )
-    expect(document.querySelectorAll('[data-date="2026-04-11"]')).toHaveLength(
+    expect(document.querySelectorAll('[data-date="2026-04-05"]')).toHaveLength(
       1
     )
 
@@ -1040,13 +1040,13 @@ describe('bookings page - F1 calendar grid', () => {
     expect(screen.getByText('extended@example.com')).toBeTruthy()
 
     expect(mocks.getCapacityMock).toHaveBeenCalledWith(
-      '2026-03-01',
-      '2026-05-09',
+      '2026-02-23',
+      '2026-05-10',
       undefined
     )
     expect(mocks.getBookingsMock).toHaveBeenCalledWith(
-      '2026-03-01',
-      '2026-05-09',
+      '2026-02-23',
+      '2026-05-10',
       undefined
     )
   })

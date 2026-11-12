@@ -18,6 +18,8 @@ import { type GreetingState } from '@/lib/greeting-state'
 import { buildRequestInitWithAuth, fetchCurrentUser } from '@/lib/server-auth'
 import {
   bookingListSchema,
+  bookingOptionsSchema,
+  type BookingOptions,
   bookingResponseSchema,
   bookingValidationSchema,
   dailyCapacityListSchema,
@@ -252,6 +254,10 @@ export async function getGpuHostTypes(): Promise<GpuHostType[]> {
 
 export async function getWorkflowTypes(): Promise<WorkflowType[]> {
   return backendJsonWithAuth('/api/v1/workflow-types', workflowTypeListSchema)
+}
+
+export async function getBookingOptions(): Promise<BookingOptions> {
+  return backendJsonWithAuth('/api/v1/booking-options', bookingOptionsSchema)
 }
 
 export async function getCapacity(

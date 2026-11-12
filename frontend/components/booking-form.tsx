@@ -36,6 +36,7 @@ import type {
   BookingValidation,
   HostTypeAvailability,
 } from '@/lib/booking-contracts'
+import { getBookingDays, getBookingEndDate } from '@/lib/booking-dates'
 import {
   buildRequiredFieldErrors,
   createInitialBookingFormValues,
@@ -45,8 +46,13 @@ import {
   type BookingFormValueName,
   type BookingFormValues,
 } from '@/lib/booking-state'
+import { getWorkflowGpuWarning } from '@/lib/booking-workflow-warning'
 
 type BookingFormProps = {
+  costCodes?: string[]
+  projectPis?: string[]
+  technicalLeads?: string[]
+  inferenceInteractiveGpuTypes?: string[]
   gpuHostTypes: GpuHostType[]
   workflowTypes: WorkflowType[]
   initialStartDate?: string
@@ -110,6 +116,11 @@ function buildFormValues(
   if (!nextValues.event_end_date && nextValues.end_date) {
     nextValues.event_end_date = nextValues.end_date
   }
+
+  nextValues.number_of_days = getBookingDays(
+    nextValues.start_date,
+    nextValues.end_date
+  )
 
   return nextValues
 }
@@ -396,6 +407,10 @@ function hasUnsavedFormChanges(
 }
 
 export function BookingForm({
+  costCodes = [],
+  projectPis = [],
+  technicalLeads = [],
+  inferenceInteractiveGpuTypes = [],
   gpuHostTypes,
   workflowTypes,
   initialStartDate,
@@ -440,6 +455,14 @@ export function BookingForm({
     return initialValues
   })
 
+  const workflowGpuWarning = getWorkflowGpuWarning(
+    gpuHostTypes.find((type) => String(type.id) === formValues.gpu_host_type_id)
+      ?.gpu_type,
+    workflowTypes.find(
+      (type) => String(type.id) === formValues.workflow_type_id
+    )?.name,
+    inferenceInteractiveGpuTypes
+  )
   const { fieldFeedback: validationResultFieldFeedback, genericBlockMessage } =
     getValidationFeedback(validationResult)
   const fieldValidationFeedback = mergeValidationFeedback(
@@ -603,6 +626,26 @@ export function BookingForm({
           ...current,
           host_count: constrainHostCountValue(nextValue, selectedHostCountMax),
         }))
+        return
+      }
+
+      if (field === 'number_of_days') {
+        setFormValues((current) => ({
+          ...current,
+          number_of_days: nextValue,
+          end_date: getBookingEndDate(current.start_date, nextValue),
+        }))
+        return
+      }
+
+      if (field === 'start_date' || field === 'end_date') {
+        setFormValues((current) => {
+          const next = { ...current, [field]: nextValue }
+          return {
+            ...next,
+            number_of_days: getBookingDays(next.start_date, next.end_date),
+          }
+        })
         return
       }
 
@@ -1052,6 +1095,9 @@ export function BookingForm({
                   className="border-input bg-background ring-offset-background focus-visible:ring-ring h-10 w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
                   value={formValues.workflow_type_id}
                   onChange={handleFieldChange('workflow_type_id')}
+                  aria-describedby={
+                    workflowGpuWarning ? 'workflow-gpu-warning' : undefined
+                  }
                   aria-invalid={
                     Boolean(fieldErrors.workflow_type_id) ||
                     hasBlockingValidation('workflow_type_id')
@@ -1070,6 +1116,15 @@ export function BookingForm({
                   </p>
                 )}
                 {renderValidationFeedback('workflow_type_id')}
+                {workflowGpuWarning && (
+                  <p
+                    id="workflow-gpu-warning"
+                    role="status"
+                    className="bg-secondary text-secondary-foreground rounded-md border px-3 py-2 text-sm"
+                  >
+                    {workflowGpuWarning}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-1">
@@ -1082,11 +1137,17 @@ export function BookingForm({
                 <Input
                   id="project_grant_number"
                   name="project_grant_number"
+                  list="booking-cost-codes"
                   type="text"
                   value={formValues.project_grant_number}
                   onChange={handleFieldChange('project_grant_number')}
                   aria-invalid={Boolean(fieldErrors.project_grant_number)}
                 />
+                <datalist id="booking-cost-codes">
+                  {costCodes.map((code) => (
+                    <option key={code} value={code} />
+                  ))}
+                </datalist>
                 {fieldErrors.project_grant_number && (
                   <p className="text-destructive text-sm">
                     {fieldErrors.project_grant_number}
@@ -1102,6 +1163,8 @@ export function BookingForm({
                   id="start_date"
                   name="start_date"
                   type="date"
+                  min="0001-01-01"
+                  max="9999-12-31"
                   value={formValues.start_date}
                   onChange={handleFieldChange('start_date')}
                   aria-invalid={
@@ -1125,6 +1188,8 @@ export function BookingForm({
                   id="end_date"
                   name="end_date"
                   type="date"
+                  min="0001-01-01"
+                  max="9999-12-31"
                   value={formValues.end_date}
                   onChange={handleFieldChange('end_date')}
                   aria-invalid={
@@ -1138,6 +1203,35 @@ export function BookingForm({
                   </p>
                 )}
                 {renderValidationFeedback('end_date')}
+              </div>
+
+              <div className="space-y-1">
+                <label htmlFor="number_of_days" className="text-sm font-medium">
+                  Number of Days
+                </label>
+                <Input
+                  id="number_of_days"
+                  name="number_of_days"
+                  type="number"
+                  min={1}
+                  max={
+                    getBookingDays(formValues.start_date, '9999-12-31') ||
+                    undefined
+                  }
+                  step={1}
+                  required={Boolean(
+                    getBookingDays(formValues.start_date, formValues.end_date)
+                  )}
+                  value={formValues.number_of_days}
+                  onChange={handleFieldChange('number_of_days')}
+                  aria-describedby="number_of_days_help"
+                />
+                <p
+                  id="number_of_days_help"
+                  className="text-muted-foreground text-xs"
+                >
+                  Includes both start and end dates.
+                </p>
               </div>
 
               <div className="space-y-1">
@@ -1160,10 +1254,16 @@ export function BookingForm({
                 <Input
                   id="project_pi"
                   name="project_pi"
+                  list="booking-project-pis"
                   type="text"
                   value={formValues.project_pi}
                   onChange={handleFieldChange('project_pi')}
                 />
+                <datalist id="booking-project-pis">
+                  {projectPis.map((pi) => (
+                    <option key={pi} value={pi} />
+                  ))}
+                </datalist>
               </div>
 
               <div className="space-y-1">
@@ -1186,10 +1286,16 @@ export function BookingForm({
                 <Input
                   id="technical_lead"
                   name="technical_lead"
+                  list="booking-technical-leads"
                   type="text"
                   value={formValues.technical_lead}
                   onChange={handleFieldChange('technical_lead')}
                 />
+                <datalist id="booking-technical-leads">
+                  {technicalLeads.map((lead) => (
+                    <option key={lead} value={lead} />
+                  ))}
+                </datalist>
               </div>
 
               <div className="space-y-1">
