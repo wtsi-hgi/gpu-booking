@@ -6,7 +6,7 @@ import { cancelBooking } from '@/app/actions'
 import { Input } from '@/components/ui/input'
 import { formatGpuHostTypeLabel } from '@/lib/admin-contracts'
 import type { BookingResponse } from '@/lib/booking-contracts'
-import { cn } from '@/lib/utils'
+import { cn, formatUtcDate, formatUtcDateTime } from '@/lib/utils'
 
 type BookingTableProps = {
   bookings: BookingResponse[]
@@ -75,25 +75,6 @@ const statusLabels: Record<string, StatusVariant> = {
 }
 
 const PAGE_SIZE = 25
-const MONTH_NAMES = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-] as const
-
-function formatUtcDate(date: Date): string {
-  return `${String(date.getUTCDate()).padStart(2, '0')} ${MONTH_NAMES[date.getUTCMonth()]} ${date.getUTCFullYear()}`
-}
-
 function shouldShowBooking(
   booking: BookingResponse,
   showCancelledBookings: boolean
@@ -121,19 +102,6 @@ function toDisplayDate(value: string): string {
   }
 
   return formatUtcDate(date)
-}
-
-function toDisplayDateTime(value: string): string {
-  if (!value) {
-    return '—'
-  }
-
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) {
-    return value
-  }
-
-  return `${formatUtcDate(date)}, ${String(date.getUTCHours()).padStart(2, '0')}:${String(date.getUTCMinutes()).padStart(2, '0')}`
 }
 
 function truncateText(value: string | null, maxLength: number): string {
@@ -686,7 +654,7 @@ export function BookingTable({
                         {booking.project_name ?? '—'}
                       </td>
                       <td className="px-3 py-2">
-                        {toDisplayDateTime(booking.created_at)}
+                        {formatUtcDateTime(booking.created_at)}
                       </td>
                       {isAdmin ? (
                         <>
@@ -697,9 +665,7 @@ export function BookingTable({
                             {booking.admin_modified_by ?? '—'}
                           </td>
                           <td className="px-3 py-2">
-                            {booking.admin_modified_at
-                              ? toDisplayDateTime(booking.admin_modified_at)
-                              : '—'}
+                            {formatUtcDateTime(booking.admin_modified_at)}
                           </td>
                         </>
                       ) : null}

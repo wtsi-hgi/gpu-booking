@@ -20,6 +20,7 @@ import {
 import type { GpuHostType, WorkflowType } from '@/lib/admin-contracts'
 import { formatGpuHostTypeLabel } from '@/lib/admin-contracts'
 import type { BookingResponse } from '@/lib/booking-contracts'
+import { formatUtcDateTime } from '@/lib/utils'
 
 type AdminBookingPanelProps = {
   initialBookings: BookingResponse[]
@@ -54,44 +55,12 @@ type SelectProps = {
 }
 
 const CAPACITY_CONSUMING_STATUSES = new Set(['confirmed', 'tentative', 'spot'])
-const MONTH_NAMES = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-] as const
-
 function statusConsumesCapacity(status: BookingResponse['status']): boolean {
   return CAPACITY_CONSUMING_STATUSES.has(status)
 }
 
-function formatUtcDate(date: Date): string {
-  return `${String(date.getUTCDate()).padStart(2, '0')} ${MONTH_NAMES[date.getUTCMonth()]} ${date.getUTCFullYear()}`
-}
-
 function overlapsDay(day: string, startDate: string, endDate: string): boolean {
   return day >= startDate && day <= endDate
-}
-
-function toDisplayDateTime(value: string | null): string {
-  if (!value) {
-    return '—'
-  }
-
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) {
-    return value
-  }
-
-  return `${formatUtcDate(date)}, ${String(date.getUTCHours()).padStart(2, '0')}:${String(date.getUTCMinutes()).padStart(2, '0')}`
 }
 
 function toInputDate(value: string | null): string {
@@ -550,7 +519,7 @@ export function AdminBookingPanel({
             <p>Last Modified By: {selectedBooking.admin_modified_by ?? '—'}</p>
             <p>
               Last Modified At:{' '}
-              {toDisplayDateTime(selectedBooking.admin_modified_at)}
+              {formatUtcDateTime(selectedBooking.admin_modified_at)}
             </p>
           </div>
         </aside>
