@@ -75,7 +75,9 @@ export function AuthProvider({
       loading,
       error,
       switchUser,
-      refresh: () => loadUser(),
+      refresh: async () => {
+        await loadUser()
+      },
     }),
     [authState, loading, error, switchUser, loadUser]
   )

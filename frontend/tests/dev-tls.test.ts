@@ -237,7 +237,7 @@ describe('run-dev.sh ports and startup failures', { timeout: 30_000 }, () => {
     )
     chmodSync(backend, 0o755)
     writeFileSync(path.join(root, '.env'), dotenv)
-    const baseEnv: Record<string, string | undefined> = { ...process.env }
+    const baseEnv: NodeJS.ProcessEnv = { ...process.env }
     for (const name of [
       'GPU_BOOKING_FRONTEND_PORT',
       'GPU_BOOKING_BACKEND_PORT',

@@ -25,7 +25,7 @@ describe('auth contracts', () => {
           : undefined,
     })
 
-    const fetchMock = vi.fn(async () => {
+    const fetchMock = vi.fn<typeof fetch>(async () => {
       return new Response(
         JSON.stringify({
           email: 'cookie-user@example.com',
@@ -45,7 +45,7 @@ describe('auth contracts', () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(1)
     const [, requestInit] = fetchMock.mock.calls[0]
-    const headers = new Headers((requestInit as RequestInit).headers)
+    const headers = new Headers(requestInit?.headers)
     expect(headers.get('X-Dev-User')).toBe('cookie-user@example.com')
   })
 
@@ -57,7 +57,7 @@ describe('auth contracts', () => {
           : undefined,
     })
 
-    const fetchMock = vi.fn(async () => {
+    const fetchMock = vi.fn<typeof fetch>(async () => {
       return new Response(
         JSON.stringify({
           email: 'oidc-user@example.com',
@@ -77,7 +77,7 @@ describe('auth contracts', () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(1)
     const [, requestInit] = fetchMock.mock.calls[0]
-    const headers = new Headers((requestInit as RequestInit).headers)
+    const headers = new Headers(requestInit?.headers)
     expect(headers.get('Authorization')).toBe('Bearer oidc-access-token')
     expect(headers.get('X-Dev-User')).toBeNull()
   })
@@ -132,7 +132,7 @@ describe('auth contracts', () => {
       get: () => undefined,
     })
 
-    const fetchMock = vi.fn(async () => {
+    const fetchMock = vi.fn<typeof fetch>(async () => {
       return new Response(
         JSON.stringify({
           email: 'testuser@example.com',
@@ -152,7 +152,7 @@ describe('auth contracts', () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(1)
     const [, requestInit] = fetchMock.mock.calls[0]
-    const headers = new Headers((requestInit as RequestInit).headers)
+    const headers = new Headers(requestInit?.headers)
     expect(headers.get('X-Dev-User')).toBe('testuser@example.com')
   })
 })
